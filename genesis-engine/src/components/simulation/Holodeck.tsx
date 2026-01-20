@@ -3,12 +3,13 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
-import { OrbitControls, Environment, Sky } from '@react-three/drei';
+import { OrbitControls, Environment, Sky, Float } from '@react-three/drei';
 import { UniversalRenderer } from './Renderer';
 import { WorldState } from '@/lib/simulation/schema';
 import { SkillNodeSchema } from '@/lib/genkit/schemas';
 import { z } from 'zod';
 import { bridgeScenario } from '@/lib/scenarios/bridge';
+import { LSystemTree } from './LSystemTree';
 
 type SkillNode = z.infer<typeof SkillNodeSchema>;
 
@@ -18,6 +19,8 @@ interface HolodeckProps {
     debug?: boolean;
     isPaused?: boolean;
     onCollision?: (impactMagnitude: number) => void;
+    backgroundMode?: boolean;
+    gardenNodes?: Array<{ id: string; topic: string; health: number }>;
 }
 
 /**
@@ -30,7 +33,9 @@ export const Holodeck: React.FC<HolodeckProps> = ({
     activeNode,
     debug = true,
     isPaused = false,
-    onCollision
+    onCollision,
+    backgroundMode = false,
+    gardenNodes = []
 }) => {
     // Falls back to bridge scenario if no state is provided
     const activeState = worldState || bridgeScenario;
@@ -46,21 +51,27 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                 <color attach="background" args={['#020205']} />
 
                 <Suspense fallback={null}>
-                    <Physics
-                        gravity={[
-                            activeState.environment?.gravity.x ?? 0,
-                            activeState.environment?.gravity.y ?? -9.81,
-                            activeState.environment?.gravity.z ?? 0
-                        ]}
-                        debug={debug}
-                        paused={isPaused}
-                    >
-                        <UniversalRenderer
-                            worldState={activeState}
-                            activeNode={activeNode}
-                            onCollision={onCollision}
-                        />
-                    </Physics>
+                    {backgroundMode ? (
+                        <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
+                            <LSystemTree nodes={gardenNodes} />
+                        </Float>
+                    ) : (
+                        <Physics
+                            gravity={[
+                                activeState.environment?.gravity.x ?? 0,
+                                activeState.environment?.gravity.y ?? -9.81,
+                                activeState.environment?.gravity.z ?? 0
+                            ]}
+                            debug={debug}
+                            paused={isPaused}
+                        >
+                            <UniversalRenderer
+                                worldState={activeState}
+                                activeNode={activeNode}
+                                onCollision={onCollision}
+                            />
+                        </Physics>
+                    )}
 
                     {/* Environment */}
                     <Sky sunPosition={[100, 20, 100]} />

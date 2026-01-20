@@ -58,12 +58,19 @@ export const orchestratorFlow = ai.defineFlow(
 
         let processedInput = text || '';
         let nativeReply: string | undefined;
-        let visionData: z.infer<typeof VisionOutputSchema> | undefined;
-
-        // Add Blackboard fragment to prompt
-        const blackboardFragment = blackboard.getSystemPromptFragment();
+        let visionData: z.infer<typeof WorldStateSchema> | any;
 
         // PHASE 0: Multimodal Pre-processing
+        
+        // 0.1 Handle YouTube Links
+        const isYouTube = /youtube\.com|youtu\.be/.test(processedInput);
+        if (isYouTube) {
+            console.log('[Orchestrator] Detected YouTube Link. Redirecting to Video Analysis...');
+            // In a full implementation, we would fetch the transcript here.
+            // For now, we wrap the prompt to inform agents it's a video source.
+            processedInput = `Analyze and build a curriculum based on this video: ${processedInput}`;
+        }
+
         if (image) {
             console.log('[Orchestrator] Processing Image via Vision Agent...');
             const visionResult = await visionFlow({ imageBase64: image });

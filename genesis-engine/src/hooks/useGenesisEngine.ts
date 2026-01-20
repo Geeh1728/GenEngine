@@ -195,14 +195,16 @@ export function useGenesisEngine() {
         }
     }, [godModeState.complexity]);
 
-    const handleIngest = async (source: string, type: 'pdf' | 'youtube') => {
+    const handleIngest = async (file: File) => {
         setIsProcessing(true);
         setError(null);
         try {
+            const formData = new FormData();
+            formData.append('file', file);
+
             const response = await fetch('/api/ingest', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source, sourceType: type, title: 'Quantum Physics Masters' }),
+                body: formData,
             });
 
             if (!response.ok) throw new Error('Ingestion failed');

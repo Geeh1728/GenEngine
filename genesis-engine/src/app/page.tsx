@@ -200,15 +200,25 @@ export default function Home() {
         {/* Main Interaction Area */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
           {/* Always render the Holodeck in the background or main view */}
-          <div className="absolute inset-0 z-0">
+          <motion.div 
+            animate={{ 
+                filter: (!skillTree && !isIngested) || isProcessing ? 'blur(8px)' : 'blur(0px)',
+                opacity: (!skillTree && !isIngested) ? 0.4 : 1,
+                scale: isProcessing ? 1.05 : 1
+            }}
+            transition={{ duration: 1, ease: "easeInOut" }}
+            className="absolute inset-0 z-0"
+          >
             <Holodeck
               worldState={worldState}
               activeNode={activeNode}
               debug={true}
               isPaused={isPaused}
               onCollision={(mag) => handleSimulationFailure(`High-impact collision detected (Magnitude: ${mag.toFixed(1)})`)}
+              backgroundMode={(!skillTree && !isIngested) || isProcessing}
+              gardenNodes={gardenState.nodes}
             />
-          </div>
+          </motion.div>
 
           <AnimatePresence mode="wait">
             {!skillTree && !isIngested ? (
@@ -446,9 +456,6 @@ export default function Home() {
       {/* The Universal Interface */}
       <OmniBar 
         onCameraClick={() => setIsRealityLensOpen(true)}
-        onFileSelect={(file) => {
-            handleIngest(file.name, 'pdf');
-        }}
       />
 
       {/* Reality Diff / Diagnostics Panel */}
