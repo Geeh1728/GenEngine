@@ -1,43 +1,42 @@
 'use client';
 
-let pipe: any = null;
+import { generateLocalEmbedding } from './localEmbeddings';
 
-export async function getOfflineEmbedding(text: string) {
-  if (typeof window === 'undefined') return null;
+/**
+ * THE HYBRID EMBEDDING SWITCH
+ * Objective: Use high-quality Google embeddings when online, 
+ * but switch to local transformers.js when offline or throttled.
+ */
 
-  try {
-    if (!pipe) {
-      // Load transformers.js via CDN
-      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
-      pipe = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+export async function getEmbedding(text: string): Promise<number[] | null> {
+    const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+        console.log("[Embeddings] Offline detected. Calling local transformer...");
+        return generateLocalEmbedding(text);
     }
 
-    const output = await pipe(text, { pooling: 'mean', normalize: true });
-    return Array.from(output.data) as number[];
-  } catch (error) {
-    console.error("Offline Embedding Error:", error);
-    return null;
-  }
+    try {
+        console.log("[Embeddings] Online. Attempting Cloud Embedding...");
+        // This calls our internal API which uses Google's text-embedding-004
+        const response = await fetch('/api/embeddings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Cloud API failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.embedding;
+    } catch (error) {
+        console.warn("[Embeddings] Cloud Embedding failed. Falling back to local...", error);
+        // Fallback to local model if API fails (429, 500, etc.)
+        return generateLocalEmbedding(text);
+    }
 }
 
-export async function getEmbedding(text: string) {
-  // Check online status
-  if (typeof window !== 'undefined' && !navigator.onLine) {
-    console.log("Offline detected. Using local transformers.js");
-    return getOfflineEmbedding(text);
-  }
-
-  // Fallback to API call
-  try {
-    const response = await fetch('/api/embeddings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    const data = await response.json();
-    return data.embedding;
-  } catch (error) {
-    console.log("API Embedding failed. Falling back to offline.");
-    return getOfflineEmbedding(text);
-  }
-}
+// Keep the old name for backward compatibility
+export const getOfflineEmbedding = generateLocalEmbedding;
