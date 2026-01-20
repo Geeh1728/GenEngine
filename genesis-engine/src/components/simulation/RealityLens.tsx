@@ -362,7 +362,7 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                                         </div>
                                         <div className="mt-4 pt-4 border-t border-white/5">
                                             <p className="text-[8px] text-slate-500 italic leading-tight">
-                                                "{structuralAnalysis.analysis.substring(0, 100)}..."
+                                                &quot;{structuralAnalysis.analysis.substring(0, 100)}...&quot;
                                             </p>
                                         </div>
                                     </motion.div>

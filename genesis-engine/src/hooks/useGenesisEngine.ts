@@ -60,6 +60,7 @@ export function useGenesisEngine() {
     // --- Ingestion & Global State ---
     const [isIngested, setIsIngested] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [neuralEngineProgress, setNeuralEngineProgress] = useState(0);
     const [worldRules, setWorldRules] = useState<WorldRule[]>([]);
     const [sourceTitle, setSourceTitle] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -212,7 +213,7 @@ export function useGenesisEngine() {
                 const vectors = await Promise.all(
                     data.chunks.map(async (chunk: string) => ({
                         text: chunk,
-                        vector: await getEmbedding(chunk)
+                        vector: await getEmbedding(chunk, setNeuralEngineProgress)
                     }))
                 );
                 await storeKnowledge(vectors);
@@ -396,6 +397,7 @@ export function useGenesisEngine() {
         skillTree,
         activeNode,
         completedNodeIds,
+        neuralEngineProgress,
 
         handleIngest,
         toggleRule,
@@ -419,6 +421,7 @@ export function useGenesisEngine() {
         setActiveQuest,
         generateSkillTree,
         startSimulation,
-        setCompletedNodeIds
+        setCompletedNodeIds,
+        setActiveNode
     };
 }

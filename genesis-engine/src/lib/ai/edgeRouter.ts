@@ -4,7 +4,7 @@ export type LocalTool =
     | { type: 'UPDATE_PHYSICS', payload: { gravity?: { x: number, y: number, z: number }, timeScale?: number } }
     | { type: 'SPAWN_VOXEL', payload: { x: number, y: number, z: number, color: string } }
     | { type: 'NAVIGATE', payload: { screen: string } }
-    | { type: 'RESTART', payload: {} };
+    | { type: 'RESTART', payload: Record<string, never> };
 
 /**
  * MODULE X: THE EDGE ROUTER (FunctionGemma Protocol)
@@ -17,7 +17,7 @@ export async function routeIntentLocally(input: string): Promise<LocalTool | nul
     // In a full implementation, this would use a tiny quantized LLM (e.g. Gemma 2B) via WebLLM/MediaPipe
 
     if (text.includes('gravity') || text.includes('weightless') || text.includes('heavy')) {
-        let gravity = { x: 0, y: -9.81, z: 0 };
+        const gravity = { x: 0, y: -9.81, z: 0 };
         if (text.includes('zero') || text.includes('off') || text.includes('weightless')) gravity.y = 0;
         if (text.includes('moon')) gravity.y = -1.62;
         if (text.includes('mars')) gravity.y = -3.71;
@@ -55,7 +55,7 @@ export async function routeIntentLocally(input: string): Promise<LocalTool | nul
 /**
  * Execute a local tool directly in the app state.
  */
-export function executeLocalTool(tool: LocalTool, dispatch: (action: any) => void) {
+export function executeLocalTool(tool: LocalTool, dispatch: (action: { type: string, payload?: any }) => void) {
     console.log(`[EdgeRouter] Executing Local Tool: ${tool.type}`, tool.payload);
     
     switch (tool.type) {

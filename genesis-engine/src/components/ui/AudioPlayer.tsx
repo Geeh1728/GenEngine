@@ -16,16 +16,7 @@ export default function AudioPlayer({ script }: { script: ScriptLine[] }) {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  useEffect(() => {
-    if (isPlaying) {
-      playLine(currentIndex);
-    } else {
-      synth?.cancel();
-    }
-    return () => synth?.cancel();
-  }, [isPlaying, currentIndex]);
-
-  const playLine = (index: number) => {
+  const playLine = useCallback((index: number) => {
     if (!synth || index >= script.length) {
       setIsPlaying(false);
       return;
@@ -59,7 +50,16 @@ export default function AudioPlayer({ script }: { script: ScriptLine[] }) {
 
     utteranceRef.current = utterance;
     synth.speak(utterance);
-  };
+  }, [script, synth]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      playLine(currentIndex);
+    } else {
+      synth?.cancel();
+    }
+    return () => synth?.cancel();
+  }, [isPlaying, currentIndex, playLine, synth]);
 
   // Waveform Visualizer
   useEffect(() => {

@@ -55,7 +55,7 @@ export const physicistFlow = ai.defineFlow(
                     system: systemPrompt,
                     prompt: `Derive the physical parameters for: ${topic}\nContext: ${context}`,
                     output: { schema: WorldStateSchema },
-                    // @ts-ignore - Assuming the underlying provider supports it
+                    // @ts-expect-error - Assuming the underlying provider supports it
                     tools: [{ code_execution: {} }]
                 });
                 if (response.output) return response.output;
@@ -78,7 +78,7 @@ export const physicistFlow = ai.defineFlow(
             system: systemPrompt,
             schema: WorldStateSchema,
             retryCount: 2,
-            // @ts-ignore - Enabling code execution tool for Gemini
+            // @ts-expect-error - Enabling code execution tool for Gemini
             tools: [{ code_execution: {} }]
         });
 

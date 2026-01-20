@@ -29,40 +29,42 @@ export default function UniversalPhaseChange({ config }: { config: PhaseChangeCo
     const isLiquid = temp > meltingPoint && temp < boilingPoint;
     const isGas = temp >= boilingPoint;
 
+    const lastDataUpdate = useRef(0);
+
     useFrame((state, delta) => {
         if (heat === 0) return;
 
-        setTime(prev => prev + delta * 5);
+        const newTime = time + delta * 5;
+        setTime(newTime);
         
-        setTemp(prev => {
-            let next = prev;
-            
-            // Phase Change Plateau Logic
-            // If we are at the melting or boiling point, stay there for a bit while energy is absorbed
-            const isAtMelting = Math.abs(prev - meltingPoint) < 0.2;
-            const isAtBoiling = Math.abs(prev - boilingPoint) < 0.2;
+        let nextTemp = temp;
+        
+        // Phase Change Plateau Logic
+        const isAtMelting = Math.abs(temp - meltingPoint) < 0.2;
+        const isAtBoiling = Math.abs(temp - boilingPoint) < 0.2;
 
-            if ((isAtMelting || isAtBoiling) && Math.random() > 0.9) {
-                // Occasional breakthrough to next phase
-                next += heat * delta * 2;
-            } else if (!isAtMelting && !isAtBoiling) {
-                // Normal heating/cooling
-                next += heat * delta * 10;
-            }
-            
-            return next;
-        });
+        if ((isAtMelting || isAtBoiling) && Math.random() > 0.9) {
+            nextTemp += heat * delta * 2;
+        } else if (!isAtMelting && !isAtBoiling) {
+            nextTemp += heat * delta * 10;
+        }
+        
+        setTemp(nextTemp);
+
+        // Throttle graph updates to 10fps for performance
+        if (state.clock.elapsedTime - lastDataUpdate.current > 0.1) {
+            setDataPoints(prev => [...prev, { x: newTime, y: nextTemp }].slice(-150));
+            lastDataUpdate.current = state.clock.elapsedTime;
+        }
     });
 
     useEffect(() => {
-        setDataPoints(prev => [...prev, { x: time, y: temp }].slice(-150));
-        
         // Quantum Bridge: Push state to Blackboard
         blackboard.update({
             globalTemperature: temp,
             environmentalState: isGas ? 'VOLCANIC' : isSolid ? 'FROZEN' : 'STANDARD'
         });
-    }, [time, temp, isGas, isSolid]);
+    }, [temp, isGas, isSolid]);
 
     return (
         <group>
@@ -152,8 +154,10 @@ export default function UniversalPhaseChange({ config }: { config: PhaseChangeCo
 
 function Particle({ isGas, isLiquid, color }: { isGas: boolean, isLiquid: boolean, color: string }) {
     const mesh = useRef<THREE.Mesh>(null);
-    const speed = useRef(Math.random() * 0.05 + 0.02);
-    const offset = useRef(Math.random() * Math.PI * 2);
+    const { speed, offset } = useMemo(() => ({
+        speed: Math.random() * 0.05 + 0.02,
+        offset: Math.random() * Math.PI * 2
+    }), []);
 
     useFrame((state) => {
         if (!mesh.current) return;
@@ -161,17 +165,17 @@ function Particle({ isGas, isLiquid, color }: { isGas: boolean, isLiquid: boolea
         
         if (isGas) {
             // Chaotic movement
-            mesh.current.position.y += speed.current * 2;
-            mesh.current.position.x += Math.sin(t + offset.current) * 0.02;
+            mesh.current.position.y += speed * 2;
+            mesh.current.position.x += Math.sin(t + offset) * 0.02;
             if (mesh.current.position.y > 2) mesh.current.position.y = -1;
         } else if (isLiquid) {
             // Sloshing movement
-            mesh.current.position.y = -2 + Math.sin(t * 2 + offset.current) * 0.2;
-            mesh.current.position.x = Math.cos(t + offset.current) * 0.8;
+            mesh.current.position.y = -2 + Math.sin(t * 2 + offset) * 0.2;
+            mesh.current.position.x = Math.cos(t + offset) * 0.8;
         } else {
             // Fixed vibrating movement
-            mesh.current.position.y = -2.2 + Math.sin(t * 10 + offset.current) * 0.02;
-            mesh.current.position.x = Math.cos(offset.current) * 0.5;
+            mesh.current.position.y = -2.2 + Math.sin(t * 10 + offset) * 0.02;
+            mesh.current.position.x = Math.cos(offset) * 0.5;
         }
     });
 

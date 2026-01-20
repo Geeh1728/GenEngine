@@ -6,8 +6,13 @@
  */
 
 let pipelineInstance: any = null;
+let modelLoadingProgress: number = 0;
 
-export async function generateLocalEmbedding(text: string): Promise<number[] | null> {
+export function getModelLoadingProgress() {
+    return modelLoadingProgress;
+}
+
+export async function generateLocalEmbedding(text: string, onProgress?: (progress: number) => void): Promise<number[] | null> {
     if (typeof window === 'undefined') return null;
 
     try {
@@ -20,8 +25,18 @@ export async function generateLocalEmbedding(text: string): Promise<number[] | n
             env.useBrowserCache = true;
 
             console.log("[LocalEmbeddings] Loading model: all-MiniLM-L6-v2...");
-            pipelineInstance = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+            
+            pipelineInstance = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+                progress_callback: (data: any) => {
+                    if (data.status === 'progress') {
+                        modelLoadingProgress = data.progress;
+                        if (onProgress) onProgress(data.progress);
+                        console.log(`[LocalEmbeddings] Loading: ${Math.round(data.progress)}%`);
+                    }
+                }
+            });
             console.log("[LocalEmbeddings] Model loaded successfully.");
+            modelLoadingProgress = 100;
         }
 
         // Generate embedding

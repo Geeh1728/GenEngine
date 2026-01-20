@@ -29,7 +29,7 @@ export type GameAction =
     | { type: 'PLAYER_JOIN'; payload: PlayerState }
     | { type: 'PLAYER_MOVE'; payload: { id: string; position: [number, number, number] } }
     | { type: 'PLAYER_LEAVE'; payload: { id: string } }
-    | { type: 'UPDATE_WORLD_ENVIRONMENT'; payload: any }
+    | { type: 'UPDATE_WORLD_ENVIRONMENT'; payload: Record<string, unknown> }
     | { type: 'RESET_SIMULATION' };
 
 export const initialGameState: GlobalGameState = {
@@ -62,9 +62,9 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
                 worldState: {
                     ...state.worldState,
                     environment: {
-                        ...state.worldState.environment,
+                        ...(state.worldState.environment || {}),
                         ...action.payload
-                    } as any
+                    } as WorldState['environment']
                 }
             };
         case 'PLAYER_JOIN':

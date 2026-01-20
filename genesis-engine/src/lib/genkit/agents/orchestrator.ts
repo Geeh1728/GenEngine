@@ -6,10 +6,9 @@ import { artistAgent } from './artist';
 import { questAgent } from './questAgent';
 
 import { translatorAgent } from './translator';
-import { visionAgent } from './vision';
+import { visionFlow } from './vision';
 
 import { WorldStateSchema } from '../../simulation/schema';
-import { VisionOutputSchema } from './vision';
 import { QuestSchema } from './questAgent';
 import { blackboard } from '../context';
 import { InteractionState } from '../../multiplayer/GameState';
@@ -67,9 +66,10 @@ export const orchestratorFlow = ai.defineFlow(
         // PHASE 0: Multimodal Pre-processing
         if (image) {
             console.log('[Orchestrator] Processing Image via Vision Agent...');
-            visionData = await visionAgent({ imageBase64: image });
+            const visionResult = await visionFlow({ imageBase64: image });
+            visionData = visionResult;
             if (!processedInput && visionData) {
-                processedInput = `Analyze and simulate these objects: ${visionData.map((v) => v.label).join(', ')}`;
+                processedInput = `Analyze and simulate these objects: ${visionData.elements.map((v) => v.type).join(', ')}`;
             }
         }
 

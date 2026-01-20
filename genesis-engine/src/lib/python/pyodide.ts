@@ -1,9 +1,9 @@
 'use client';
 
-let pyodideInstance: any = null;
+let pyodideInstance: unknown = null;
 
 export async function getPyodide() {
-  if (pyodideInstance) return pyodideInstance;
+  if (pyodideInstance) return pyodideInstance as any;
 
   if (typeof window === 'undefined') return null;
 
@@ -19,7 +19,7 @@ export async function getPyodide() {
   }
 
   pyodideInstance = await (window as any).loadPyodide();
-  return pyodideInstance;
+  return pyodideInstance as any;
 }
 
 export async function runPython(code: string) {
@@ -31,7 +31,7 @@ export async function runPython(code: string) {
     pyodide.runPython(`
       import sys
       import io
-      sys.stdout = io.String()
+      sys.stdout = io.StringIO()
     `);
     
     const result = await pyodide.runPythonAsync(code);
@@ -43,12 +43,13 @@ export async function runPython(code: string) {
       stdout,
       error: null
     };
-  } catch (error: any) {
-    console.error("Pyodide Error:", error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Pyodide Error:", errorMessage);
     return {
       result: null,
       stdout: null,
-      error: error.message
+      error: errorMessage
     };
   }
 }

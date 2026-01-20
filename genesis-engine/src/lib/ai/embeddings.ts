@@ -8,16 +8,17 @@ import { generateLocalEmbedding } from './localEmbeddings';
  * but switch to local transformers.js when offline or throttled.
  */
 
-export async function getEmbedding(text: string): Promise<number[] | null> {
+export async function getEmbedding(text: string, onProgress?: (progress: number) => void): Promise<number[] | null> {
     const isOffline = typeof window !== 'undefined' && !navigator.onLine;
 
     if (isOffline) {
         console.log("[Embeddings] Offline detected. Calling local transformer...");
-        return generateLocalEmbedding(text);
+        return generateLocalEmbedding(text, onProgress);
     }
 
     try {
         console.log("[Embeddings] Online. Attempting Cloud Embedding...");
+        // ... (existing cloud logic)
         // This calls our internal API which uses Google's text-embedding-004
         const response = await fetch('/api/embeddings', {
             method: 'POST',

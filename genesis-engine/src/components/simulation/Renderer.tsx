@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { RigidBody, CuboidCollider, BallCollider, RapierRigidBody, useFixedJoint, useSphericalJoint, useRevoluteJoint, usePrismaticJoint } from '@react-three/rapier';
 import { Html } from '@react-three/drei';
+import { motion } from 'framer-motion';
 import { WorldState, Entity, Joint } from '@/lib/simulation/schema';
 import { useTextureGen } from '@/lib/simulation/useTextureGen';
 import { LabBench } from './LabBench';

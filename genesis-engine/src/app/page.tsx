@@ -20,7 +20,7 @@ import { OmniBar } from '@/components/ui/OmniBar';
 import { generatePodcastScript } from '@/app/actions/podcast';
 import { runPython } from '@/lib/python/pyodide';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
-import { Zap, TreePine, Radio, Calculator, Loader2, Target, ArrowRight, X } from 'lucide-react';
+import { TreePine, Radio, Calculator, Loader2, X } from 'lucide-react';
 import { Entity } from '@/lib/simulation/schema';
 
 // Dynamic imports for browser-only components
@@ -61,18 +61,16 @@ export default function Home() {
     skillTree,
     activeNode,
     completedNodeIds,
-    generateSkillTree,
     startSimulation,
-    setActiveNode
+    neuralEngineProgress
   } = useGenesisEngine();
 
   const [isListening, setIsListening] = useState(false);
   const [isRealityLensOpen, setIsRealityLensOpen] = useState(false);
   const [isGardenOpen, setIsGardenOpen] = useState(false);
-  const [masteryGoal, setMasteryGoal] = useState('');
   
   // Module A-2: Genesis Radio
-  const [podcastScript, setPodcastScript] = useState<any[] | null>(null);
+  const [podcastScript, setPodcastScript] = useState<{host: 'A' | 'B', text: string}[] | null>(null);
   const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
 
   // Module P-2: Python Engine
@@ -113,6 +111,30 @@ export default function Home() {
   return (
     <main className="min-h-screen relative overflow-hidden font-inter text-foreground bg-[#020205]">
       <NeuralBackground />
+
+      {/* Module A: Neural Engine Progress */}
+      <AnimatePresence>
+        {neuralEngineProgress > 0 && neuralEngineProgress < 100 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] w-64 bg-black/80 backdrop-blur-xl border border-blue-500/30 p-4 rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.2)]"
+          >
+            <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-blue-400 mb-2">
+              <span>Downloading Neural Engine</span>
+              <span>{Math.round(neuralEngineProgress)}%</span>
+            </div>
+            <div className="h-1 bg-blue-950 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-blue-500"
+                initial={{ width: 0 }}
+                animate={{ width: `${neuralEngineProgress}%` }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Module D: The Glitch (Saboteur Visual) */}
       <AnimatePresence>

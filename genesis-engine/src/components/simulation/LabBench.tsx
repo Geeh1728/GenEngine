@@ -185,7 +185,7 @@ interface DoublePendulumProps {
 interface LabBenchProps {
     scenario?: 'PENDULUM' | 'HEART' | 'XENOBOT' | 'ETHANOL' | 'PHASE_CHANGE';
     initialState?: State;
-    scientificParams?: any;
+    scientificParams?: Record<string, any>;
     l1?: number;
     l2?: number;
     m1?: number;
