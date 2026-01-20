@@ -1,0 +1,20 @@
+Grade 10 Physical Sciences: Chemistry (NSC 2024 Syllabus)
+
+Topic: States of Matter and Phase Changes
+Substance: Ethanol (C2H5OH)
+
+Physical Properties:
+- Boiling Point: 78.37°C
+- Melting Point: -114.1°C
+- Density: 0.789 g/cm³
+
+Behavioral Rules:
+1. Heating Phase: As environmental heat increases, the average kinetic energy of ethanol molecules increases proportional to (Heat / 10).
+2. Phase Transition: When environmental heat reaches 78.37°C, the substance experiences phase transition from liquid to gas.
+3. Visualization: Large bubbles form at the base of the container and rise rapidly through the liquid. Vapor opacity increases with temperature beyond the boiling point.
+4. Kinetic Energy: Above boiling point, molecule velocity (KineticEnergy) is modeled as (Heat / 78.37) * 2.0.
+
+Simulated Laboratory Guidelines:
+- Use a 500ml Borosilicate beaker.
+- Heat should be applied via a controlled Bunsen burner or heating mantle.
+- Safety: Ethanol is highly flammable; simulations must ground this behavior in safety warnings.

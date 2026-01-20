@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  --background: #020205;
+  --foreground: #f0f0f5;
+  
+  /* Cyber-Zen Design Tokens */
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --accent-emerald: #10b981;
+  
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 16px;
+  
+  --neural-pulse: 3s ease-in-out infinite alternate pulse;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-emerald: var(--accent-emerald);
+  
+  --font-inter: "Inter", sans-serif;
+  --font-outfit: "Outfit", sans-serif;
+}
+
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    @apply font-inter selection:bg-accent-blue/30 selection:text-white;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/3 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl transition-all duration-300;
+  }
+  
+  .glass-input {
+    @apply bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:border-accent-blue/50 focus:bg-white/10 outline-none transition-all;
+  }
+  
+  .btn-primary {
+    @apply bg-accent-blue hover:bg-accent-blue/90 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-accent-blue/20 transition-all hover:scale-105 active:scale-95;
+  }
+}
+
+/* Neural pulse animation */
+@keyframes pulse {
+  from { opacity: 0.1; transform: scale(1); }
+  to { opacity: 0.3; transform: scale(1.05); }
+}
+
+.neural-glow {
+  background: radial-gradient(circle at center, var(--accent-blue) 0%, transparent 70%);
+  filter: blur(80px);
+  pointer-events: none;
+}
