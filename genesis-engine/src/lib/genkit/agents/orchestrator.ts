@@ -11,7 +11,6 @@ import { visionFlow } from './vision';
 import { WorldStateSchema } from '../../simulation/schema';
 import { QuestSchema } from './questAgent';
 import { blackboard } from '../context';
-import { InteractionState } from '../../multiplayer/GameState';
 
 export const OrchestratorInputSchema = z.object({
     text: z.string().optional(),
@@ -27,7 +26,7 @@ export const OrchestratorOutputSchema = z.object({
     message: z.string().optional(),
     nativeReply: z.string().optional().describe('Reply in user\'s native language if audio was used'),
     worldState: WorldStateSchema.optional(),
-    visionData: VisionOutputSchema.optional(),
+    visionData: z.any().optional(),
     quest: QuestSchema.optional(),
     nextState: z.enum(['IDLE', 'LISTENING', 'ANALYZING', 'BUILDING', 'PLAYING', 'REFLECTION']).optional(),
 });
@@ -45,8 +44,7 @@ export const orchestratorFlow = ai.defineFlow(
     },
     async (params) => {
         const { text, image, audioTranscript, mode, isSabotageMode, interactionState } = params;
-        const currentContext = blackboard.getContext();
-
+        
         // GUARD: Don't process new simulations if the user is in REFLECTION mode unless explicitly asked
         if (interactionState === 'REFLECTION' && !text?.toLowerCase().includes('simulate')) {
             return { 
@@ -58,7 +56,10 @@ export const orchestratorFlow = ai.defineFlow(
 
         let processedInput = text || '';
         let nativeReply: string | undefined;
-        let visionData: z.infer<typeof WorldStateSchema> | any;
+        let visionData: any = undefined;
+
+        // Add Blackboard fragment to prompt
+        const blackboardFragment = blackboard.getSystemPromptFragment();
 
         // PHASE 0: Multimodal Pre-processing
         
@@ -66,8 +67,6 @@ export const orchestratorFlow = ai.defineFlow(
         const isYouTube = /youtube\.com|youtu\.be/.test(processedInput);
         if (isYouTube) {
             console.log('[Orchestrator] Detected YouTube Link. Redirecting to Video Analysis...');
-            // In a full implementation, we would fetch the transcript here.
-            // For now, we wrap the prompt to inform agents it's a video source.
             processedInput = `Analyze and build a curriculum based on this video: ${processedInput}`;
         }
 
@@ -76,7 +75,7 @@ export const orchestratorFlow = ai.defineFlow(
             const visionResult = await visionFlow({ imageBase64: image });
             visionData = visionResult;
             if (!processedInput && visionData) {
-                processedInput = `Analyze and simulate these objects: ${visionData.elements.map((v) => v.type).join(', ')}`;
+                processedInput = `Analyze and simulate these objects: ${visionData.elements.map((v: any) => v.type).join(', ')}`;
             }
         }
 
@@ -107,18 +106,18 @@ export const orchestratorFlow = ai.defineFlow(
         }
 
         // PHASE 2: Determine Routing
-        let primaryAgent: typeof physicistAgent | typeof artistAgent = physicistAgent;
+        let primaryAgent: any = physicistAgent;
         if (mode === 'VOXEL') {
             primaryAgent = artistAgent;
         } else if (mode === 'AUTO') {
-            const isAbstract = processedInput.length > 20 || /love|freedom|time|inflation/i.test(processedInput);
+            const isAbstract = processedInput.length > 20 || /love|freedom|time|inflation|history/i.test(processedInput);
             if (isAbstract) primaryAgent = artistAgent;
         }
 
         // PHASE 3: Parallel Execution
-        console.log(`[Orchestrator] Executing ${primaryAgent.name} and Quest Agent in parallel...`);
+        console.log(`[Orchestrator] Executing Agents in parallel...`);
         try {
-            const agentPromise = primaryAgent === physicistAgent
+            const agentPromise = (primaryAgent === physicistAgent)
                 ? physicistAgent({ 
                     userTopic: processedInput, 
                     isSabotageMode, 

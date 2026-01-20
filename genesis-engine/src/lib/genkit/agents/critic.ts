@@ -1,3 +1,4 @@
+import { ai } from '../config';
 import { WorldStateSchema } from '../../simulation/schema';
 import { z } from 'genkit';
 import { generateWithResilience } from '../resilience';

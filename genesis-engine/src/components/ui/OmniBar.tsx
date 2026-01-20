@@ -190,7 +190,7 @@ export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick }) => {
                             <Paperclip className="w-5 h-5" />
                         </button>
                         <button 
-                            onClick={onCameraClick}
+                            onClick={() => fileInputRef.current?.click()}
                             className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-2xl transition-all"
                         >
                             <Camera className="w-5 h-5" />
