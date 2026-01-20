@@ -50,6 +50,10 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  // Performance: Minify and optimize builds
+  swcMinify: true,
+  poweredByHeader: false, // Security: Hide Next.js fingerprint
+  reactStrictMode: true,
   webpack: (config) => {
     config.resolve.alias.canvas = false;  // Fix for pdfjs-dist
     return config;

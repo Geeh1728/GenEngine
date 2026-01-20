@@ -7,8 +7,9 @@ import { Question } from '@/components/mastery/MasteryChallenge';
 import { bridgeScenario } from '@/lib/scenarios/bridge';
 import { Quest } from '@/lib/gamification/questEngine';
 import { getEmbedding } from '@/lib/ai/embeddings';
+import { blackboard } from '@/lib/genkit/context';
 
-// Type Definitions derived from Zod Schemas or Interfaces
+// Type Definitions
 type WorldRule = z.infer<typeof WorldRuleSchema>;
 type ComplexityLevel = z.infer<typeof ComplexityLevelSchema>;
 type SkillTree = z.infer<typeof SkillTreeSchema>;
@@ -51,30 +52,30 @@ interface GardenState {
     nodes: GardenNode[];
 }
 
-import { blackboard } from '@/lib/genkit/context';
-
+/**
+ * useGenesisEngine: The central hook for managing the simulation lifecycle.
+ * Refactored for performance, security, and cleanliness (Titan Protocol v3.5).
+ */
 export function useGenesisEngine() {
-    // ...
-    const [worldState, setWorldState] = useState<z.infer<typeof WorldStateSchema> | null>(bridgeScenario);
+    // --- Ingestion & Global State ---
+    const [isIngested, setIsIngested] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [worldRules, setWorldRules] = useState<WorldRule[]>([]);
+    const [sourceTitle, setSourceTitle] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [isObserved, setIsObserved] = useState(false);
 
-    // Sync to Blackboard on every worldState change
-    useEffect(() => {
-        if (worldState) {
-            blackboard.updateFromWorldState(worldState);
-        }
-    }, [worldState]);
-
-    // Mastery OS / Skill Tree
+    // --- Mastery OS / Skill Tree ---
     const [skillTree, setSkillTree] = useState<SkillTree | null>(null);
     const [activeNode, setActiveNode] = useState<SkillNode | null>(null);
     const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
 
-    // Quest System
+    // --- Quest & Gamification ---
     const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
     const [isQuestVisible, setIsQuestVisible] = useState(false);
     const [failureCount, setFailureCount] = useState(0);
 
-    // God Mode
+    // --- God Mode Configuration ---
     const [godModeState, setGodModeState] = useState<GodModeState>({
         complexity: 'standard',
         constants: {
@@ -85,13 +86,11 @@ export function useGenesisEngine() {
         overrides: [],
     });
 
-    // World State (JSON Engine) - Defaulted to the Bridge Scenario
+    // --- Kinetic Core: World State ---
     const [worldState, setWorldState] = useState<z.infer<typeof WorldStateSchema> | null>(bridgeScenario);
 
-    // Dialogue (Phase 4)
+    // --- Dialogue & Mastery Features ---
     const [commentary, setCommentary] = useState<CommentaryState | null>(null);
-
-    // Mastery (Phase 5)
     const [masteryState, setMasteryState] = useState<MasteryState>({
         questions: [],
         isChallengeOpen: false,
@@ -100,18 +99,25 @@ export function useGenesisEngine() {
         isGenerating: false,
     });
 
-    // Simulation Control (Phase 4)
+    // --- Simulation Controls ---
     const [isPaused, setIsPaused] = useState(false);
     const [diagnostics, setDiagnostics] = useState<DiagnosticsState | null>(null);
     const [lastHypothesis, setLastHypothesis] = useState('');
     const [isSabotaged, setIsSabotaged] = useState(false);
 
-    // Mind Garden (Phase 5)
+    // --- Mind Garden ---
     const [gardenState, setGardenState] = useState<GardenState>({
         nodes: []
     });
 
-    // --- Actions ---
+    // --- Quantum Bridge Sync ---
+    useEffect(() => {
+        if (worldState) {
+            blackboard.updateFromWorldState(worldState);
+        }
+    }, [worldState]);
+
+    // --- ACTIONS ---
 
     const fetchWorldState = useCallback(async (rules: WorldRule[]) => {
         try {
@@ -149,7 +155,7 @@ export function useGenesisEngine() {
                 const data = await response.json();
                 setSkillTree(data);
                 
-                // Persistence logic (v3.5)
+                // Persistence
                 await storeKnowledge([{ 
                     text: `SKILL_TREE_${data.goal}`, 
                     vector: Array(384).fill(0),
@@ -187,7 +193,6 @@ export function useGenesisEngine() {
             setIsProcessing(false);
         }
     }, [godModeState.complexity]);
-
 
     const handleIngest = async (source: string, type: 'pdf' | 'youtube') => {
         setIsProcessing(true);

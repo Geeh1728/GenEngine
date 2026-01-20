@@ -3,12 +3,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { NexusCircle } from '@/components/ingestion/NexusCircle';
-import { NeuralMap } from '@/components/ingestion/NeuralMap';
 import { WorldRulesList } from '@/components/ingestion/WorldRulesList';
 import { SimulationCard } from '@/components/simulation/SimulationCard';
-// import { Holodeck } from '@/components/simulation/Holodeck'; // Now dynamic
-import { GodInput } from '@/components/ui/GodInput';
 import { GodModePanel } from '@/components/intervention/GodModePanel';
 import { GroundingAgent } from '@/components/dialogue/GroundingAgent';
 import { RealWorldSync } from '@/components/verification/RealWorldSync';
@@ -31,6 +27,10 @@ import { Entity } from '@/lib/simulation/schema';
 const Holodeck = dynamic(() => import('@/components/simulation/Holodeck').then(mod => mod.Holodeck), { ssr: false });
 const NeuralBackground = dynamic(() => import('@/components/ui/NeuralBackground').then(mod => mod.NeuralBackground), { ssr: false });
 
+/**
+ * HOME: The primary viewport for the Genesis Engine.
+ * Refactored for clean architecture, unified input (Omni-Bar), and Titan v3.5 features.
+ */
 export default function Home() {
   const {
     isIngested,
@@ -63,7 +63,7 @@ export default function Home() {
     completedNodeIds,
     generateSkillTree,
     startSimulation,
-    setCompletedNodeIds
+    setActiveNode
   } = useGenesisEngine();
 
   const [isListening, setIsListening] = useState(false);
@@ -108,7 +108,6 @@ export default function Home() {
 
   const handleExport = () => {
     alert("Knowledge Crystal Manifested! Study bundle exported to your workspace.");
-    console.log("Exporting Knowledge Crystal Data...");
   };
 
   return (
@@ -144,7 +143,7 @@ export default function Home() {
             whileHover={{ scale: 1.1, rotate: 5 }}
             className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.5)]"
           >
-            <span className="font-outfit font-black text-xs">GE</span>
+            <span className="font-outfit font-black text-xs text-white">GE</span>
           </motion.div>
           <span className="text-sm font-outfit font-bold uppercase tracking-[0.4em] text-gray-400">Genesis Engine</span>
         </div>
@@ -208,6 +207,12 @@ export default function Home() {
                     Genesis
                   </h1>
                   <p className="text-gray-500 text-sm uppercase tracking-[0.5em]">The Ultimate Aggregator</p>
+                  
+                  {error && (
+                    <p className="mt-8 text-red-400 text-xs font-medium uppercase tracking-widest bg-red-400/5 px-4 py-2 rounded-full border border-red-400/10 pointer-events-auto">
+                      Error: {error}
+                    </p>
+                  )}
                 </motion.div>
               </motion.div>
             ) : isProcessing && !activeNode ? (
@@ -236,7 +241,7 @@ export default function Home() {
                >
                  <div className="max-w-4xl mx-auto">
                    <div className="text-center mb-16">
-                     <h2 className="text-4xl font-black tracking-tighter mb-2">{skillTree.goal}</h2>
+                     <h2 className="text-4xl font-black tracking-tighter mb-2 text-white">{skillTree.goal}</h2>
                      <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.4em]">Mastery Path Generated</p>
                    </div>
                    <SkillTree 
@@ -255,7 +260,7 @@ export default function Home() {
                 className="relative z-10 w-full h-full flex flex-col items-center gap-8 py-8 pointer-events-none"
               >
                 <div className="text-center pointer-events-auto">
-                  <h2 className="text-4xl font-outfit font-bold mb-2 tracking-tight">{activeNode?.label || sourceTitle}</h2>
+                  <h2 className="text-4xl font-outfit font-bold mb-2 tracking-tight text-white">{activeNode?.label || sourceTitle}</h2>
                   <p className="text-blue-400 text-[10px] uppercase tracking-[0.8em]">{activeNode?.engineMode || 'Laboratory'} Sandbox</p>
                   
                   {activeNode && (
@@ -387,7 +392,6 @@ export default function Home() {
                       worldState={worldState}
                       onPhysicsUpdate={(delta) => {
                         setWorldState(prev => prev ? ({ ...prev, ...delta }) : null);
-                        console.log("Babel update applied:", delta);
                       }}
                     />
                   )}
@@ -421,7 +425,6 @@ export default function Home() {
       <OmniBar 
         onCameraClick={() => setIsRealityLensOpen(true)}
         onFileSelect={(file) => {
-            // Handle file ingestion logic here
             handleIngest(file.name, 'pdf');
         }}
       />

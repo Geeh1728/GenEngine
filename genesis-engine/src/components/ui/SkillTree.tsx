@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Lock, CheckCircle2, Play, BookOpen, FlaskConical, Box, Settings } from 'lucide-react';
 import { SkillNodeSchema } from '@/lib/genkit/schemas';
 import { z } from 'zod';
@@ -32,50 +31,23 @@ export default function SkillTree({ nodes, recommendedPath, completedNodeIds, on
   };
 
   return (
-    <motion.div 
-      initial="hidden"
-      animate="visible"
-      variants={{
-        visible: { transition: { staggerChildren: 0.2 } },
-        hidden: {}
-      }}
-      className="flex flex-col items-center gap-12 py-12 w-full max-w-4xl mx-auto"
-    >
+    <div className="flex flex-col items-center gap-12 py-12 w-full max-w-4xl mx-auto">
       {orderedNodes.map((node, index) => {
         const isCompleted = completedNodeIds.includes(node.id);
         const isLocked = index > 0 && !completedNodeIds.includes(orderedNodes[index - 1].id);
         
         return (
-          <motion.div 
-            key={node.id} 
-            variants={{
-                hidden: { opacity: 0, y: 30, filter: 'blur(10px)' },
-                visible: { opacity: 1, y: 0, filter: 'blur(0px)' }
-            }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative flex flex-col items-center w-full"
-          >
-            {/* Connection Line with Pulse */}
+          <div key={node.id} className="relative flex flex-col items-center w-full">
+            {/* Connection Line */}
             {index < orderedNodes.length - 1 && (
               <div className="absolute top-20 w-1 h-24 -z-10 bg-slate-800">
                 {isCompleted && (
-                  <motion.div 
-                    initial={{ height: 0 }}
-                    animate={{ height: '100%' }}
-                    className="w-full bg-emerald-500 shadow-[0_0_15px_#10b981]"
-                  />
+                  <div className="w-full h-full bg-emerald-500 shadow-[0_0_15px_#10b981]" />
                 )}
-                <motion.div
-                  animate={{ top: ['0%', '100%'], opacity: [0, 1, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                  className="absolute left-0 w-full h-4 bg-blue-400 blur-sm"
-                />
               </div>
             )}
 
-            <motion.button
-              whileHover={!isLocked ? { scale: 1.05 } : {}}
-              whileTap={!isLocked ? { scale: 0.95 } : {}}
+            <button
               onClick={() => !isLocked && onNodeClick(node)}
               className={`
                 group relative flex items-center gap-6 p-6 rounded-3xl border-2 transition-all w-full
@@ -113,7 +85,7 @@ export default function SkillTree({ nodes, recommendedPath, completedNodeIds, on
                     </div>
                 </div>
               )}
-            </motion.button>
+            </button>
           </div>
         );
       })}

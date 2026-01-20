@@ -33,6 +33,21 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
         return () => onRegister(entity.id, null);
     }, [entity.id, onRegister]);
 
+    // Memoize Geometries for Performance (Avoid re-calculating on every frame)
+    const { geometry, collider } = useMemo(() => {
+        const dims = entity.dimensions || { x: 1, y: 1, z: 1 };
+        if (entity.type === 'sphere') {
+            return {
+                geometry: <sphereGeometry args={[dims.x, 32, 32]} />,
+                collider: <BallCollider args={[dims.x]} />
+            };
+        }
+        return {
+            geometry: <boxGeometry args={[dims.x, dims.y, dims.z]} />,
+            collider: <CuboidCollider args={[dims.x / 2, dims.y / 2, dims.z / 2]} />
+        };
+    }, [entity.type, entity.dimensions]);
+
     // Apply Physical Overrides (Quantum Bridge)
     let restitution = entity.physics.restitution;
     let friction = entity.physics.friction;
@@ -63,30 +78,6 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
         }
     };
 
-    const getCollider = () => {
-        const dims = entity.dimensions || { x: 1, y: 1, z: 1 };
-        switch (entity.type) {
-            case 'sphere':
-                return <BallCollider args={[dims.x]} />;
-            case 'cube':
-            case 'box':
-            default:
-                return <CuboidCollider args={[dims.x / 2, dims.y / 2, dims.z / 2]} />;
-        }
-    };
-
-    const getGeometry = () => {
-        const dims = entity.dimensions || { x: 1, y: 1, z: 1 };
-        switch (entity.type) {
-            case 'sphere':
-                return <sphereGeometry args={[dims.x, 32, 32]} />;
-            case 'cube':
-            case 'box':
-            default:
-                return <boxGeometry args={[dims.x, dims.y, dims.z]} />;
-        }
-    };
-
     return (
         <RigidBody
             ref={rbRef}
@@ -104,9 +95,9 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
             onCollisionEnter={handleCollision}
         >
             <mesh material={material}>
-                {getGeometry()}
+                {geometry}
             </mesh>
-            {getCollider()}
+            {collider}
 
             {entity.analogyLabel && (
                 <Html distanceFactor={10} position={[0, entity.dimensions?.y || 1, 0]}>

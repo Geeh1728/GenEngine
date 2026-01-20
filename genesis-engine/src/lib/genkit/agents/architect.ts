@@ -2,6 +2,7 @@ import { ai, gemini3Flash, geminiFlash } from '../config';
 import { z } from 'genkit';
 import { generateWithResilience } from '../resilience';
 import { SkillTreeSchema } from '../schemas';
+import { blackboard } from '../context';
 
 export const ArchitectInputSchema = z.object({
     userGoal: z.string().describe('The user\'s learning goal.'),
@@ -12,6 +13,7 @@ export const ArchitectInputSchema = z.object({
 /**
  * THE ARCHITECT AGENT (Titan Protocol v3.5)
  * Model: Gemini 3 Flash (Thinking) -> Fallback to Flash Lite
+ * Integrated with the Quantum Bridge (Blackboard).
  */
 export const architectFlow = ai.defineFlow(
     {
@@ -23,6 +25,9 @@ export const architectFlow = ai.defineFlow(
         const { userGoal, pdfText, pdfImages } = input;
         const context = pdfText ? `PDF CONTENT:\n${pdfText}` : '';
         const goal = userGoal || "General Mastery";
+        
+        // Quantum Bridge Context
+        const blackboardFragment = blackboard.getSystemPromptFragment();
 
         const systemPrompt = `
             You are the Genesis Curriculum Designer (The Architect).
@@ -40,6 +45,8 @@ export const architectFlow = ai.defineFlow(
             - 'ASM': For Machines, Anatomy, Jointed Structures.
             
             Structure the response as a gamified Skill Tree JSON.
+            
+            ${blackboardFragment}
         `;
 
         const userPrompt = `

@@ -19,6 +19,16 @@ const FORBIDDEN_KEYWORDS = [
     'password',
     'api_key',
     'secret_key',
+    'DAN mode',
+    'do anything now',
+    '<script>',
+];
+
+const INJECTION_PATTERNS = [
+    /\[.*system.*\]/i,
+    /\{.*prompt.*\}/i,
+    /ignore.*above/i,
+    /you are now.*an evil/i,
 ];
 
 /**
@@ -27,7 +37,7 @@ const FORBIDDEN_KEYWORDS = [
 export async function shieldInput(input: string): Promise<ArmorResult> {
     const normalizedInput = input.toLowerCase();
 
-    // 1. Basic Keyword Filtering
+    // 1. Keyword Filtering
     for (const keyword of FORBIDDEN_KEYWORDS) {
         if (normalizedInput.includes(keyword.toLowerCase())) {
             return {
@@ -37,7 +47,17 @@ export async function shieldInput(input: string): Promise<ArmorResult> {
         }
     }
 
-    // 2. Length Constraints
+    // 2. Regex Pattern Matching
+    for (const pattern of INJECTION_PATTERNS) {
+        if (pattern.test(input)) {
+            return {
+                isSafe: false,
+                reason: 'Security Alert: Prompt injection pattern detected.',
+            };
+        }
+    }
+
+    // 3. Length Constraints
     if (input.length > 2000) {
         return {
             isSafe: false,
@@ -45,8 +65,8 @@ export async function shieldInput(input: string): Promise<ArmorResult> {
         };
     }
 
-    // 3. Sanitization (Simple example)
-    const sanitized = input.replace(/[<>]/g, ''); // Basic XSS prevention
+    // 4. Sanitization
+    const sanitized = input.replace(/[<>]/g, '').trim();
 
     return {
         isSafe: true,
@@ -55,31 +75,26 @@ export async function shieldInput(input: string): Promise<ArmorResult> {
 }
 
 /**
- * Scans AI output before it reaches the client.
+ * Rate Limiter (Client-Side Token Bucket)
+ * Prevents local UI spamming before the Cloud hits its quota.
  */
-export async function shieldOutput<T>(output: T): Promise<ArmorResult> {
-    const outputString = JSON.stringify(output);
+const rateLimitMap = new Map<string, { count: number, lastReset: number }>();
 
-    // 1. PII / Secret Detection (Basic)
-    if (outputString.includes('sk-') || outputString.includes('AIza')) {
-        return {
-            isSafe: false,
-            reason: 'Security Alert: Potential API key leakage detected in AI output.',
-        };
+export async function checkRateLimit(userId: string = 'anonymous'): Promise<boolean> {
+    const now = Date.now();
+    const windowMs = 60 * 1000; // 1 minute window
+    const maxRequests = 10; // Max 10 per minute locally
+
+    const userLimit = rateLimitMap.get(userId) || { count: 0, lastReset: now };
+
+    if (now - userLimit.lastReset > windowMs) {
+        userLimit.count = 1;
+        userLimit.lastReset = now;
+    } else {
+        userLimit.count++;
     }
 
-    return {
-        isSafe: true,
-    };
-}
+    rateLimitMap.set(userId, userLimit);
 
-/**
- * Rate Limiter (Stub for Upstash/Redis)
- * In a real-world scenario, this would use @upstash/ratelimit
- */
-export async function checkRateLimit(userId: string = 'anonymous'): Promise<boolean> {
-    // Current Implementation: Always returns true (No-op stub)
-    // PROPOSAL: Implement actual Upstash client here if requested.
-    console.log(`[RateLimit] Checking limit for ${userId}`);
-    return true;
+    return userLimit.count <= maxRequests;
 }

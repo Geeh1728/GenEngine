@@ -1,6 +1,7 @@
-import { ai } from '../config';
+import { WorldStateSchema } from '../../simulation/schema';
 import { z } from 'genkit';
 import { generateWithResilience } from '../resilience';
+import { blackboard } from '../context';
 
 export const CriticInputSchema = z.object({
     userTopic: z.string(),
@@ -14,6 +15,7 @@ export const CriticOutputSchema = z.object({
 /**
  * Module D/L: The Saboteur Gatekeeper
  * Objective: Use the Socratic method to detect logical fallacies or biases.
+ * Integrated with the Quantum Bridge (Blackboard).
  */
 export const criticAgent = ai.defineFlow(
     {
@@ -22,12 +24,15 @@ export const criticAgent = ai.defineFlow(
         outputSchema: CriticOutputSchema,
     },
     async (input) => {
+        const blackboardFragment = blackboard.getSystemPromptFragment();
         const output = await generateWithResilience({
             prompt: `Evaluate this concept: "${input.userTopic}"`,
             system: `
                 You are the "Socratic Saboteur" of the Genesis Engine.
                 Your role is to act as a Gatekeeper for physical simulations.
                 
+                ${blackboardFragment}
+
                 CRITERIA:
                 1. If the user input is a valid physical concept, return status: 'PASS'.
                 2. If the user input contains a logical trap, a physical impossibility that they claim is "truth", or a bias that would break the simulation's integrity, return status: 'TRAP'.
