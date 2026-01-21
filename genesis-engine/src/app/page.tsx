@@ -66,7 +66,8 @@ export default function Home() {
     activeNode,
     completedNodeIds,
     startSimulation,
-    neuralEngineProgress
+    neuralEngineProgress,
+    setActiveNode
   } = engine;
 
   const [isListening, setIsListening] = useState(false);
