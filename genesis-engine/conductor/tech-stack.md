@@ -8,10 +8,9 @@
 ## AI & Intelligence
 - **GenAI Framework**: [Google Genkit](https://firebase.google.com/docs/genkit)
 - **Models**: 
-  - **Gemini 2.5 Flash Lite**: Primary workhorse for high-speed, cost-effective inference.
-  - **Gemini 2.5 Flash**: Intelligence fallback and complex reasoning.
-  - **Gemini 2.5 Flash Native Audio**: Unlimited channel for voice interaction.
-  - **Gemini Robotics ER 1.5**: Spatial understanding and 3D bounding boxes.
+- **Gemini 2.5 Flash**: The primary reasoning and multimodal engine.
+- **Gemini 2.5 Flash Lite**: Used for cost-effective, low-latency tasks.
+- **Google text-embedding-004**: For RAG and semantic search.
 - **Retrieval**: PGLite (Postgres WASM) for local-first vector search.
 - **Verification**: Socratic Critic Agent + Model Armor principles.
 

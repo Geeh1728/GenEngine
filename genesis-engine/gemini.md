@@ -12,7 +12,7 @@ If a Japanese user says "Jūryoku o agete" (Increase gravity), the American user
 The Feature: "Semantic Simulcast."
 The Workflow (R0 Optimized):
 Input (Japan): User speaks Japanese into the Web Speech API (Local/Free).
-Transcode (The Brain): Gemini 1.5 Flash receives the Japanese text.
+Transcode (The Brain): Gemini 2.5 Flash receives the Japanese text.
 It extracts the Physics Command ({ gravity: +5 }).
 It translates the Commentary to English ("I am making it heavier").
 Sync (The Mesh):
@@ -26,7 +26,7 @@ Add this to the MODULE C (Global Mesh) section of your Spec file.
 MODULE F: THE BABEL NODE (Cross-Cultural Sync)
 Goal: Zero-friction multiplayer learning across languages.
 Input: Web Speech API captures local language.
-Processing: Gemini 1.5 Flash identifies:
+Processing: Gemini 2.5 Flash identifies:
 intent: The physics change (JSON).
 message: The translated explanation (Target Language).
 Output:
@@ -41,7 +41,7 @@ Objective: Real-time translation of Physics Intent.
 Logic:
 Use react-speech-recognition (or native API) to listen to the user.
 On speech input, call a Server Action translatePhysicsIntent.
-Server Action: Use Gemini 1.5 Flash.
+Server Action: Use Gemini 2.5 Flash.
 Input: User Audio Transcript + Target Language (e.g., 'English').
 Output JSON: { physicsUpdate: Partial<WorldState>, translatedCommentary: string }.
 Client:
@@ -68,7 +68,7 @@ Step 1: Define the "Semantic Translation" Logic
 We need a Server Action that takes raw foreign text, extracts the physics command, and translates the explanation.
 Copy this prompt into Conductor/Cursor:
 "Create a new Server Action file src/app/actions/babel.ts.
-Objective: Translate user speech into 'Physics Actions' and 'Target Language Text' using Gemini 1.5 Flash.
+Objective: Translate user speech into 'Physics Actions' and 'Target Language Text' using Gemini 2.5 Flash.
 Function Signature:
 export async function translatePhysicsIntent(transcript: string, currentWorldState: WorldState, targetLang: string = 'English')
 The Prompt Logic:
@@ -85,7 +85,7 @@ JSON
   "translatedCommentary": "The translated text for TTS",
   "originalIntent": "What they actually meant"
 }
-Constraint: Use gemini-1.5-flash for low latency. Enforce JSON output."
+Constraint: Use gemini-2.5-flash-lite for low latency. Enforce JSON output."
 Step 2: Build the "Babel Node" (The Ear & Mouth)
 We need a component that listens (Microphone) and speaks (Speakers) without costing a cent.
 Copy this prompt into Conductor:
@@ -126,7 +126,7 @@ Copy this to update your SPEC:
 Status: Implemented.
 Logic:
 Input: Web Speech API (Local/R0).
-Processing: Gemini 1.5 Flash (Semantic Extraction).
+Processing: Gemini 2.5 Flash (Semantic Extraction).
 Output: JSON Physics Deltas + Native Browser TTS.
 Philosophy: We transmit Meaning (JSON), not Audio files. This reduces bandwidth by 99.9% compared to Google's Native Audio streaming, making it viable for 2G/3G networks."
 The Result
@@ -543,8 +543,8 @@ setSelectedModel(e.target.value);
 }}
 disabled={isLoading}
 className="bg-[var(--input-color)] border border-[var(--border-color)] rounded-md p-1 text-sm normal-case font-mono">
-<option value="gemini-robotics-er-1.5-preview">
-gemini-robotics-er-1.5-preview
+<option value="gemini-2.5-flash">
+gemini-2.5-flash
 </option>
 <option value="gemini-2.5-flash">gemini-2.5-flash</option>
 </select>
@@ -787,7 +787,7 @@ export function parseRoboticsOutput(box2d: [number, number, number, number]) {
 // THE ROBOTICS SWITCH
 // Use the expensive model for Paid users, standard for Free.
 export const ROBOTICS_MODEL = process.env.NEXT_PUBLIC_MODE === 'premium' 
-  ? 'gemini-robotics-er-1.5-preview' // The "Hidden Gem"
+  ? 'gemini-2.5-flash' // The "Hidden Gem"
   : 'gemini-2.5-flash'; // The R0 Workhorse
 3. The "Pedagogue" Upgrade (Stealing Video to Learning)
 The Insight: The SPEC_FROM_VIDEO_PROMPT separates the Pedagogy (Teaching Strategy) from the Code.
@@ -821,7 +821,7 @@ export async function analyzeRealWorldImage(imageBase64: string, userIsPremium: 
   // If user pays, they get the "Robotics-ER" model which understands depth/grip.
   // If user is free, they get "Flash" which is just 2D object detection.
   const modelName = userIsPremium 
-    ? 'gemini-robotics-er-1.5-preview' 
+    ? 'gemini-2.5-flash' 
     : 'gemini-2.5-flash';
 
   const systemPrompt = userIsPremium
@@ -981,7 +981,7 @@ We need a server action that accepts an image, sends it to Gemini (using the Rob
 Copy this prompt into Conductor:
 "Create a Server Action src/app/actions/vision.ts.
 Objective: Analyze an uploaded image for Spatial Physics.
-Model: Use gemini-1.5-flash (Free Tier) or gemini-1.5-pro.
+Model: Use gemini-2.5-flash-lite (Free Tier) or gemini-2.5-flash.
 Function Signature: export async function analyzeReality(imageBase64: string)
 System Instruction:
 'You are a Spatial Physics Analyzer. Look at the image. Detect physical objects (boxes, cups, balls, structures).
@@ -3716,7 +3716,7 @@ We need an agent that takes an abstract idea and "sculpts" it using text.
 Copy this prompt into Conductor:
 "Create a Server Action src/app/actions/voxel.ts.
 Objective: Convert an abstract topic into a 3D Voxel Grid.
-Model: gemini-1.5-flash.
+Model: gemini-2.5-flash-lite.
 Function Signature: export async function generateVoxelSculpture(topic: string)
 System Instruction:
 'You are a Voxel Artist. You visualize abstract concepts using a 16x16x16 grid of colored blocks.
@@ -4322,7 +4322,7 @@ Markdown
 
 ## 1. THE "R0" TECH STACK (Zero Cost / Offline First)
 *   **Core:** Next.js 15 + Tailwind v4 + Framer Motion ("Cyber-Zen").
-*   **Intelligence:** Gemini 1.5 Flash (Logic/Translation) + Gemini 1.5 Pro (Code).
+*   **Intelligence:** Gemini 2.5 Flash (Logic/Translation) + Gemini 2.5 Pro (Code).
 *   **Database:** **PGLite** (Postgres WASM). Runs in-browser. No server cost.
 *   **Physics:**
     *   *Standard:* **Rapier.js** (for collisions/structures).
@@ -4345,7 +4345,7 @@ Markdown
 ### MODULE C: METAPHOR ENGINE (Abstract Topics)
 *   **Trigger:** When topic is NOT physical (e.g., "Inflation").
 *   **Logic:** "Generative Isomorphism." Map abstract rules to physical mechanics (Money -> Air Pressure).
-*   **Renderer:** Uses the **Voxel Engine** (InstancedMesh) to build 3D sculptures of ideas using `gemini-1.5-flash` (Free).
+*   **Renderer:** Uses the **Voxel Engine** (InstancedMesh) to build 3D sculptures of ideas using `gemini-2.5-flash-lite` (Free).
 
 ### MODULE D: THE SABOTEUR (Critical Thinking)
 *   **Source:** Adapted from `abagames/slash-criticalthink`.
@@ -4535,7 +4535,7 @@ You don't need a new IDE. You need your app to act like an IDE for Physics.
 > 1.  Refactor `generateSimulationLogic`.
 > 2.  Wrap the generation in a loop (max 2 retries).
 > 3.  **Try:** Generate JSON -> Parse with Zod.
-> 4.  **Catch:** If Zod throws an error, feed that specific error message back to Gemini 1.5 Flash with the prompt: *'SYSTEM ALERT: Your previous JSON failed validation. Error: [ZodMessage]. Correct the schema.'*
+> 4.  **Catch:** If Zod throws an error, feed that specific error message back to Gemini 2.5 Flash with the prompt: *'SYSTEM ALERT: Your previous JSON failed validation. Error: [ZodMessage]. Correct the schema.'*
 > 5.  **Output:** Return the corrected JSON.
 >
 > **Why:** This makes the 'Dumb God' much smarter without using expensive models."
@@ -4736,7 +4736,7 @@ We need an agent that takes an abstract idea and "sculpts" it using text.
 > "Create a Server Action `src/app/actions/voxel.ts`.
 >
 > **Objective:** Convert an abstract topic into a 3D Voxel Grid.
-> **Model:** `gemini-1.5-flash`.
+> **Model:** `gemini-2.5-flash-lite`.
 >
 > **Function Signature:** `export async function generateVoxelSculpture(topic: string)`
 >
@@ -5233,7 +5233,7 @@ Copy and paste these into **Conductor** (or Cursor Composer) one by one.
 > 1.  Define a function `processMetaphorTurn(currentWorldState, userAction)`.
 > 2.  **The Loop:**
 >     -   **Input:** User action (e.g., 'Print more money').
->     -   **Context:** Send `currentWorldState` to Gemini 1.5 Flash.
+>     -   **Context:** Send `currentWorldState` to Gemini 2.5 Flash.
 >     -   **Task:** 'You are the Game Engine. Based on the user's action, calculate the NEXT state of the metaphor.'
 >     -   **Output:** Return the new `WorldState`.
 > 
@@ -5265,7 +5265,7 @@ Copy this into your project. This is the "Constitution" of the Genesis Engine.
 
 ## 1. THE "R0" TECH STACK (Zero Cost / Offline First)
 *   **Core:** Next.js 15 + Tailwind v4 + Framer Motion ("Cyber-Zen").
-*   **Intelligence:** Gemini 1.5 Flash (Logic/Translation) + Gemini 1.5 Pro (Code).
+*   **Intelligence:** Gemini 2.5 Flash (Logic/Translation) + Gemini 2.5 Pro (Code).
 *   **Database:** **PGLite** (Postgres WASM). Runs in-browser. No server cost.
 *   **Physics:**
     *   *Standard:* **Rapier.js** (for collisions/structures).
@@ -5288,7 +5288,7 @@ Copy this into your project. This is the "Constitution" of the Genesis Engine.
 ### MODULE C: METAPHOR ENGINE (Abstract Topics)
 *   **Trigger:** When topic is NOT physical (e.g., "Inflation").
 *   **Logic:** "Generative Isomorphism." Map abstract rules to physical mechanics (Money -> Air Pressure).
-*   **Renderer:** Uses the **Voxel Engine** (InstancedMesh) to build 3D sculptures of ideas using `gemini-1.5-flash` (Free).
+*   **Renderer:** Uses the **Voxel Engine** (InstancedMesh) to build 3D sculptures of ideas using `gemini-2.5-flash-lite` (Free).
 
 ### MODULE D: THE SABOTEUR (Critical Thinking)
 *   **Source:** Adapted from `abagames/slash-criticalthink`.

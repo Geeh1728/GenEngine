@@ -19,5 +19,6 @@ export function parseRoboticsOutput(box2d: [number, number, number, number]) {
 // THE ROBOTICS SWITCH
 // Use the expensive model for Paid users, standard for Free.
 export const ROBOTICS_MODEL = process.env.NEXT_PUBLIC_MODE === 'premium'
-    ? 'gemini-robotics-er-1.5-preview' // The "Hidden Gem"
-    : 'gemini-2.5-flash'; // The R0 Workhorse
+    ? 'googleai/gemini-2.5-flash' // Premium: Full Flash
+    : 'googleai/gemini-2.5-flash-lite'; // Free: Flash Lite
+
