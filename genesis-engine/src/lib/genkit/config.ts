@@ -1,35 +1,12 @@
 import { googleAI } from '@genkit-ai/googleai';
 import { openAI } from 'genkitx-openai';
 import { genkit } from 'genkit';
-import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
 
-// Manually load .env.local
-try {
-    const paths = [
-        path.resolve(process.cwd(), '.env.local'),
-        path.resolve(process.cwd(), 'genesis-engine', '.env.local')
-    ];
-    
-    for (const envPath of paths) {
-        if (fs.existsSync(envPath)) {
-            console.log(`Loading .env.local from: ${envPath}`);
-            const envConfig = fs.readFileSync(envPath, 'utf-8').replace(/^\uFEFF/, '');
-            envConfig.split(/\r?\n/).forEach(line => {
-                const match = line.match(/^([^=]+)=(.*)$/);
-                if (match) {
-                    const key = match[1].trim();
-                    const value = match[2].trim().replace(/^['"](.*)['"]$/, '$1'); // Strip quotes
-                    if (key && value) {
-                        process.env[key] = value;
-                    }
-                }
-            });            break; // Stop after finding the first one
-        }
-    }
-} catch (error) {
-    console.error('Failed to load .env.local manually:', error);
-}
+// Manually load .env.local for Genkit initialization (resilience for various run contexts)
+const envPath = path.resolve(process.cwd(), '.env.local');
+dotenv.config({ path: envPath });
 
 // 1. Force-load the key from ANY possible name (Resilience)
 const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
