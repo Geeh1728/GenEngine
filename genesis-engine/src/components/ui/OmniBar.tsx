@@ -79,6 +79,38 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
         if (localTool) {
             executeLocalTool(localTool, (action) => {
                 console.log("[OmniBar] Local Action:", action);
+                
+                // Manual Reducer Logic for Local Tools (Bridge to useGenesisEngine)
+                if (action.type === 'UPDATE_WORLD_ENVIRONMENT') {
+                    setWorldState((prev: any) => {
+                        const currentEntities = prev?.entities || [];
+                        const newMode = prev?.mode || 'PHYSICS';
+                        
+                        // Auto-Spawn Test Subject if empty
+                        let newEntities = [...currentEntities];
+                        if (newEntities.length === 0) {
+                            newEntities = [{
+                                id: 'demo-cube',
+                                type: 'cube',
+                                position: { x: 0, y: 5, z: 0 },
+                                physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                                dimensions: { x: 1, y: 1, z: 1 },
+                                color: '#3b82f6',
+                                name: 'Test Subject'
+                            }];
+                        }
+
+                        return {
+                            ...prev,
+                            mode: newMode,
+                            entities: newEntities,
+                            environment: {
+                                ...(prev?.environment || {}),
+                                ...action.payload
+                            }
+                        };
+                    });
+                }
             });
             setPrompt('');
             return;

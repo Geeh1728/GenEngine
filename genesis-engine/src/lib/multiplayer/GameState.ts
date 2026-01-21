@@ -56,17 +56,37 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
                 ...state,
                 interactionState: action.payload,
             };
-        case 'UPDATE_WORLD_ENVIRONMENT':
+        case 'UPDATE_WORLD_ENVIRONMENT': {
+            const currentWorld = state.worldState;
+            const newMode = currentWorld.mode || 'PHYSICS';
+            
+            // Auto-Spawn: If world is empty, spawn a "Test Object" so the user sees the physics change
+            let newEntities = currentWorld.entities || [];
+            if (newEntities.length === 0) {
+                newEntities = [{
+                    id: 'demo-cube',
+                    type: 'cube',
+                    position: { x: 0, y: 5, z: 0 },
+                    physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                    dimensions: { x: 1, y: 1, z: 1 },
+                    color: '#3b82f6', // Blue
+                    name: 'Test Subject'
+                }];
+            }
+
             return {
                 ...state,
                 worldState: {
-                    ...state.worldState,
+                    ...currentWorld,
+                    mode: newMode,
+                    entities: newEntities,
                     environment: {
-                        ...(state.worldState.environment || {}),
+                        ...(currentWorld.environment || {}),
                         ...action.payload
                     } as WorldState['environment']
                 }
             };
+        }
         case 'PLAYER_JOIN':
             return {
                 ...state,

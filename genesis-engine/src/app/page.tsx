@@ -226,7 +226,10 @@ export default function Home() {
           </motion.div>
 
           <AnimatePresence mode="wait">
-            {!skillTree && !isIngested ? (
+            {/* VIEW CONTROLLER: Determines which "Screen" to show based on state */}
+            
+            {/* 1. EMPTY STATE: No content, no active physics mode */}
+            {!skillTree && !isIngested && worldState?.mode !== 'PHYSICS' ? (
               <motion.div
                 key="empty-state"
                 initial={{ opacity: 0 }}
