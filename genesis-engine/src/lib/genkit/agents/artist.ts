@@ -39,7 +39,24 @@ export const artistAgent = ai.defineFlow(
             retryCount: 2
         });
 
-        if (!output) throw new Error('Artist failed to visualize concept.');
+        if (!output) {
+            console.warn('[Artist] Generation failed. Returning fallback state.');
+            return {
+                scenario: "Fallback Metaphor",
+                mode: "VOXEL",
+                explanation: "Visualization failed, but here is a default representation.",
+                entities: [{ 
+                    id: "fallback-voxel", 
+                    type: "cube", 
+                    position: { x: 0, y: 0, z: 0 }, 
+                    dimensions: { x: 2, y: 2, z: 2 },
+                    physics: { mass: 0, friction: 0.5, restitution: 0.5 },
+                    isStatic: true,
+                    color: "#a855f7",
+                    name: "Resilience Voxel"
+                }]
+            };
+        }
         return output;
     }
 );

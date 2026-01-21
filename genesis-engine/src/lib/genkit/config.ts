@@ -62,8 +62,6 @@ export const gemini3Flash = {
 
 // Legacy Compatibility (Mapping old names to new models to prevent crashes)
 export const gemini20Flash = geminiFlash;
-export const gemini15Flash = geminiFlash;
-export const gemini15Pro = geminiPro;
 
 // Constants
 export const ROBOTICS_MODEL_NAME = 'gemini-robotics-er-1.5-preview';

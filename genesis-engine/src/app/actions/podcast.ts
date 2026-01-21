@@ -5,7 +5,7 @@ import { google } from '@ai-sdk/google';
 
 export async function generatePodcastScript(content: string) {
   const { text } = await generateText({
-    model: google('gemini-1.5-flash'),
+    model: google('gemini-2.0-flash'),
     prompt: `
       You are a world-class podcast producer. 
       Convert the following educational content into a viral, engaging podcast script between two hosts:

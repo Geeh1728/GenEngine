@@ -82,7 +82,27 @@ export const physicistFlow = ai.defineFlow(
             tools: [{ code_execution: {} }]
         });
 
-        if (!output) throw new Error('Physicist failed to generate world state.');
+        if (!output) {
+            console.warn('[Physicist] Generation failed. Returning fallback state.');
+            return {
+                scenario: "Fallback Physics",
+                mode: "PHYSICS",
+                explanation: "The AI is overwhelmed, but here is a default physics block.",
+                entities: [{ 
+                    id: "fallback-cube", 
+                    type: "cube", 
+                    position: { x: 0, y: 5, z: 0 }, 
+                    dimensions: { x: 1, y: 1, z: 1 },
+                    physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                    color: "#3b82f6",
+                    name: "Resilience Cube"
+                }],
+                environment: {
+                    gravity: { x: 0, y: -9.81, z: 0 },
+                    timeScale: 1
+                }
+            };
+        }
         return output;
     }
 );
