@@ -113,6 +113,9 @@ export default function Home() {
     alert("Knowledge Crystal Manifested! Study bundle exported to your workspace.");
   };
 
+  // View Logic: "Nuclear Option" - If Physics Mode is active, hide EVERYTHING else.
+  const isPhysicsMode = worldState?.mode === 'PHYSICS';
+
   return (
     <main className="min-h-screen relative overflow-hidden font-inter text-foreground bg-[#020205]">
       <NeuralBackground />
@@ -163,7 +166,8 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Navigation / Header */}
+      {/* Navigation / Header - Hide in Physics Mode */}
+      {!isPhysicsMode && (
       <nav className="relative z-50 flex justify-between items-center px-12 py-6 border-b border-white/5 backdrop-blur-md bg-black/20">
         <div className="flex items-center gap-3">
           <motion.div
@@ -186,11 +190,12 @@ export default function Home() {
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
         </div>
       </nav>
+      )}
 
       <div className="relative z-10 flex h-[calc(100vh-100px)]">
         {/* God Mode Panel */}
         <AnimatePresence>
-          {isIngested && !skillTree && (
+          {isIngested && !skillTree && !isPhysicsMode && (
             <GodModePanel
               complexity={godModeState.complexity}
               onComplexityChange={setComplexity}
@@ -229,7 +234,7 @@ export default function Home() {
             {/* VIEW CONTROLLER: Determines which "Screen" to show based on state */}
             
             {/* 1. EMPTY STATE: No content, no active physics mode */}
-            {!skillTree && !isIngested && worldState?.mode !== 'PHYSICS' ? (
+            {!skillTree && !isIngested && !isPhysicsMode ? (
               <motion.div
                 key="empty-state"
                 initial={{ opacity: 0 }}
@@ -317,12 +322,20 @@ export default function Home() {
                 className="relative z-10 w-full h-full flex flex-col items-center gap-8 py-8 pointer-events-none"
               >
                 <div className="text-center pointer-events-auto">
+                  {/* Clean UI: Hide Title in Physics Mode */}
+                  {!isPhysicsMode && (
+                  <>
                   <h2 className="text-4xl font-outfit font-bold mb-2 tracking-tight text-white">{activeNode?.label || sourceTitle}</h2>
                   <p className="text-blue-400 text-[10px] uppercase tracking-[0.8em]">{activeNode?.engineMode || 'Laboratory'} Sandbox</p>
+                  </>
+                  )}
                   
-                  {activeNode && (
+                  {(activeNode || isPhysicsMode) && (
                     <button 
-                      onClick={() => setActiveNode(null)}
+                      onClick={() => {
+                        setActiveNode(null);
+                        setWorldState(null); // Reset Physics
+                      }}
                       className="mt-4 text-[8px] uppercase font-bold tracking-widest text-gray-500 hover:text-white transition-all flex items-center gap-2 mx-auto"
                     >
                       <X className="w-3 h-3" /> Exit Simulation
@@ -331,6 +344,8 @@ export default function Home() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start w-full max-w-6xl px-12 pointer-events-auto">
+                  {/* HIDE ALL CARDS IN PHYSICS MODE */}
+                  {!isPhysicsMode && (
                   <div className="flex flex-col gap-6">
                     <SimulationCard
                       title={worldState?.scenario || activeNode?.label || "Simulation"}
@@ -395,6 +410,7 @@ export default function Home() {
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Empty space for the Holodeck which is in the background */}
                   <div className="min-h-[400px]" />
@@ -402,7 +418,7 @@ export default function Home() {
 
                 {/* Grounding Agent - Phase 4 */}
                 <div className="w-full max-w-4xl mt-auto pointer-events-auto">
-                  {commentary && (
+                  {!isPhysicsMode && commentary && (
                     <GroundingAgent
                       complexity={godModeState.complexity}
                       isListening={isListening}
@@ -414,7 +430,7 @@ export default function Home() {
 
                 {/* Real-World Sync - Phase 4 */}
                 <div className="pointer-events-auto">
-                  {commentary && (
+                  {!isPhysicsMode && commentary && (
                     <RealWorldSync
                       sourceTitle={sourceTitle}
                       youtubeId={commentary.suggestedYoutubeId}
@@ -424,7 +440,7 @@ export default function Home() {
 
                 {/* Mastery Challenge Modal - Phase 5 */}
                 <div className="pointer-events-auto">
-                  {masteryState.isChallengeOpen && (
+                  {!isPhysicsMode && masteryState.isChallengeOpen && (
                     <MasteryChallenge
                       questions={masteryState.questions}
                       onComplete={handleMasteryComplete}
@@ -435,14 +451,17 @@ export default function Home() {
 
                 {/* Knowledge Crystal Export - Phase 5 */}
                 <div className="pointer-events-auto">
+                  {!isPhysicsMode && (
                   <KnowledgeCrystal
                     isUnlocked={masteryState.isCrystalUnlocked}
                     score={masteryState.score}
                     onExport={handleExport}
                   />
+                  )}
                 </div>
 
-                {/* Babel Node - Phase 6 */}
+                {/* Babel Node - Phase 6 - INVISIBLE IN PHYSICS MODE */}
+                {!isPhysicsMode && (
                 <div className="absolute bottom-10 left-10 z-[60] pointer-events-auto">
                   {worldState && (
                     <BabelNode
@@ -453,6 +472,7 @@ export default function Home() {
                     />
                   )}
                 </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -460,13 +480,14 @@ export default function Home() {
 
         {/* Global Constraints / Rules Sidebar */}
         <AnimatePresence>
-          {isIngested && (
+          {isIngested && !isPhysicsMode && (
             <WorldRulesList rules={worldRules} />
           )}
         </AnimatePresence>
       </div>
 
       {/* Footer Status */}
+      {!isPhysicsMode && (
       <footer className="fixed bottom-0 left-0 right-0 px-12 py-4 flex justify-between items-center text-[8px] uppercase tracking-[0.5em] text-gray-700 font-bold border-t border-white/5 bg-[#020205]/95 backdrop-blur-xl z-[100]">
         <span>Genesis Engine // INTERVENTION MODE</span>
         <div className="flex gap-12">
@@ -477,6 +498,7 @@ export default function Home() {
           <span className="text-blue-900">Quantum Link: Stable</span>
         </div>
       </footer>
+      )}
 
       {/* The Universal Interface */}
       <OmniBar 
