@@ -1,5 +1,24 @@
 import { ai, geminiFlash } from './genkit/config';
 
+// Robust YouTube Metadata Fetcher (Server-Side)
+export async function fetchYouTubeMetadata(url: string) {
+    try {
+        // 1. Try oEmbed (No API Key needed, standard protocol)
+        const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+        const response = await fetch(oembedUrl);
+        if (!response.ok) throw new Error('oEmbed failed');
+        const data = await response.json();
+        return {
+            title: data.title,
+            author: data.author_name,
+            description: "YouTube Video content" // oEmbed doesn't give full description
+        };
+    } catch (error) {
+        console.error('YouTube Fetch Error:', error);
+        return { title: 'Unknown Video', description: '' };
+    }
+}
+
 // THE R0 IMPROVEMENT: Keyframe Sampling
 // Instead of sending the full video URI (Expensive/Slow):
 

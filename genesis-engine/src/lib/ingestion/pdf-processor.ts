@@ -1,27 +1,17 @@
-import * as pdfjsLib from 'pdfjs-dist';
-// Set the worker source - this usually needs to point to a public file in Next.js or CDN
-// For local-first, the worker should be bundled. We'll set it dynamically or assume standard setup.
-// pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'; 
+// Robust PDF Processor for Serverless Environments
+import pdfParse from 'pdf-parse';
 
 export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const doc = await loadingTask.promise;
-
-    let fullText = '';
-
-    for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-            .map((item) => {
-                const textItem = item as { str?: string };
-                return textItem.str || '';
-            })
-            .join(' ');
-        fullText += pageText + '\n\n';
+    try {
+        // 1. Try pdf-parse (Stable in Node.js)
+        const buffer = Buffer.from(arrayBuffer);
+        const data = await pdfParse(buffer);
+        return data.text;
+    } catch (error) {
+        console.error("Primary PDF Parse Failed:", error);
+        // Fallback or Graceful Failure
+        return "Error: Could not parse PDF text. Please ensure the PDF contains selectable text.";
     }
-
-    return fullText;
 }
 
 export function chunkText(text: string, chunkSize = 1000): string[] {

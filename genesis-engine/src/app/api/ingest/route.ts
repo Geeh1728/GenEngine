@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { embeddingModel, cleanText } from "@/lib/google";
 import { extractTextFromPDF } from "@/lib/ingestion/pdf-processor";
 
+// Vercel / Next.js Config for Long-Running Processes
+export const maxDuration = 60; // Increase to 60 seconds (Pro/Hobby limit)
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
     try {
         // 1. Receive the File
