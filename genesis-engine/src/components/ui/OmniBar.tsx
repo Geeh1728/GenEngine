@@ -21,9 +21,10 @@ import { queryKnowledge } from '@/lib/db/pglite';
 
 interface OmniBarProps {
     onCameraClick: () => void;
+    engine: ReturnType<typeof useGenesisEngine>;
 }
 
-export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick }) => {
+export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick, engine }) => {
     const [prompt, setPrompt] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [status, setStatus] = useState<'idle' | 'compiling' | 'error'>('idle');
@@ -39,7 +40,7 @@ export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick }) => {
         interactionState,
         handleIngest,
         isProcessing
-    } = useGenesisEngine();
+    } = engine;
 
     const isYouTube = /youtube\.com|youtu\.be/.test(prompt);
     const isThinking = isProcessing || interactionState === 'BUILDING';

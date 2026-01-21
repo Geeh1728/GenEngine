@@ -64,6 +64,40 @@ export default function Home() {
     startSimulation,
     neuralEngineProgress
   } = useGenesisEngine();
+  
+  // Create a handy reference to the whole engine object to pass down
+  const engine = {
+    isIngested,
+    isProcessing,
+    worldRules,
+    sourceTitle,
+    error,
+    isObserved,
+    godModeState,
+    worldState,
+    commentary,
+    masteryState, 
+    handleIngest,
+    toggleRule,
+    handleConstantChange,
+    setComplexity,
+    setIsObserved,
+    startMasteryChallenge,
+    setMasteryState,
+    handleMasteryComplete,
+    isPaused,
+    diagnostics,
+    handleSimulationFailure,
+    resetSimulation,
+    setWorldState,
+    gardenState,
+    isSabotaged,
+    skillTree,
+    activeNode,
+    completedNodeIds,
+    startSimulation,
+    neuralEngineProgress
+  };
 
   const [isListening, setIsListening] = useState(false);
   const [isRealityLensOpen, setIsRealityLensOpen] = useState(false);
@@ -456,6 +490,7 @@ export default function Home() {
       {/* The Universal Interface */}
       <OmniBar 
         onCameraClick={() => setIsRealityLensOpen(true)}
+        engine={engine} // Pass the engine instance
       />
 
       {/* Reality Diff / Diagnostics Panel */}
