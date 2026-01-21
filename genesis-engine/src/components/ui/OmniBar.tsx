@@ -22,10 +22,19 @@ import { queryKnowledge } from '@/lib/db/pglite';
 interface OmniBarProps {
     onCameraClick: () => void;
     engine: ReturnType<typeof useGenesisEngine>;
+    initialPrompt?: string; // Optional prompt from parent
+    externalPrompt?: string; // Controlled prop
+    onPromptChange?: (val: string) => void; // Controlled prop handler
 }
 
-export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engine }) => {
-    const [prompt, setPrompt] = useState('');
+export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engine, externalPrompt, onPromptChange }) => {
+    // Internal state is fallback if no external control provided
+    const [internalPrompt, setInternalPrompt] = useState('');
+    
+    // Use controlled or uncontrolled state
+    const prompt = externalPrompt !== undefined ? externalPrompt : internalPrompt;
+    const setPrompt = onPromptChange || setInternalPrompt;
+
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [status, setStatus] = useState<'idle' | 'compiling' | 'error'>('idle');
     const [isListening, setIsListening] = useState(false);
@@ -216,7 +225,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                         onKeyDown={handleKeyDown}
                         placeholder={isThinking ? "Consulting the Council..." : "Ask Genesis / Paste YouTube URL..."}
                         disabled={isThinking}
-                        className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-gray-500 text-base font-medium py-3 px-2 resize-none max-h-48 scrollbar-none"
+                        className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-gray-500 text-base font-medium py-3 px-2 resize-none max-h-48 scrollbar-none font-mono"
                     />
 
                     {/* Action Buttons */}

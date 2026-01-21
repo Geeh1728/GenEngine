@@ -72,6 +72,7 @@ export default function Home() {
   const [isListening, setIsListening] = useState(false);
   const [isRealityLensOpen, setIsRealityLensOpen] = useState(false);
   const [isGardenOpen, setIsGardenOpen] = useState(false);
+  const [omniPrompt, setOmniPrompt] = useState(''); // Lifted state for OmniBar
   
   // Module A-2: Genesis Radio
   const [podcastScript, setPodcastScript] = useState<{host: 'A' | 'B', text: string}[] | null>(null);
@@ -244,6 +245,23 @@ export default function Home() {
                   </h1>
                   <p className="text-gray-500 text-sm uppercase tracking-[0.5em]">The Ultimate Aggregator</p>
                   
+                  {/* Starter Chips */}
+                  <div className="mt-8 flex gap-3 flex-wrap justify-center pointer-events-auto">
+                    {[
+                      "Show me Gravity",
+                      "Scan Homework", 
+                      "Simulate Inflation"
+                    ].map((chip) => (
+                      <button
+                        key={chip}
+                        onClick={() => setOmniPrompt(chip)}
+                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-mono border border-white/10 hover:border-blue-500/50 rounded-full transition-all backdrop-blur-sm"
+                      >
+                        [{chip}]
+                      </button>
+                    ))}
+                  </div>
+
                   {error && (
                     <p className="mt-8 text-red-400 text-xs font-medium uppercase tracking-widest bg-red-400/5 px-4 py-2 rounded-full border border-red-400/10 pointer-events-auto">
                       Error: {error}
@@ -460,7 +478,9 @@ export default function Home() {
       {/* The Universal Interface */}
       <OmniBar 
         onCameraClick={() => setIsRealityLensOpen(true)}
-        engine={engine} // Pass the engine instance
+        engine={engine}
+        externalPrompt={omniPrompt}
+        onPromptChange={setOmniPrompt}
       />
 
       {/* Reality Diff / Diagnostics Panel */}
