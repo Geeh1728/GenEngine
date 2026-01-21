@@ -57,7 +57,10 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
             return { 
                 success: false, 
                 isBlocked: true, 
-                message: result.message || 'Input rejected by the Socratic Saboteur.' 
+                // Map message to 'error' so OmniBar displays it correctly
+                error: result.message || 'Input rejected by the Socratic Saboteur.',
+                message: result.message,
+                nativeReply: result.nativeReply
             };
         }
 
