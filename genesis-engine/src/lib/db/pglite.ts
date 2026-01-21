@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-// import { vector } from '@electric-sql/pglite/vector'; // Waiting for official submodule export
+import { vector } from '@electric-sql/pglite/vector';
 
 // Global variable to hold the DB instance in the browser
 let dbInstance: PGlite | null = null;
@@ -16,8 +16,8 @@ export const getDB = async (): Promise<PGlite | null> => {
 
   if (!dbInstance) {
     // Initialize PGlite with IndexedDB persistence
-    dbInstance = new PGlite('idb://genesis-db', {
-      // extensions: { vector }, // Uncomment when vector extension is standard
+    dbInstance = await PGlite.create('idb://genesis-db', {
+      extensions: { vector },
     });
 
     // Initialize schema (run once)
