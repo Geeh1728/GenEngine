@@ -5,6 +5,7 @@ import { embeddingModel } from '@/lib/google';
 import { shieldInput, shieldOutput, checkRateLimit } from '@/lib/security/armor';
 import { orchestratorFlow } from '@/lib/genkit/agents/orchestrator';
 import { architectFlow } from '@/lib/genkit/agents/architect';
+import { sanitizeInput } from '@/lib/utils/text';
 
 export async function generateCurriculum(userGoal: string) {
     try {
@@ -97,9 +98,13 @@ export async function processMultimodalIntent(params: {
     try {
         if (!(await checkRateLimit())) throw new Error('Neural link bandwidth exceeded.');
 
+        // SANITIZE HERE: Strip harmful box-characters that crash the API
+        const cleanText = params.text ? sanitizeInput(params.text) : params.text;
+        
         const result = await orchestratorFlow({
             mode: 'AUTO',
             ...params,
+            text: cleanText, // Use sanitized text
             isSabotageMode: Math.random() < 0.2
         });
 
