@@ -86,8 +86,13 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                         const currentEntities = prev?.entities || [];
                         const newMode = prev?.mode || 'PHYSICS';
                         
-                        // Auto-Spawn Test Subject if empty
+                        // CLEANUP: Wipe bridge if active
                         let newEntities = [...currentEntities];
+                        if (prev?.scenario === "Suspension Bridge Test") {
+                            newEntities = [];
+                        }
+
+                        // Auto-Spawn Test Subject if empty
                         if (newEntities.length === 0) {
                             newEntities = [{
                                 id: 'demo-cube',

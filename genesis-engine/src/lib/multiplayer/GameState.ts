@@ -60,8 +60,14 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             const currentWorld = state.worldState;
             const newMode = currentWorld.mode || 'PHYSICS';
             
-            // Auto-Spawn: If world is empty, spawn a "Test Object" so the user sees the physics change
+            // CLEANUP: If we are in the default "Suspension Bridge" and changing physics,
+            // wipe the bridge so the user can see the simple physics clearly.
             let newEntities = currentWorld.entities || [];
+            if (currentWorld.scenario === "Suspension Bridge Test") {
+                newEntities = []; // Clear the bridge
+            }
+
+            // Auto-Spawn: If world is empty (or we just cleared it), spawn a "Test Object"
             if (newEntities.length === 0) {
                 newEntities = [{
                     id: 'demo-cube',
