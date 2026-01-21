@@ -70,13 +70,13 @@ export default function Home() {
     neuralEngineProgress,
     setActiveNode,
     setError,
+    omniPrompt,
     setOmniPrompt
   } = engine;
 
   const [isListening, setIsListening] = useState(false);
   const [isRealityLensOpen, setIsRealityLensOpen] = useState(false);
   const [isGardenOpen, setIsGardenOpen] = useState(false);
-  const [omniPrompt, setOmniPrompt] = useState(''); // Lifted state for OmniBar
   
   // Module A-2: Genesis Radio
   const [podcastScript, setPodcastScript] = useState<{host: 'A' | 'B', text: string}[] | null>(null);

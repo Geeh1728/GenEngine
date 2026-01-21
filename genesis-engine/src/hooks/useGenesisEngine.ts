@@ -105,6 +105,7 @@ export function useGenesisEngine() {
     const [diagnostics, setDiagnostics] = useState<DiagnosticsState | null>(null);
     const [lastHypothesis, setLastHypothesis] = useState('');
     const [isSabotaged, setIsSabotaged] = useState(false);
+    const [omniPrompt, setOmniPrompt] = useState('');
 
     // --- Mind Garden ---
     const [gardenState, setGardenState] = useState<GardenState>({
@@ -424,6 +425,8 @@ export function useGenesisEngine() {
         generateSkillTree,
         startSimulation,
         setCompletedNodeIds,
-        setActiveNode
+        setActiveNode,
+        omniPrompt,
+        setOmniPrompt
     };
 }
