@@ -32,6 +32,10 @@ const NeuralBackground = dynamic(() => import('@/components/ui/NeuralBackground'
  * Refactored for clean architecture, unified input (Omni-Bar), and Titan v3.5 features.
  */
 export default function Home() {
+  const engine = useGenesisEngine();
+  
+  // Destructure for local cleaner usage in the JSX, 
+  // but keep 'engine' intact for passing to children.
   const {
     isIngested,
     isProcessing,
@@ -62,56 +66,8 @@ export default function Home() {
     activeNode,
     completedNodeIds,
     startSimulation,
-    neuralEngineProgress,
-    setError,
-    setLastHypothesis
-  } = useGenesisEngine();
-  
-  // Create a handy reference to the whole engine object to pass down
-  // MEMOIZED to prevent Input Lag in OmniBar during physics loops
-  const engine = useMemo(() => ({
-    isIngested,
-    isProcessing,
-    worldRules,
-    sourceTitle,
-    error,
-    isObserved,
-    godModeState,
-    worldState,
-    commentary,
-    masteryState, 
-    handleIngest,
-    toggleRule,
-    handleConstantChange,
-    setComplexity,
-    setIsObserved,
-    startMasteryChallenge,
-    setMasteryState,
-    handleMasteryComplete,
-    isPaused,
-    diagnostics,
-    handleSimulationFailure,
-    resetSimulation,
-    setWorldState,
-    gardenState,
-    isSabotaged,
-    skillTree,
-    activeNode,
-    completedNodeIds,
-    startSimulation,
-    neuralEngineProgress,
-    setError,
-    setLastHypothesis
-  }), [
-    isIngested, isProcessing, worldRules, sourceTitle, error, isObserved,
-    godModeState, worldState, commentary, masteryState, handleIngest,
-    toggleRule, handleConstantChange, setComplexity, setIsObserved,
-    startMasteryChallenge, setMasteryState, handleMasteryComplete,
-    isPaused, diagnostics, handleSimulationFailure, resetSimulation,
-    setWorldState, gardenState, isSabotaged, skillTree, activeNode,
-    completedNodeIds, startSimulation, neuralEngineProgress, setError,
-    setLastHypothesis
-  ]);
+    neuralEngineProgress
+  } = engine;
 
   const [isListening, setIsListening] = useState(false);
   const [isRealityLensOpen, setIsRealityLensOpen] = useState(false);
