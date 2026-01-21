@@ -195,7 +195,7 @@ export function useGenesisEngine() {
         }
     }, [godModeState.complexity]);
 
-    const handleIngest = async (file: File) => {
+    const handleIngest = useCallback(async (file: File) => {
         setIsProcessing(true);
         setError(null);
         try {
@@ -252,7 +252,7 @@ export function useGenesisEngine() {
         } finally {
             setIsProcessing(false);
         }
-    };
+    }, [fetchWorldState, generateSkillTree]);
 
     const updateCommentary = useCallback(async (intent?: string) => {
         try {
@@ -291,7 +291,7 @@ export function useGenesisEngine() {
         return () => clearInterval(interval);
     }, [updateGardenHealth]);
 
-    const toggleRule = (id: string) => {
+    const toggleRule = useCallback((id: string) => {
         setWorldRules(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));
         setGodModeState(prev => {
             const isOverridden = prev.overrides.includes(id);
@@ -302,20 +302,20 @@ export function useGenesisEngine() {
                     : [...prev.overrides, id]
             };
         });
-    };
+    }, []);
 
-    const handleConstantChange = (name: string, value: number) => {
+    const handleConstantChange = useCallback((name: string, value: number) => {
         setGodModeState(prev => ({
             ...prev,
             constants: { ...prev.constants, [name]: value }
         }));
-    };
+    }, []);
 
-    const setComplexity = (complexity: ComplexityLevel) => {
+    const setComplexity = useCallback((complexity: ComplexityLevel) => {
         setGodModeState(prev => ({ ...prev, complexity }));
-    };
+    }, []);
 
-    const startMasteryChallenge = async () => {
+    const startMasteryChallenge = useCallback(async () => {
         setMasteryState(prev => ({ ...prev, isGenerating: true }));
         try {
             const response = await fetch('/api/mastery', {
@@ -339,15 +339,15 @@ export function useGenesisEngine() {
             console.error('Failed to start mastery challenge', err);
             setMasteryState(prev => ({ ...prev, isGenerating: false }));
         }
-    };
+    }, [worldRules, godModeState.complexity]);
 
-    const handleMasteryComplete = (score: number) => {
+    const handleMasteryComplete = useCallback((score: number) => {
         setMasteryState(prev => ({
             ...prev,
             score,
             isCrystalUnlocked: true
         }));
-    };
+    }, []);
 
     const handleSimulationFailure = useCallback((outcome: string) => {
         if (!worldState) return;
@@ -368,11 +368,11 @@ export function useGenesisEngine() {
         }
     }, [worldState, lastHypothesis, failureCount]);
 
-    const resetSimulation = () => {
+    const resetSimulation = useCallback(() => {
         setIsPaused(false);
         setDiagnostics(null);
         setIsQuestVisible(false);
-    };
+    }, []);
 
     useEffect(() => {
         if (isIngested) {

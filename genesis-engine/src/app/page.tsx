@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { WorldRulesList } from '@/components/ingestion/WorldRulesList';
@@ -68,7 +68,8 @@ export default function Home() {
   } = useGenesisEngine();
   
   // Create a handy reference to the whole engine object to pass down
-  const engine = {
+  // MEMOIZED to prevent Input Lag in OmniBar during physics loops
+  const engine = useMemo(() => ({
     isIngested,
     isProcessing,
     worldRules,
@@ -101,7 +102,16 @@ export default function Home() {
     neuralEngineProgress,
     setError,
     setLastHypothesis
-  };
+  }), [
+    isIngested, isProcessing, worldRules, sourceTitle, error, isObserved,
+    godModeState, worldState, commentary, masteryState, handleIngest,
+    toggleRule, handleConstantChange, setComplexity, setIsObserved,
+    startMasteryChallenge, setMasteryState, handleMasteryComplete,
+    isPaused, diagnostics, handleSimulationFailure, resetSimulation,
+    setWorldState, gardenState, isSabotaged, skillTree, activeNode,
+    completedNodeIds, startSimulation, neuralEngineProgress, setError,
+    setLastHypothesis
+  ]);
 
   const [isListening, setIsListening] = useState(false);
   const [isRealityLensOpen, setIsRealityLensOpen] = useState(false);

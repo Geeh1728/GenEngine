@@ -24,7 +24,7 @@ interface OmniBarProps {
     engine: ReturnType<typeof useGenesisEngine>;
 }
 
-export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick, engine }) => {
+export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engine }) => {
     const [prompt, setPrompt] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [status, setStatus] = useState<'idle' | 'compiling' | 'error'>('idle');
@@ -254,4 +254,4 @@ export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick, engine }) => {
             </motion.div>
         </div>
     );
-};
+});
