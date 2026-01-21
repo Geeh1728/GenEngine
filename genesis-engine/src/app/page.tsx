@@ -17,6 +17,7 @@ import { MindGarden } from '@/components/simulation/MindGarden';
 import AudioPlayer from '@/components/ui/AudioPlayer';
 import SkillTree from '@/components/ui/SkillTree';
 import { OmniBar } from '@/components/ui/OmniBar';
+import { SaboteurDialogue } from '@/components/ui/SaboteurDialogue';
 import { generatePodcastScript } from '@/app/actions/podcast';
 import { runPython } from '@/lib/python/pyodide';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
@@ -67,7 +68,9 @@ export default function Home() {
     completedNodeIds,
     startSimulation,
     neuralEngineProgress,
-    setActiveNode
+    setActiveNode,
+    setError,
+    setOmniPrompt
   } = engine;
 
   const [isListening, setIsListening] = useState(false);
@@ -114,12 +117,31 @@ export default function Home() {
     alert("Knowledge Crystal Manifested! Study bundle exported to your workspace.");
   };
 
+  const handleSaboteurReply = (reply: string) => {
+    setOmniPrompt?.(reply);
+    setError(null);
+  };
+
+  // Detect if error is actually a Socratic question
+  const isSocraticQuestion = error?.trim().endsWith('?');
+
   // View Logic: "Nuclear Option" - If Physics Mode is active, hide EVERYTHING else.
   const isPhysicsMode = worldState?.mode === 'PHYSICS';
 
   return (
     <main className="min-h-screen relative overflow-hidden font-inter text-foreground bg-[#020205]">
       <NeuralBackground />
+
+      {/* Module S: Saboteur Dialogue Challenge */}
+      <AnimatePresence>
+        {isSocraticQuestion && error && (
+          <SaboteurDialogue
+            question={error}
+            onReply={handleSaboteurReply}
+            onClose={() => setError(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Module A: Neural Engine Progress */}
       <AnimatePresence>
@@ -263,7 +285,7 @@ export default function Home() {
                     ].map((chip) => (
                       <button
                         key={chip}
-                        onClick={() => setOmniPrompt(chip)}
+                        onClick={() => setOmniPrompt?.(chip)}
                         className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-mono border border-white/10 hover:border-blue-500/50 rounded-full transition-all backdrop-blur-sm"
                       >
                         [{chip}]
@@ -271,7 +293,7 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {error && (
+                  {error && !isSocraticQuestion && (
                     <p className="mt-8 text-red-400 text-xs font-medium uppercase tracking-widest bg-red-400/5 px-4 py-2 rounded-full border border-red-400/10 pointer-events-auto">
                       Error: {error}
                     </p>
@@ -336,6 +358,7 @@ export default function Home() {
                       onClick={() => {
                         setActiveNode(null);
                         setWorldState(null); // Reset Physics
+                        setError(null); // Clear errors
                       }}
                       className="mt-4 text-[8px] uppercase font-bold tracking-widest text-gray-500 hover:text-white transition-all flex items-center gap-2 mx-auto"
                     >

@@ -217,6 +217,11 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ worldState
     }
 
     // Default to RAP (Physics Engine)
+    const entities = worldState.entities || [];
+    
+    // Ensure there is always a "Ground" and at least one object to observe
+    const hasGround = entities.some(e => e.id === 'ground' || e.name?.toLowerCase().includes('ground'));
+    
     return (
         <group>
             {/* The Sentinel Overlay (Visual Thinking Feedback) */}
@@ -236,8 +241,19 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ worldState
                 </Html>
             )}
 
+            {/* Auto-Ground (Fallback) */}
+            {!hasGround && (
+                <RigidBody type="fixed" position={[0, -0.5, 0]}>
+                    <mesh receiveShadow>
+                        <boxGeometry args={[100, 1, 100]} />
+                        <meshStandardMaterial color="#111" />
+                    </mesh>
+                    <CuboidCollider args={[50, 0.5, 50]} />
+                </RigidBody>
+            )}
+
             {/* Entities */}
-            {worldState.entities?.map(entity => (
+            {entities.length > 0 ? entities.map(entity => (
                 <EntityRenderer
                     key={entity.id}
                     entity={entity}
@@ -245,7 +261,23 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ worldState
                     onCollision={onCollision}
                     blackboardContext={bbCtx}
                 />
-            ))}
+            )) : (
+                // Fallback Test Subject if world is completely empty
+                <EntityRenderer 
+                    entity={{
+                        id: 'sentinel-cube',
+                        type: 'cube',
+                        position: { x: 0, y: 5, z: 0 },
+                        dimensions: { x: 1, y: 1, z: 1 },
+                        physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                        color: '#3b82f6',
+                        name: 'Sentinel Cube'
+                    }}
+                    onRegister={registerRb}
+                    onCollision={onCollision}
+                    blackboardContext={bbCtx}
+                />
+            )}
 
             {/* Joints */}
             {worldState.joints?.map(joint => (

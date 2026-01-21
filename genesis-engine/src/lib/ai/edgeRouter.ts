@@ -13,9 +13,13 @@ export type LocalTool =
 export async function routeIntentLocally(input: string): Promise<LocalTool | null> {
     const text = input.toLowerCase();
 
-    // Heuristic-based routing (Local FunctionGemma emulation)
-    // In a full implementation, this would use a tiny quantized LLM (e.g. Gemma 2B) via WebLLM/MediaPipe
+    // STRICT GUARD: If user mentions objects or complex simulations, bypass local routing
+    if (text.includes('car') || text.includes('bomb') || text.includes('bridge') || 
+        text.includes('simulate') || text.includes('build') || text.includes('make')) {
+        return null;
+    }
 
+    // Heuristic-based routing (Local FunctionGemma emulation)
     if (text.includes('gravity') || text.includes('weightless') || text.includes('heavy')) {
         const gravity = { x: 0, y: -9.81, z: 0 };
         if (text.includes('zero') || text.includes('off') || text.includes('weightless')) gravity.y = 0;
