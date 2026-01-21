@@ -48,7 +48,8 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
         setIsSabotaged,
         isSabotaged,
         handleIngest,
-        isProcessing
+        isProcessing,
+        setActiveChallenge // Add this
     } = engine;
 
     const isYouTube = /youtube\.com|youtu\.be/.test(prompt);
@@ -157,9 +158,17 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
             }
         } catch (err) {
             console.error('[OmniBar] Error:', err);
-            setStatus('error');
-            setError(err instanceof Error ? err.message : 'Unknown error');
-            setTimeout(() => setStatus('idle'), 2000);
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            
+            // CHALLENGE INTERCEPTION: If it looks like a question, it's Socrates, not a crash.
+            if (msg.includes('?') || msg.toLowerCase().includes('considering')) {
+                setActiveChallenge(msg);
+                setStatus('idle');
+            } else {
+                setStatus('error');
+                setError(msg);
+                setTimeout(() => setStatus('idle'), 2000);
+            }
         }
     };
 

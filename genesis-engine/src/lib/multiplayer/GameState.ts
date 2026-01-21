@@ -21,6 +21,7 @@ export interface GlobalGameState {
     interactionState: InteractionState;
     players: Record<string, PlayerState>;
     lastUpdated: number;
+    activeChallenge: string | null; // Socratic questions from Critic
 }
 
 export type GameAction =
@@ -30,6 +31,8 @@ export type GameAction =
     | { type: 'PLAYER_MOVE'; payload: { id: string; position: [number, number, number] } }
     | { type: 'PLAYER_LEAVE'; payload: { id: string } }
     | { type: 'UPDATE_WORLD_ENVIRONMENT'; payload: Record<string, unknown> }
+    | { type: 'SET_CHALLENGE'; payload: string }
+    | { type: 'CLEAR_CHALLENGE' }
     | { type: 'RESET_SIMULATION' };
 
 export const initialGameState: GlobalGameState = {
@@ -38,6 +41,7 @@ export const initialGameState: GlobalGameState = {
     interactionState: 'IDLE',
     players: {},
     lastUpdated: Date.now(),
+    activeChallenge: null,
 };
 
 /**
@@ -45,6 +49,10 @@ export const initialGameState: GlobalGameState = {
  */
 export function gameReducer(state: GlobalGameState, action: GameAction): GlobalGameState {
     switch (action.type) {
+        case 'SET_CHALLENGE':
+            return { ...state, activeChallenge: action.payload };
+        case 'CLEAR_CHALLENGE':
+            return { ...state, activeChallenge: null };
         case 'SYNC_WORLD':
             return {
                 ...state,

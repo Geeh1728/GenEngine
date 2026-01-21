@@ -71,7 +71,9 @@ export default function Home() {
     setActiveNode,
     setError,
     omniPrompt,
-    setOmniPrompt
+    setOmniPrompt,
+    activeChallenge,
+    setActiveChallenge
   } = engine;
 
   const [isListening, setIsListening] = useState(false);
@@ -104,7 +106,7 @@ export default function Home() {
   };
 
   const handleTeleport = (newEntities: Entity[]) => {
-    setWorldState(prev => {
+    setWorldState((prev: any) => {
       if (!prev) return null;
       return {
         ...prev,
@@ -119,11 +121,8 @@ export default function Home() {
 
   const handleSaboteurReply = (reply: string) => {
     setOmniPrompt?.(reply);
-    setError(null);
+    setActiveChallenge(null);
   };
-
-  // Detect if error is actually a Socratic question
-  const isSocraticQuestion = error?.trim().endsWith('?');
 
   // View Logic: "Nuclear Option" - If Physics Mode is active, hide EVERYTHING else.
   const isPhysicsMode = worldState?.mode === 'PHYSICS';
@@ -134,11 +133,11 @@ export default function Home() {
 
       {/* Module S: Saboteur Dialogue Challenge */}
       <AnimatePresence>
-        {isSocraticQuestion && error && (
+        {activeChallenge && (
           <SaboteurDialogue
-            question={error}
+            question={activeChallenge}
             onReply={handleSaboteurReply}
-            onClose={() => setError(null)}
+            onClose={() => setActiveChallenge(null)}
           />
         )}
       </AnimatePresence>
