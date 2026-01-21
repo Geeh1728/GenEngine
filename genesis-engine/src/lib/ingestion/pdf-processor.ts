@@ -1,5 +1,5 @@
 // Robust PDF Processor for Serverless Environments
-import pdfParse from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 
 export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
     try {
