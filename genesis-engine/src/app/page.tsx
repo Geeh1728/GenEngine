@@ -62,7 +62,9 @@ export default function Home() {
     activeNode,
     completedNodeIds,
     startSimulation,
-    neuralEngineProgress
+    neuralEngineProgress,
+    setError,
+    setLastHypothesis
   } = useGenesisEngine();
   
   // Create a handy reference to the whole engine object to pass down
@@ -96,7 +98,9 @@ export default function Home() {
     activeNode,
     completedNodeIds,
     startSimulation,
-    neuralEngineProgress
+    neuralEngineProgress,
+    setError,
+    setLastHypothesis
   };
 
   const [isListening, setIsListening] = useState(false);

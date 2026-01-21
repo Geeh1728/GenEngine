@@ -37,13 +37,13 @@ export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick, engine }) => {
         setError, 
         setLastHypothesis, 
         setIsSabotaged,
-        interactionState,
+        isSabotaged,
         handleIngest,
         isProcessing
     } = engine;
 
     const isYouTube = /youtube\.com|youtu\.be/.test(prompt);
-    const isThinking = isProcessing || interactionState === 'BUILDING';
+    const isThinking = isProcessing; // Simplified logic without interactionState
 
     // Auto-resize textarea
     useEffect(() => {
@@ -163,7 +163,7 @@ export const OmniBar: React.FC<OmniBarProps> = ({ onCameraClick, engine }) => {
                             <span className="text-[10px] font-black uppercase text-white tracking-widest">Thinking...</span>
                         </motion.div>
                     )}
-                    {interactionState === 'REFLECTION' && (
+                    {isSabotaged && (
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.4)]">
                             <ShieldAlert className="w-3 h-3 text-white animate-bounce" />
                             <span className="text-[10px] font-black uppercase text-white tracking-widest">Anomaly Detected</span>
