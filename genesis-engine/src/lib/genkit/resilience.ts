@@ -8,12 +8,13 @@ interface ResilienceOptions<T extends z.ZodTypeAny> {
     schema: T;
     system?: string;
     retryCount?: number;
+    fallback?: z.infer<T>; // Add this
 }
 
 export async function generateWithResilience<T extends z.ZodTypeAny>(
     options: ResilienceOptions<T>
 ): Promise<z.infer<T> | null> {
-    const { prompt, schema, system, retryCount = 2 } = options;
+    const { prompt, schema, system, retryCount = 2, fallback } = options;
 
     let attempts = 0;
     let currentModel = geminiFlash; // Start with Lite (Quota friendly)
@@ -74,5 +75,5 @@ export async function generateWithResilience<T extends z.ZodTypeAny>(
     }
 
     console.error('[Resilience] All attempts failed.');
-    return null;
+    return fallback || null;
 }

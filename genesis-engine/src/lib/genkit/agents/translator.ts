@@ -37,10 +37,15 @@ export const translatorAgent = ai.defineFlow(
                 If the input is already in English, the EnglishIntent should be the same as the input.
             `,
             schema: TranslatorOutputSchema,
-            retryCount: 2
+            retryCount: 2,
+            fallback: {
+                englishIntent: input.userAudioTranscript, // Use raw transcript as fallback
+                nativeReply: "I'll try to process that for you.",
+                detectedLanguage: "Unknown"
+            }
         });
 
-        if (!output) throw new Error('Translator failed to process input.');
+        if (!output) throw new Error('Translator failed to process input even with fallback.');
         return output;
     }
 );

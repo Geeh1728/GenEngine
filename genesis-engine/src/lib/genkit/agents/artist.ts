@@ -36,12 +36,8 @@ export const artistAgent = ai.defineFlow(
                 4. Grid size: 16x16x16.
             `,
             schema: WorldStateSchema,
-            retryCount: 2
-        });
-
-        if (!output) {
-            console.warn('[Artist] Generation failed. Returning fallback state.');
-            return {
+            retryCount: 2,
+            fallback: {
                 scenario: "Fallback Metaphor Visualization",
                 mode: "VOXEL",
                 description: "A default voxel sculpture provided when the visualization engine fails.",
@@ -58,8 +54,10 @@ export const artistAgent = ai.defineFlow(
                     color: "#a855f7",
                     name: "Resilience Voxel"
                 }]
-            };
-        }
+            }
+        });
+
+        if (!output) throw new Error('Artist failed to visualize concept even with fallback.');
         return output;
     }
 );

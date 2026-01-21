@@ -79,12 +79,8 @@ export const physicistFlow = ai.defineFlow(
             schema: WorldStateSchema,
             retryCount: 2,
             // @ts-expect-error - Enabling code execution tool for Gemini
-            tools: [{ code_execution: {} }]
-        });
-
-        if (!output) {
-            console.warn('[Physicist] Generation failed. Returning fallback state.');
-            return {
+            tools: [{ code_execution: {} }],
+            fallback: {
                 scenario: "Fallback Physics Sandbox",
                 mode: "PHYSICS",
                 description: "A default physics environment provided when the AI engine is under high load.",
@@ -104,8 +100,10 @@ export const physicistFlow = ai.defineFlow(
                     gravity: { x: 0, y: -9.81, z: 0 },
                     timeScale: 1
                 }
-            };
-        }
+            }
+        });
+
+        if (!output) throw new Error('Physicist failed to generate world state even with fallback.');
         return output;
     }
 );

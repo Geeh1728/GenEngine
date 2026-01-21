@@ -43,10 +43,19 @@ export const questAgent = ai.defineFlow(
                 The winCondition must be precise.
             `,
             schema: QuestSchema,
-            retryCount: 2
+            retryCount: 2,
+            fallback: {
+                id: `quest-${Date.now()}`,
+                title: "Exploratory Sandbox",
+                objective: "Observe the simulation mechanics.",
+                description: "The Quest Agent is currently optimizing. Enjoy free-play mode.",
+                winCondition: "true", // Always true or manual check
+                difficulty: "Easy",
+                xpReward: 50
+            }
         });
 
-        if (!output) throw new Error('Quest Agent failed to generate quest.');
+        if (!output) throw new Error('Quest Agent failed even with fallback.');
         return output;
     }
 );

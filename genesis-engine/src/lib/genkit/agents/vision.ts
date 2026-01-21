@@ -76,7 +76,14 @@ export const visionFlow = ai.defineFlow(
                     { media: { url: input.imageBase64, contentType: 'image/jpeg' } }
                 ],
                 schema: StructuralAnalysisSchema,
-                retryCount: 1
+                retryCount: 1,
+                fallback: {
+                    elements: [],
+                    physicsConstraints: ["Visual analysis unavailable"],
+                    stabilityScore: 50,
+                    analysis: "The vision engine was unable to process the image at this time.",
+                    suggestion: "Try uploading a clearer image or a simpler scene."
+                }
             });
         }
     }
