@@ -85,9 +85,12 @@ export const physicistFlow = ai.defineFlow(
         if (!output) {
             console.warn('[Physicist] Generation failed. Returning fallback state.');
             return {
-                scenario: "Fallback Physics",
+                scenario: "Fallback Physics Sandbox",
                 mode: "PHYSICS",
+                description: "A default physics environment provided when the AI engine is under high load.",
                 explanation: "The AI is overwhelmed, but here is a default physics block.",
+                constraints: ["Gravity is active", "Test subject must fall"],
+                successCondition: "The cube interacts with the floor.",
                 entities: [{ 
                     id: "fallback-cube", 
                     type: "cube", 

@@ -42,9 +42,12 @@ export const artistAgent = ai.defineFlow(
         if (!output) {
             console.warn('[Artist] Generation failed. Returning fallback state.');
             return {
-                scenario: "Fallback Metaphor",
+                scenario: "Fallback Metaphor Visualization",
                 mode: "VOXEL",
+                description: "A default voxel sculpture provided when the visualization engine fails.",
                 explanation: "Visualization failed, but here is a default representation.",
+                constraints: ["Static voxel grid", "Fixed position"],
+                successCondition: "The sculpture is rendered.",
                 entities: [{ 
                     id: "fallback-voxel", 
                     type: "cube", 
