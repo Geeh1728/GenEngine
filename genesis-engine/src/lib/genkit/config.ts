@@ -64,6 +64,6 @@ export const gemini3Flash = {
 export const gemini20Flash = geminiFlash;
 
 // Constants
-export const ROBOTICS_MODEL_NAME = 'googleai/gemini-2.5-flash';
+export const ROBOTICS_MODEL_NAME = 'gemini-robotics-er-1.5-preview';
 export const ROBOTICS_FALLBACK_MODEL = geminiPro;
 export const DEEPSEEK_LOGIC_MODEL = 'openai/deepseek/deepseek-r1-distill-llama-8b'; // OpenRouter ID

@@ -9,7 +9,7 @@
 - **GenAI Framework**: [Google Genkit](https://firebase.google.com/docs/genkit)
 - **Models**: 
 - **Gemini 2.5 Flash**: The primary reasoning and multimodal engine.
-- **Gemini 2.5 Flash Lite**: Used for cost-effective, low-latency tasks.
+- **Gemini Robotics ER 1.5**: Spatial understanding and 3D bounding boxes.
 - **Google text-embedding-004**: For RAG and semantic search.
 - **Retrieval**: PGLite (Postgres WASM) for local-first vector search.
 - **Verification**: Socratic Critic Agent + Model Armor principles.
