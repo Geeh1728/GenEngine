@@ -3,7 +3,8 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
-import { OrbitControls, Environment, Sky, Float } from '@react-three/drei';
+import { OrbitControls, Environment, Sky, Float, ContactShadows } from '@react-three/drei';
+import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { UniversalRenderer } from './Renderer';
 import { WorldState } from '@/lib/simulation/schema';
 import { SkillNodeSchema } from '@/lib/genkit/schemas';
@@ -73,10 +74,18 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                         </Physics>
                     )}
 
-                    {/* Environment */}
+                    {/* High-Fidelity Environment */}
                     <Sky sunPosition={[100, 20, 100]} />
                     <Environment preset="night" />
+                    <ContactShadows opacity={0.4} scale={20} blur={24} far={10} resolution={256} color="#000000" />
                     <OrbitControls makeDefault />
+
+                    {/* Neural Post-Processing */}
+                    <EffectComposer disableNormalPass>
+                        <Bloom luminanceThreshold={1} mipmapBlur intensity={0.5} />
+                        <ChromaticAberration offset={[0.0005, 0.0005]} />
+                        <Vignette eskil={false} offset={0.1} darkness={1.1} />
+                    </EffectComposer>
                 </Suspense>
             </Canvas>
 

@@ -307,27 +307,34 @@ export default function Home() {
                 className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black backdrop-blur-3xl"
               >
                 <div className="relative">
-                  <div className="w-32 h-32 border-4 border-blue-500/20 rounded-full animate-pulse" />
-                  <div className="absolute inset-0 w-32 h-32 border-t-4 border-blue-500 rounded-full animate-spin" />
+                  <div className="w-48 h-48 border-[1px] border-blue-500/20 rounded-full animate-[spin_10s_linear_infinite]" />
+                  <div className="absolute inset-0 w-48 h-48 border-t-2 border-blue-500 rounded-full animate-[spin_2s_linear_infinite]" />
+                  <div className="absolute inset-4 w-40 h-40 border-b-2 border-purple-500 rounded-full animate-[spin_3s_linear_infinite_reverse]" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-4 h-4 bg-white rounded-full animate-ping" />
+                    <Brain className="w-12 h-12 text-white animate-pulse" />
                   </div>
                 </div>
-                <h2 className="mt-12 text-sm font-black uppercase tracking-[0.5em] text-blue-400 animate-pulse">Architecting Curriculum...</h2>
-                <p className="mt-4 text-[10px] text-gray-500 uppercase tracking-widest">Compiling Skill Tree // Node: Alpha-7</p>
+                <h2 className="mt-12 text-sm font-black uppercase tracking-[1em] text-blue-400 animate-pulse">Architecting Reality</h2>
+                <p className="mt-4 text-[8px] text-gray-500 uppercase tracking-[0.5em] font-mono">Synthesizing Neural Mastery Path // Node: Alpha-7</p>
               </motion.div>
             ) : skillTree && !activeNode ? (
                <motion.div
                  key="skill-tree-view"
-                 initial={{ opacity: 0, y: 20 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 className="absolute inset-0 z-40 overflow-y-auto bg-[#020205] p-12 custom-scrollbar"
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 className="absolute inset-0 z-40 overflow-y-auto bg-[#020205] custom-scrollbar"
                >
-                 <div className="max-w-4xl mx-auto">
-                   <div className="text-center mb-16">
-                     <h2 className="text-4xl font-black tracking-tighter mb-2 text-white">{skillTree.goal}</h2>
-                     <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.4em]">Mastery Path Generated</p>
-                   </div>
+                 <div className="max-w-5xl mx-auto px-12 py-24">
+                   <motion.div 
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="text-center mb-24"
+                   >
+                     <span className="text-[10px] font-black uppercase tracking-[0.8em] text-blue-500/60 mb-4 block">Cognitive Map Initialized</span>
+                     <h2 className="text-6xl font-black tracking-tighter mb-4 text-white font-outfit">{skillTree.goal}</h2>
+                     <div className="w-24 h-1 bg-gradient-to-r from-blue-600 to-purple-600 mx-auto rounded-full" />
+                   </motion.div>
+                   
                    <SkillTree 
                      nodes={skillTree.nodes}
                      recommendedPath={skillTree.recommendedPath}

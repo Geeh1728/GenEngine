@@ -1,6 +1,6 @@
-'use client';
-
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldCheck, Activity, Globe, Zap } from 'lucide-react';
 
 interface Rule {
     name: string;
@@ -27,64 +27,99 @@ export const SimulationCard: React.FC<SimulationCardProps> = ({
     societalImpact,
 }) => {
     return (
-        <div className="max-w-md w-full p-6 rounded-3xl bg-white/5 backdrop-blur-3xl border border-white/10 shadow-2xl text-white group hover:border-blue-500/30 transition-all duration-500">
-            <div className="mb-6">
-                <div className="flex justify-between items-start mb-2">
-                    <h2 className="text-3xl font-black font-outfit bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/50 tracking-tight">
-                        {title}
-                    </h2>
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
+        <motion.div 
+            initial={{ opacity: 0, x: -20, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            className="relative max-w-md w-full group"
+        >
+            {/* Holographic Border Glow */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur opacity-30 group-hover:opacity-100 transition duration-1000" />
+            
+            <div className="relative p-8 rounded-3xl bg-black/40 backdrop-blur-3xl border border-white/10 shadow-2xl text-white overflow-hidden">
+                {/* Scanning Line Effect */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <motion.div 
+                        animate={{ y: ['0%', '100%'] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                        className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/5 to-transparent"
+                    />
                 </div>
-                <p className="text-xs text-gray-400 font-medium leading-relaxed uppercase tracking-wider opacity-70">
-                    {description}
-                </p>
-            </div>
 
-            <div className="space-y-3 mb-6">
-                {rules.map((rule, idx) => (
-                    <div key={idx} className="p-4 rounded-2xl bg-white/3 border border-white/5 hover:bg-white/5 transition-colors">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Rule Engine</span>
-                            {rule.verified && (
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1">
-                                    <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                                    Validated
-                                </span>
-                            )}
+                <div className="mb-8">
+                    <div className="flex justify-between items-start mb-3">
+                        <div>
+                            <span className="text-[8px] font-black uppercase tracking-[0.5em] text-blue-400/60 mb-1 block">Tactical Analysis</span>
+                            <h2 className="text-4xl font-black font-outfit bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/40 tracking-tighter">
+                                {title}
+                            </h2>
                         </div>
-                        <h4 className="text-sm font-bold text-gray-100 mb-1">{rule.name}</h4>
-                        <p className="text-[11px] text-gray-500 leading-normal">{rule.effect}</p>
+                        <motion.div 
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20"
+                        >
+                            <Activity className="w-4 h-4 text-blue-400" />
+                        </motion.div>
                     </div>
-                ))}
-            </div>
-
-            {societalImpact && (
-                <div className="mb-6 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 group-hover:bg-indigo-500/10 transition-all">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1 rounded-md bg-indigo-500/20">
-                            <svg className="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300">Societal Impact</span>
-                    </div>
-                    <p className="text-[11px] text-indigo-200/70 italic leading-relaxed">
-                        &quot;{societalImpact}&quot;
+                    <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-widest opacity-80 border-l-2 border-blue-500/30 pl-3">
+                        {description}
                     </p>
                 </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-3">
-                {actions.map((action, idx) => (
-                    <button
-                        key={idx}
-                        onClick={() => onAction?.(action)}
-                        className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/40 text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95"
-                    >
-                        {action}
-                    </button>
-                ))}
+                <div className="space-y-4 mb-8">
+                    {rules.map((rule, idx) => (
+                        <motion.div 
+                            key={idx}
+                            whileHover={{ x: 5 }}
+                            className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all group/rule"
+                        >
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Zap className="w-3 h-3 text-amber-400" />
+                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Parameter Set</span>
+                                </div>
+                                {rule.verified && (
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Ground Truth</span>
+                                    </div>
+                                )}
+                            </div>
+                            <h4 className="text-xs font-black text-gray-100 mb-1 tracking-wide uppercase">{rule.name}</h4>
+                            <p className="text-[10px] text-gray-500 leading-normal font-medium">{rule.effect}</p>
+                        </motion.div>
+                    ))}
+                </div>
+
+                {societalImpact && (
+                    <div className="mb-8 p-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-white/5 relative group/impact">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 rounded-xl bg-indigo-500/20 border border-indigo-500/20">
+                                <Globe className="w-4 h-4 text-indigo-400" />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-300">Macro Impact</span>
+                        </div>
+                        <p className="text-xs text-indigo-100/80 font-medium italic leading-relaxed">
+                            &quot;{societalImpact}&quot;
+                        </p>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                    {actions.map((action, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => onAction?.(action)}
+                            className="group/btn relative p-4 rounded-2xl bg-white/5 border border-white/10 overflow-hidden transition-all duration-300 active:scale-95"
+                        >
+                            <div className="absolute inset-0 bg-blue-500/0 group-hover/btn:bg-blue-500/10 transition-colors" />
+                            <span className="relative text-[9px] font-black uppercase tracking-[0.2em] text-gray-300 group-hover/btn:text-white transition-colors">
+                                {action}
+                            </span>
+                        </button>
+                    ))}
+                </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
