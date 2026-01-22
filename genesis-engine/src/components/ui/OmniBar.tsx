@@ -85,7 +85,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                 if (action.type === 'UPDATE_WORLD_ENVIRONMENT') {
                     setWorldState((prev: any) => {
                         const currentEntities = prev?.entities || [];
-                        const newMode = prev?.mode || 'PHYSICS';
+                        const newMode = 'PHYSICS'; // FORCE PHYSICS MODE
                         
                         // CLEANUP: Wipe bridge if active
                         let newEntities = [...currentEntities];
@@ -96,13 +96,13 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                         // Auto-Spawn Test Subject if empty
                         if (newEntities.length === 0) {
                             newEntities = [{
-                                id: 'demo-cube',
+                                id: 'gravity-test',
                                 type: 'cube',
                                 position: { x: 0, y: 5, z: 0 },
-                                physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                                physics: { mass: 1, friction: 0.5, restitution: 0.7 },
                                 dimensions: { x: 1, y: 1, z: 1 },
                                 color: '#3b82f6',
-                                name: 'Test Subject'
+                                name: 'Gravity Test'
                             }];
                         }
 

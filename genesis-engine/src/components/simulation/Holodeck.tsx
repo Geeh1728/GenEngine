@@ -51,7 +51,7 @@ export const Holodeck: React.FC<HolodeckProps> = ({
             >
                 <color attach="background" args={['#020205']} />
 
-                <Suspense fallback={null}>
+                <Suspense fallback={<Html><div className="text-white">Loading Holodeck...</div></Html>}>
                     {backgroundMode ? (
                         <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
                             <LSystemTree nodes={gardenNodes} />
