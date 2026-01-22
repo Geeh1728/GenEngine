@@ -3,7 +3,7 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
-import { OrbitControls, Environment, Sky, Float, ContactShadows } from '@react-three/drei';
+import { OrbitControls, Environment, Sky, Float, ContactShadows, Html } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { UniversalRenderer } from './Renderer';
 import { WorldState } from '@/lib/simulation/schema';
