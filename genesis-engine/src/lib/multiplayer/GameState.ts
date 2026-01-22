@@ -31,6 +31,7 @@ export type GameAction =
     | { type: 'PLAYER_MOVE'; payload: { id: string; position: [number, number, number] } }
     | { type: 'PLAYER_LEAVE'; payload: { id: string } }
     | { type: 'UPDATE_WORLD_ENVIRONMENT'; payload: Record<string, unknown> }
+    | { type: 'UPDATE_PHYSICS'; payload: Record<string, unknown> }
     | { type: 'SET_CHALLENGE'; payload: string }
     | { type: 'CLEAR_CHALLENGE' }
     | { type: 'RESET_SIMULATION' };
@@ -64,9 +65,19 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
                 ...state,
                 interactionState: action.payload,
             };
+        case 'UPDATE_PHYSICS':
         case 'UPDATE_WORLD_ENVIRONMENT': {
-            const currentWorld = state.worldState;
-            const newMode = currentWorld.mode || 'PHYSICS';
+            const currentWorld = state.worldState || { 
+                entities: [], 
+                mode: 'PHYSICS', 
+                scenario: 'Physics Environment', 
+                environment: { gravity: { x: 0, y: -9.8, z: 0 }, timeScale: 1 },
+                constraints: [],
+                successCondition: 'Explore the environment',
+                description: 'A physical space with basic gravity.',
+                explanation: 'This mode allows for direct manipulation of physical constants.'
+            };
+            const newMode = 'PHYSICS';
             
             // CLEANUP: If we are in the default "Suspension Bridge" and changing physics,
             // wipe the bridge so the user can see the simple physics clearly.
@@ -78,13 +89,13 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             // Auto-Spawn: If world is empty (or we just cleared it), spawn a "Test Object"
             if (newEntities.length === 0) {
                 newEntities = [{
-                    id: 'demo-cube',
+                    id: 'gravity-test',
                     type: 'cube',
                     position: { x: 0, y: 5, z: 0 },
-                    physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                    physics: { mass: 1, friction: 0.5, restitution: 0.7 },
                     dimensions: { x: 1, y: 1, z: 1 },
                     color: '#3b82f6', // Blue
-                    name: 'Test Subject'
+                    name: 'Gravity Test'
                 }];
             }
 

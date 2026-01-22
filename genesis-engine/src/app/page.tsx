@@ -21,7 +21,7 @@ import { SaboteurDialogue } from '@/components/ui/SaboteurDialogue';
 import { generatePodcastScript } from '@/app/actions/podcast';
 import { runPython } from '@/lib/python/pyodide';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
-import { TreePine, Radio, Calculator, Loader2, X } from 'lucide-react';
+import { TreePine, Radio, Calculator, Loader2, X, Brain } from 'lucide-react';
 import { Entity } from '@/lib/simulation/schema';
 
 // Dynamic imports for browser-only components
@@ -125,7 +125,7 @@ export default function Home() {
   };
 
   // View Logic: "Nuclear Option" - If Physics Mode is active, hide EVERYTHING else.
-  const isPhysicsMode = worldState?.mode === 'PHYSICS';
+  const isPhysicsMode = worldState?.mode === 'PHYSICS' || worldState?.mode === 'VOXEL' || worldState?.mode === 'SCIENTIFIC' || worldState?.mode === 'ASSEMBLER';
 
   return (
     <main className="min-h-screen relative overflow-hidden font-inter text-foreground bg-[#020205]">
@@ -234,8 +234,8 @@ export default function Home() {
           {/* Always render the Holodeck in the background or main view */}
           <motion.div 
             animate={{ 
-                filter: (!skillTree && !isIngested) || isProcessing ? 'blur(8px)' : 'blur(0px)',
-                opacity: (!skillTree && !isIngested) ? 0.4 : 1,
+                filter: ((!skillTree && !isIngested) && !isPhysicsMode) || isProcessing ? 'blur(8px)' : 'blur(0px)',
+                opacity: ((!skillTree && !isIngested) && !isPhysicsMode) ? 0.4 : 1,
                 scale: isProcessing ? 1.05 : 1
             }}
             transition={{ duration: 1, ease: "easeInOut" }}
@@ -299,7 +299,7 @@ export default function Home() {
                   )}
                 </motion.div>
               </motion.div>
-            ) : isProcessing && !activeNode ? (
+            ) : isProcessing && !activeNode && !isPhysicsMode ? (
               <motion.div
                 key="architecting"
                 initial={{ opacity: 0 }}
@@ -317,7 +317,7 @@ export default function Home() {
                 <h2 className="mt-12 text-sm font-black uppercase tracking-[1em] text-blue-400 animate-pulse">Architecting Reality</h2>
                 <p className="mt-4 text-[8px] text-gray-500 uppercase tracking-[0.5em] font-mono">Synthesizing Neural Mastery Path // Node: Alpha-7</p>
               </motion.div>
-            ) : skillTree && !activeNode ? (
+            ) : skillTree && !activeNode && !isPhysicsMode ? (
                <motion.div
                  key="skill-tree-view"
                  initial={{ opacity: 0 }}

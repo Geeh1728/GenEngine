@@ -29,7 +29,7 @@ export const EntitySchema = z.object({
 // WorldState Schema: The complete snapshot of a simulation frame
 export const WorldStateSchema = z.object({
     scenario: z.string().min(10),
-    mode: z.enum(["PHYSICS", "METAPHOR", "SCIENTIFIC", "VOXEL"]),
+    mode: z.enum(["PHYSICS", "METAPHOR", "SCIENTIFIC", "VOXEL", "ASSEMBLER"]),
     entities: z.array(z.object({
         id: z.string(),
         type: z.enum(['cube', 'box', 'sphere', 'cylinder', 'plane', 'fluid', 'softbody']),
