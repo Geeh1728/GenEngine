@@ -11,6 +11,7 @@ import { SkillNodeSchema } from '@/lib/genkit/schemas';
 import { z } from 'zod';
 import { bridgeScenario } from '@/lib/scenarios/bridge';
 import { LSystemTree } from './LSystemTree';
+import { sfx } from '@/lib/sound/SoundManager';
 
 type SkillNode = z.infer<typeof SkillNodeSchema>;
 
@@ -41,6 +42,13 @@ export const Holodeck: React.FC<HolodeckProps> = ({
     // Falls back to bridge scenario if no state is provided
     const activeState = worldState || bridgeScenario;
 
+    const handleCollision = (magnitude: number) => {
+        if (magnitude > 1) {
+            sfx.playCollision(magnitude);
+        }
+        onCollision?.(magnitude);
+    };
+
     return (
         <div className="w-full h-full relative overflow-hidden">
             <Canvas
@@ -69,7 +77,7 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                             <UniversalRenderer
                                 worldState={activeState}
                                 activeNode={activeNode}
-                                onCollision={onCollision}
+                                onCollision={handleCollision}
                             />
                         </Physics>
                     )}

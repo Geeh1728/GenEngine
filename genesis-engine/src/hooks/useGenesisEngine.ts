@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import { WorldRuleSchema, ComplexityLevelSchema, SkillTreeSchema, SkillNodeSchema } from '@/lib/genkit/schemas';
-import { WorldStateSchema } from '@/lib/simulation/schema';
 import { storeKnowledge } from '@/lib/db/pglite';
 import { z } from 'genkit';
 import { Question } from '@/components/mastery/MasteryChallenge';
-import { bridgeScenario } from '@/lib/scenarios/bridge';
 import { Quest } from '@/lib/gamification/questEngine';
 import { getEmbedding } from '@/lib/ai/embeddings';
 import { blackboard } from '@/lib/genkit/context';
+import { gameReducer, initialGameState } from '@/lib/multiplayer/GameState';
+import { WorldState } from '@/lib/simulation/schema';
+import { usePersistence } from './utils/usePersistence';
 
 // Type Definitions
 type WorldRule = z.infer<typeof WorldRuleSchema>;
@@ -55,8 +56,18 @@ interface GardenState {
 /**
  * useGenesisEngine: The central hook for managing the simulation lifecycle.
  * Refactored for performance, security, and cleanliness (Titan Protocol v3.5).
+ * "Brain Transplant" v2: Now powered by a unified Reducer (GameState.ts).
  */
 export function useGenesisEngine() {
+    // --- KINETIC CORE: REDUCER STATE ---
+    const [gameState, dispatch] = useReducer(gameReducer, initialGameState);
+    const { worldState } = gameState;
+
+    // --- IMMERSION: PERSISTENCE LAYER ---
+    usePersistence(worldState, (state) => {
+        if (state) dispatch({ type: 'SYNC_WORLD', payload: state });
+    });
+
     // --- Ingestion & Global State ---
     const [isIngested, setIsIngested] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -87,9 +98,6 @@ export function useGenesisEngine() {
         overrides: [],
     });
 
-    // --- Kinetic Core: World State ---
-    const [worldState, setWorldState] = useState<z.infer<typeof WorldStateSchema> | null>(bridgeScenario);
-
     // --- Dialogue & Mastery Features ---
     const [commentary, setCommentary] = useState<CommentaryState | null>(null);
     const [masteryState, setMasteryState] = useState<MasteryState>({
@@ -115,12 +123,26 @@ export function useGenesisEngine() {
 
     // --- Quantum Bridge Sync ---
     useEffect(() => {
-        if (worldState) {
+        if (worldState && Object.keys(worldState).length > 0) {
             blackboard.updateFromWorldState(worldState);
         }
     }, [worldState]);
 
     // --- ACTIONS ---
+
+    // Direct Dispatch Bridge (Use carefully)
+    const syncWorldState = useCallback((newState: WorldState | null) => {
+        if (!newState) {
+            dispatch({ type: 'RESET_SIMULATION' });
+        } else {
+            dispatch({ type: 'SYNC_WORLD', payload: newState });
+        }
+    }, []);
+
+    // Also expose dispatch for advanced components (like OmniBar)
+    const dispatchAction = useCallback((action: any) => {
+        dispatch(action);
+    }, []);
 
     const fetchWorldState = useCallback(async (rules: WorldRule[]) => {
         try {
@@ -135,7 +157,7 @@ export function useGenesisEngine() {
             });
             if (response.ok) {
                 const data = await response.json();
-                setWorldState(data);
+                dispatch({ type: 'SYNC_WORLD', payload: data });
                 setGodModeState(prev => ({
                     ...prev,
                     constants: { ...data.constants, timeScale: 1 }
@@ -188,7 +210,7 @@ export function useGenesisEngine() {
             });
             if (response.ok) {
                 const data = await response.json();
-                setWorldState(data);
+                dispatch({ type: 'SYNC_WORLD', payload: data });
             }
         } catch (err) {
             console.error('Failed to start simulation', err);
@@ -374,6 +396,7 @@ export function useGenesisEngine() {
         setIsPaused(false);
         setDiagnostics(null);
         setIsQuestVisible(false);
+        dispatch({ type: 'RESET_SIMULATION' });
     }, []);
 
     useEffect(() => {
@@ -390,7 +413,8 @@ export function useGenesisEngine() {
         error,
         isObserved,
         godModeState,
-        worldState,
+        worldState, // Now comes from Reducer
+        dispatch,   // Expose dispatch for cleaner updates
         commentary,
         masteryState,
         isPaused,
@@ -412,7 +436,7 @@ export function useGenesisEngine() {
         setMasteryState,
         handleMasteryComplete,
         updateCommentary,
-        setWorldState,
+        setWorldState: syncWorldState, // Bridge for backward compat
         setError,
         setIsSabotaged,
         handleSimulationFailure,

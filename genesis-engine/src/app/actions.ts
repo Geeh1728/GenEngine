@@ -26,7 +26,7 @@ export async function compileHypothesis(hypothesis: string, context: string) {
     return generateSimulationLogic(hypothesis, context);
 }
 
-export async function generateSimulationLogic(hypothesis: string, context: string) {
+export async function generateSimulationLogic(hypothesis: string, context: string, currentWorldState?: any) {
     try {
         // 1. Rate Limit Check
         const isRateLimited = !(await checkRateLimit());
@@ -39,7 +39,13 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
         }
 
         const sanitizedHypothesis = armorResult.sanitizedContent || hypothesis;
-        const fullPrompt = `Context:\n${context}\n\nHypothesis: ${sanitizedHypothesis}`;
+        
+        // CONTEXT INJECTION: Add World State Summary if available
+        let fullPrompt = `Context:\n${context}\n\nHypothesis: ${sanitizedHypothesis}`;
+        if (currentWorldState) {
+            const entitySummary = currentWorldState.entities?.map((e: any) => `${e.color || 'gray'} ${e.type} at [${e.position.x}, ${e.position.y}]`).join(', ');
+            fullPrompt += `\n\nCURRENT SIMULATION STATE:\n- Mode: ${currentWorldState.mode}\n- Entities: ${entitySummary || 'None'}\n- Gravity: Y=${currentWorldState.environment?.gravity?.y}`;
+        }
 
         // Module D: The Saboteur (20% chance of activation)
         const isSabotageMode = Math.random() < 0.2;

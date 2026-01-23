@@ -18,6 +18,7 @@ import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 import { routeIntentLocally, executeLocalTool } from '@/lib/ai/edgeRouter';
 import { generateSimulationLogic, getEmbedding } from '@/app/actions';
 import { queryKnowledge } from '@/lib/db/pglite';
+import { sfx } from '@/lib/sound/SoundManager';
 
 interface OmniBarProps {
     onCameraClick: () => void;
@@ -80,42 +81,14 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
         if (localTool) {
             executeLocalTool(localTool, (action) => {
                 console.log("[OmniBar] Local Action:", action);
+                sfx.playSuccess();
                 
-                // Manual Reducer Logic for Local Tools (Bridge to useGenesisEngine)
-                if (action.type === 'UPDATE_WORLD_ENVIRONMENT') {
-                    setWorldState((prev: any) => {
-                        const currentEntities = prev?.entities || [];
-                        const newMode = 'PHYSICS'; // FORCE PHYSICS MODE
-                        
-                        // CLEANUP: Wipe bridge if active
-                        let newEntities = [...currentEntities];
-                        if (prev?.scenario === "Suspension Bridge Test") {
-                            newEntities = [];
-                        }
-
-                        // Auto-Spawn Test Subject if empty
-                        if (newEntities.length === 0) {
-                            newEntities = [{
-                                id: 'gravity-test',
-                                type: 'cube',
-                                position: { x: 0, y: 5, z: 0 },
-                                physics: { mass: 1, friction: 0.5, restitution: 0.7 },
-                                dimensions: { x: 1, y: 1, z: 1 },
-                                color: '#3b82f6',
-                                name: 'Gravity Test'
-                            }];
-                        }
-
-                        return {
-                            ...prev,
-                            mode: newMode,
-                            entities: newEntities,
-                            environment: {
-                                ...(prev?.environment || {}),
-                                ...action.payload
-                            }
-                        };
-                    });
+                // Dispatch directly to the Reducer (Brain Transplant Complete)
+                if (engine.dispatch) {
+                    engine.dispatch(action as any);
+                } else {
+                    // Fallback for older interface compatibility
+                    console.warn("Dispatch not available on engine hook");
                 }
             });
             setPrompt('');
@@ -143,10 +116,22 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                 contextText = contextResults.map((r) => (r as { content: string }).content).join('\n---\n');
             }
 
-            // 5. Orchestrator Flow via Server Action
-            const result = await generateSimulationLogic(prompt, contextText);
+            // 5. Orchestrator Flow via Server Action (Context-Aware + Timeout Protection)
+            const currentState = engine.worldState; // Access recent state from hook
+            
+            // Timeout Promise to prevent infinite loading
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Neural Link Timeout: The Architect is silent.")), 15000)
+            );
+
+            // Race the API call against the timeout
+            const result: any = await Promise.race([
+                generateSimulationLogic(prompt, contextText, currentState),
+                timeoutPromise
+            ]);
 
             if (result.success && result.worldState) {
+                sfx.playSuccess();
                 setWorldState(result.worldState);
                 setIsSabotaged(result.isSabotaged || false);
                 setLastHypothesis(prompt);
