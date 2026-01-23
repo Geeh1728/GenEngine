@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { RigidBody, CuboidCollider, BallCollider, RapierRigidBody, useFixedJoint, useSphericalJoint, useRevoluteJoint, usePrismaticJoint } from '@react-three/rapier';
+import { RigidBody, CuboidCollider, BallCollider, RapierRigidBody, useFixedJoint, useSphericalJoint, useRevoluteJoint, usePrismaticJoint, CollisionEnterPayload } from '@react-three/rapier';
 import { Html } from '@react-three/drei';
 import { motion } from 'framer-motion';
 import { WorldState, Entity, Joint } from '@/lib/simulation/schema';
@@ -68,8 +68,6 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
             // Apply logic based on material properties
         }
     }
-
-    import { CollisionEnterPayload } from '@react-three/rapier';
 
     const handleCollision = (event: CollisionEnterPayload) => {
         if (!onCollision) return;
