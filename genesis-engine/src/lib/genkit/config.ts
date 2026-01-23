@@ -1,4 +1,4 @@
-import { gemini15Flash, gemini15Pro, googleAI } from '@genkit-ai/googleai';
+import { googleAI } from '@genkit-ai/googleai';
 import { openAI } from 'genkitx-openai';
 import { genkit } from 'genkit';
 import fs from 'fs';
@@ -89,4 +89,5 @@ export const gemini15Pro = geminiPro;
 // Constants
 export const ROBOTICS_MODEL_NAME = 'gemini-robotics-er-1.5-preview';
 export const ROBOTICS_FALLBACK_MODEL = geminiPro;
-export const DEEPSEEK_LOGIC_MODEL = 'openai/deepseek/deepseek-r1-distill-llama-8b'; // OpenRouter ID
+export const DEEPSEEK_LOGIC_MODEL = 'openai/deepseek/deepseek-r1'; // Standard R1 for logic
+export const QWEN_VISION_MODEL = 'openai/qwen/qwen-2.5-vl-72b-instruct'; // Visual Cortex

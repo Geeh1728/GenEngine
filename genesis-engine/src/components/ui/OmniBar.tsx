@@ -2,15 +2,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    Mic, 
-    Camera, 
-    Paperclip, 
-    Send, 
+import {
+    Mic,
+    Camera,
+    Paperclip,
+    Send,
     Play,
-    Brain, 
-    Zap, 
-    Loader2, 
+    Brain,
+    Zap,
+    Loader2,
     X,
     ShieldAlert
 } from 'lucide-react';
@@ -31,7 +31,7 @@ interface OmniBarProps {
 export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engine, externalPrompt, onPromptChange }) => {
     // Internal state is fallback if no external control provided
     const [internalPrompt, setInternalPrompt] = useState('');
-    
+
     // Use controlled or uncontrolled state
     const prompt = externalPrompt !== undefined ? externalPrompt : internalPrompt;
     const setPrompt = onPromptChange || setInternalPrompt;
@@ -39,13 +39,14 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [status, setStatus] = useState<'idle' | 'compiling' | 'error'>('idle');
     const [isListening, setIsListening] = useState(false);
+    const [isLongRunning, setIsLongRunning] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    const { 
-        setWorldState, 
-        setError, 
-        setLastHypothesis, 
+
+    const {
+        setWorldState,
+        setError,
+        setLastHypothesis,
         setIsSabotaged,
         isSabotaged,
         handleIngest,
@@ -63,6 +64,20 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
             textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
         }
     }, [prompt]);
+
+    // Handle Long Running State
+    useEffect(() => {
+        let timeout: NodeJS.Timeout;
+        if (isThinking) {
+            setIsLongRunning(false);
+            timeout = setTimeout(() => {
+                setIsLongRunning(true);
+            }, 5000);
+        } else {
+            setIsLongRunning(false);
+        }
+        return () => clearTimeout(timeout);
+    }, [isThinking]);
 
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -82,7 +97,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
             executeLocalTool(localTool, (action) => {
                 console.log("[OmniBar] Local Action:", action);
                 sfx.playSuccess();
-                
+
                 // Dispatch directly to the Reducer (Brain Transplant Complete)
                 if (engine.dispatch) {
                     engine.dispatch(action as any);
@@ -118,10 +133,10 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
 
             // 5. Orchestrator Flow via Server Action (Context-Aware + Timeout Protection)
             const currentState = engine.worldState; // Access recent state from hook
-            
-            // Timeout Promise to prevent infinite loading
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("Neural Link Timeout: The Architect is silent.")), 15000)
+
+            // Timeout Promise to prevent infinite loading (Extended to 45s for Deep Thinking models)
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Neural Link Timeout: The Architect is silent.")), 45000)
             );
 
             // Race the API call against the timeout
@@ -144,7 +159,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
         } catch (err) {
             console.error('[OmniBar] Error:', err);
             const msg = err instanceof Error ? err.message : 'Unknown error';
-            
+
             // CHALLENGE INTERCEPTION: If it looks like a question, it's Socrates, not a crash.
             if (msg.includes('?') || msg.toLowerCase().includes('considering')) {
                 setActiveChallenge(msg);
@@ -176,7 +191,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
             {/* 1. File Preview Pill */}
             <AnimatePresence>
                 {selectedFile && (
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.9 }}
@@ -184,7 +199,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                     >
                         <Paperclip className="w-3 h-3 opacity-50" />
                         <span className="truncate max-w-[150px]">{selectedFile.name}</span>
-                        <button 
+                        <button
                             onClick={() => setSelectedFile(null)}
                             className="p-1 hover:bg-white/10 rounded-full transition-colors"
                         >
@@ -200,7 +215,9 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                     {isThinking && (
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-blue-600 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.4)]">
                             <Brain className="w-3 h-3 text-white animate-pulse" />
-                            <span className="text-[10px] font-black uppercase text-white tracking-widest">Thinking...</span>
+                            <span className="text-[10px] font-black uppercase text-white tracking-widest">
+                                {isLongRunning ? "Architecting Complex Reality..." : "Thinking..."}
+                            </span>
                         </motion.div>
                     )}
                     {isSabotaged && (
@@ -215,8 +232,8 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
             <motion.div
                 layout
                 animate={{
-                    borderColor: status === 'error' ? 'rgba(239, 68, 68, 0.5)' : 
-                                isThinking ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                    borderColor: status === 'error' ? 'rgba(239, 68, 68, 0.5)' :
+                        isThinking ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.1)',
                     boxShadow: isThinking ? '0 0 30px rgba(59, 130, 246, 0.2)' : '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                 }}
                 className="relative bg-black/40 backdrop-blur-3xl rounded-[32px] border border-white/10 overflow-hidden p-2 transition-all duration-500"
@@ -224,13 +241,13 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                 <div className="flex items-end gap-2 px-2 py-1">
                     {/* Tool Buttons */}
                     <div className="flex items-center gap-1 pb-1">
-                        <button 
+                        <button
                             onClick={() => fileInputRef.current?.click()}
                             className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-2xl transition-all"
                         >
                             <Paperclip className="w-5 h-5" />
                         </button>
-                        <button 
+                        <button
                             onClick={() => fileInputRef.current?.click()}
                             className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-2xl transition-all"
                         >
@@ -239,11 +256,11 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                     </div>
 
                     {/* Hidden Input */}
-                    <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={onFileChange} 
-                        className="hidden" 
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={onFileChange}
+                        className="hidden"
                         accept="image/*,.pdf"
                     />
 
@@ -261,7 +278,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2 pb-1 pr-1">
-                        <button 
+                        <button
                             onClick={() => setIsListening(!isListening)}
                             className={`p-3 rounded-2xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                         >

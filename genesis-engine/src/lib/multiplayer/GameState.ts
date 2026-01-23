@@ -22,6 +22,7 @@ export interface GlobalGameState {
     players: Record<string, PlayerState>;
     lastUpdated: number;
     activeChallenge: string | null; // Socratic questions from Critic
+    selectedEntityId: string | null;
 }
 
 export type GameAction =
@@ -34,6 +35,9 @@ export type GameAction =
     | { type: 'UPDATE_PHYSICS'; payload: Record<string, unknown> }
     | { type: 'SET_CHALLENGE'; payload: string }
     | { type: 'CLEAR_CHALLENGE' }
+    | { type: 'SELECT_ENTITY'; payload: string }
+    | { type: 'DESELECT_ENTITY' }
+    | { type: 'UPDATE_ENTITY'; payload: { id: string, property: string, value: any } }
     | { type: 'RESET_SIMULATION' };
 
 export const initialGameState: GlobalGameState = {
@@ -43,6 +47,7 @@ export const initialGameState: GlobalGameState = {
     players: {},
     lastUpdated: Date.now(),
     activeChallenge: null,
+    selectedEntityId: null,
 };
 
 /**
@@ -50,6 +55,27 @@ export const initialGameState: GlobalGameState = {
  */
 export function gameReducer(state: GlobalGameState, action: GameAction): GlobalGameState {
     switch (action.type) {
+        case 'UPDATE_ENTITY': {
+            if (!state.worldState?.entities) return state;
+            return {
+                ...state,
+                worldState: {
+                    ...state.worldState,
+                    entities: state.worldState.entities.map(e => {
+                        if (e.id !== action.payload.id) return e;
+                        const newPhysics = { ...e.physics };
+                        if (action.payload.property === 'mass') newPhysics.mass = action.payload.value;
+                        if (action.payload.property === 'restitution') newPhysics.restitution = action.payload.value;
+                        if (action.payload.property === 'friction') newPhysics.friction = action.payload.value;
+                        return { ...e, physics: newPhysics };
+                    })
+                }
+            };
+        }
+        case 'SELECT_ENTITY':
+            return { ...state, selectedEntityId: action.payload };
+        case 'DESELECT_ENTITY':
+            return { ...state, selectedEntityId: null };
         case 'SET_CHALLENGE':
             return { ...state, activeChallenge: action.payload };
         case 'CLEAR_CHALLENGE':

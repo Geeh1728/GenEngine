@@ -13,7 +13,7 @@ vi.mock('../lib/genkit/config', () => {
         },
         geminiFlash: { name: 'googleai/gemini-2.5-flash-lite' },
         geminiPro: { name: 'googleai/gemini-2.5-flash' },
-        DEEPSEEK_LOGIC_MODEL: 'openai/deepseek/deepseek-r1-distill-llama-8b'
+        DEEPSEEK_LOGIC_MODEL: 'openai/deepseek/deepseek-r1'
     };
 });
 

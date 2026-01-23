@@ -24,6 +24,7 @@ interface DashboardViewProps {
     isExecutingPython: boolean;
     pythonOutput: any;
     handleExport: () => void;
+    onEntityPropertyChange: (id: string, property: string, value: any) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -36,7 +37,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     handleRunVerification,
     isExecutingPython,
     pythonOutput,
-    handleExport
+    handleExport,
+    onEntityPropertyChange
 }) => {
     const {
         worldState,
@@ -51,7 +53,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         setMasteryState,
         handleMasteryComplete,
         commentary,
-        setWorldState
+        setWorldState,
+        selectedEntityId
     } = engine;
 
     return (
@@ -61,6 +64,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             animate={{ opacity: 1, y: 0 }}
             className="relative z-10 w-full h-full flex flex-col items-center gap-8 py-8 pointer-events-none"
         >
+            {/* Global Constraints / Rules Sidebar (Moved inside Interaction Area for selection logic) */}
+            <div className="fixed top-24 left-10 h-[calc(100vh-200px)] z-[100] pointer-events-auto">
+                <GodModePanel
+                    complexity={godModeState.complexity}
+                    onComplexityChange={(c) => engine.setComplexity(c)}
+                    rules={worldRules}
+                    onToggleRule={(id) => engine.toggleRule(id)}
+                    constants={godModeState.constants}
+                    onConstantChange={(n, v) => engine.handleConstantChange(n, v)}
+                    entities={worldState?.entities}
+                    onEntityPropertyChange={onEntityPropertyChange}
+                />
+            </div>
+
             <div className="text-center pointer-events-auto">
                 <h2 className="text-4xl font-outfit font-bold mb-2 tracking-tight text-white">{activeNode?.label || sourceTitle}</h2>
                 <p className="text-blue-400 text-[10px] uppercase tracking-[0.8em]">{activeNode?.engineMode || 'Laboratory'} Sandbox</p>
@@ -184,7 +201,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <BabelNode
                         worldState={worldState}
                         onPhysicsUpdate={(delta) => {
-                            setWorldState(prev => prev ? ({ ...prev, ...delta }) : null);
+                            // Use dispatch for physics updates to avoid full re-render cycle if possible, 
+                            // or just merge explicitly. Using dispatch is cleaner as it uses the Reducer directly.
+                            engine.dispatch({ type: 'UPDATE_PHYSICS', payload: delta });
                         }}
                     />
                 )}

@@ -19,14 +19,16 @@ interface EntityRendererProps {
     entity: Entity;
     onRegister: (id: string, ref: RapierRigidBody | null) => void;
     onCollision?: (impactMagnitude: number) => void;
+    onSelect?: (id: string) => void;
     blackboardContext?: BlackboardContext;
+    isSelected?: boolean;
 }
 
-const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onCollision, blackboardContext }) => {
+const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onCollision, onSelect, blackboardContext, isSelected }) => {
     const rbRef = useRef<RapierRigidBody>(null);
     const material = useTextureGen({
         prompt: entity.texturePrompt,
-        color: entity.color,
+        color: isSelected ? '#ffffff' : entity.color,
     });
 
     useEffect(() => {
@@ -35,7 +37,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
     }, [entity.id, onRegister]);
 
     // Memoize Geometries for Performance (Avoid re-calculating on every frame)
-    const { geometry, collider } = useMemo(() => {
+    const { geometry, collider } = React.useMemo(() => {
         const dims = entity.dimensions || { x: 1, y: 1, z: 1 };
         if (entity.type === 'sphere') {
             return {
@@ -59,7 +61,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
             restitution = Math.max(0, restitution - 0.2);
             friction = Math.min(1, friction + 0.1); // Ice can be slippery but we simulate "frost stick"
         }
-        
+
         // Material-specific overrides
         const materialProps = blackboardContext.materialRegistry[entity.name || ''];
         if (materialProps) {
@@ -67,12 +69,14 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleCollision = (event: any) => {
+    import { CollisionEnterPayload } from '@react-three/rapier';
+
+    const handleCollision = (event: CollisionEnterPayload) => {
         if (!onCollision) return;
 
         // Calculate impact magnitude from manifold data if available
         // Or using collision impulse. In Rapier, we can check the impulse.
+        // @ts-expect-error - totalForceMagnitude exists in the Rapier event payload but might be missing in type def
         const impulse = event.totalForceMagnitude || 0;
         if (impulse > 50) { // Threshold for "catastrophic" failure
             onCollision(impulse);
@@ -94,6 +98,10 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
             friction={friction}
             restitution={restitution}
             onCollisionEnter={handleCollision}
+            onClick={(e) => {
+                e.stopPropagation();
+                onSelect?.(entity.id);
+            }}
         >
             <mesh material={material}>
                 {geometry}
@@ -172,6 +180,7 @@ interface UniversalRendererProps {
 export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ worldState, activeNode, onCollision }) => {
     const [rbMap, setRbMap] = useState<Record<string, RapierRigidBody>>({});
     const [bbCtx, setBbCtx] = useState<BlackboardContext>(blackboard.getContext());
+    const [selectedId, setSelectedId] = useState<string | null>(null);
 
     useEffect(() => {
         return blackboard.subscribe(setBbCtx);
@@ -193,41 +202,53 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ worldState
 
     const getRB = (id: string) => rbMap[id] || null;
 
+    const handleSelect = (id: string) => {
+        setSelectedId(id === selectedId ? null : id);
+        // Dispatch custom event for external UI (GodModePanel)
+        window.dispatchEvent(new CustomEvent('GENESIS_ENTITY_SELECT', { detail: { id: id === selectedId ? null : id } }));
+    };
+
     // Routing Logic based on Titan Protocol v3.5
     const mode = activeNode?.engineMode || worldState.mode;
 
-    if (mode === 'LAB' || worldState.mode === 'SCIENTIFIC') {
+    console.log("[UniversalRenderer] Mode:", mode, "WorldState Mode:", worldState.mode, "Has ActiveNode:", !!activeNode, "Has Voxels:", !!worldState.voxels);
+
+    if (mode === 'SCIENTIFIC') {
         const params = worldState.scientificParams;
         return (
-            <LabBench 
+            <LabBench
                 scenario={worldState.scenario as any}
                 scientificParams={params}
-                initialState={params?.initialState as number[]} 
-                l1={params?.l1} 
-                l2={params?.l2} 
-                m1={params?.m1} 
-                m2={params?.m2} 
-                g={params?.g} 
+                initialState={params?.initialState as number[]}
+                l1={params?.l1}
+                l2={params?.l2}
+                m1={params?.m1}
+                m2={params?.m2}
+                g={params?.g}
             />
         );
     }
 
-    if ((mode === 'VOX' || worldState.mode === 'VOXEL') && worldState.voxels) {
-        return <VoxelRenderer voxels={worldState.voxels} />;
+    if (mode === 'VOXEL') {
+        // Fix: Pass data from activeNode if available (Agentic generation) or worldState (State generation)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const voxelData = (activeNode as any)?.data || worldState.voxels;
+        console.log("[UniversalRenderer] Rendering Voxels. Data source:", (activeNode as any)?.data ? "ActiveNode" : "WorldState", "Data:", voxelData);
+        return <VoxelRenderer data={voxelData} voxels={Array.isArray(voxelData) ? voxelData : undefined} />;
     }
 
     // Default to RAP (Physics Engine)
     const entities = worldState.entities || [];
-    
+
     // Ensure there is always a "Ground" and at least one object to observe
     const hasGround = entities.some(e => e.id === 'ground' || e.name?.toLowerCase().includes('ground'));
-    
+
     return (
-        <group>
+        <group onPointerMissed={() => handleSelect('')}>
             {/* The Sentinel Overlay (Visual Thinking Feedback) */}
             {worldState.sabotage_reveal && (
                 <Html position={[0, 5, 0]} distanceFactor={15}>
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-red-500/20 backdrop-blur-xl border-2 border-red-500 p-6 rounded-3xl shadow-[0_0_50px_rgba(239,68,68,0.3)] w-64 pointer-events-none"
@@ -259,11 +280,13 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ worldState
                     entity={entity}
                     onRegister={registerRb}
                     onCollision={onCollision}
+                    onSelect={handleSelect}
+                    isSelected={entity.id === selectedId}
                     blackboardContext={bbCtx}
                 />
             )) : (
                 // Fallback Test Subject if world is completely empty
-                <EntityRenderer 
+                <EntityRenderer
                     entity={{
                         id: 'sentinel-cube',
                         type: 'cube',
@@ -275,6 +298,8 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ worldState
                     }}
                     onRegister={registerRb}
                     onCollision={onCollision}
+                    onSelect={handleSelect}
+                    isSelected={'sentinel-cube' === selectedId}
                     blackboardContext={bbCtx}
                 />
             )}

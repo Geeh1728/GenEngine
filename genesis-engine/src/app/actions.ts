@@ -26,7 +26,9 @@ export async function compileHypothesis(hypothesis: string, context: string) {
     return generateSimulationLogic(hypothesis, context);
 }
 
-export async function generateSimulationLogic(hypothesis: string, context: string, currentWorldState?: any) {
+import { WorldState } from '@/lib/simulation/schema';
+
+export async function generateSimulationLogic(hypothesis: string, context: string, currentWorldState?: WorldState | null) {
     try {
         // 1. Rate Limit Check
         const isRateLimited = !(await checkRateLimit());
@@ -39,11 +41,11 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
         }
 
         const sanitizedHypothesis = armorResult.sanitizedContent || hypothesis;
-        
+
         // CONTEXT INJECTION: Add World State Summary if available
         let fullPrompt = `Context:\n${context}\n\nHypothesis: ${sanitizedHypothesis}`;
         if (currentWorldState) {
-            const entitySummary = currentWorldState.entities?.map((e: any) => `${e.color || 'gray'} ${e.type} at [${e.position.x}, ${e.position.y}]`).join(', ');
+            const entitySummary = currentWorldState.entities?.map((e: Entity) => `${e.color || 'gray'} ${e.type} at [${e.position.x}, ${e.position.y}]`).join(', ');
             fullPrompt += `\n\nCURRENT SIMULATION STATE:\n- Mode: ${currentWorldState.mode}\n- Entities: ${entitySummary || 'None'}\n- Gravity: Y=${currentWorldState.environment?.gravity?.y}`;
         }
 
@@ -60,9 +62,9 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
         );
 
         if (result.status === 'BLOCKED') {
-            return { 
-                success: false, 
-                isBlocked: true, 
+            return {
+                success: false,
+                isBlocked: true,
                 // Map message to 'error' so OmniBar displays it correctly
                 error: result.message || 'Input rejected by the Socratic Saboteur.',
                 message: result.message,
@@ -80,11 +82,11 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
             throw new Error(outputArmor.reason || 'Output blocked by security shield.');
         }
 
-        return { 
-            success: true, 
-            worldState: result.worldState, 
+        return {
+            success: true,
+            worldState: result.worldState,
             quest: result.quest,
-            isSabotaged: !!result.worldState.sabotage_reveal 
+            isSabotaged: !!result.worldState.sabotage_reveal
         };
     } catch (error) {
         console.error('Kinetic Core Error:', error);
@@ -109,7 +111,7 @@ export async function processMultimodalIntent(params: {
 
         // SANITIZE HERE: Strip harmful box-characters that crash the API
         const cleanText = params.text ? sanitizeInput(params.text) : params.text;
-        
+
         const result = await orchestratorFlow({
             mode: 'AUTO',
             ...params,
@@ -125,12 +127,12 @@ export async function processMultimodalIntent(params: {
             throw new Error(result.message || 'Multimodal processing failed.');
         }
 
-        return { 
-            success: true, 
-            worldState: result.worldState, 
+        return {
+            success: true,
+            worldState: result.worldState,
             visionData: result.visionData,
             quest: result.quest,
-            nativeReply: result.nativeReply 
+            nativeReply: result.nativeReply
         };
     } catch (error) {
         console.error('Multimodal Gateway Error:', error);
@@ -169,15 +171,14 @@ export async function analyzeRealWorldImage(imageBase64: string, userIsPremium: 
 
         const modelName = userIsPremium
             ? ROBOTICS_MODEL_NAME
-            : geminiFlash;
+            : geminiFlash.name;
 
         const systemPrompt = userIsPremium
             ? "You are a Spatial Robotics Engine. Output 3D bounding boxes [cx, cy, cz, w, h, d, r, p, y]."
             : "You are a 2D Vision Engine. Output 2D bounding boxes [ymin, xmin, ymax, xmax].";
 
         const { output } = await ai.generate({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            model: modelName as any, // Cast since model names might not be in the static type yet
+            model: modelName,
             system: systemPrompt,
             prompt: [
                 { text: "Analyze this scene for physical objects and their spatial coordinates." },

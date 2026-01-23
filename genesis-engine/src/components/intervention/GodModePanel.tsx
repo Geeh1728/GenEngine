@@ -1,6 +1,7 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Zap, Shield, AlertTriangle, Sliders, Activity, Target } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Zap, Shield, AlertTriangle, Sliders, Activity, Target, Box, Weight, Move } from 'lucide-react';
+import { Entity } from '@/lib/simulation/schema';
 
 interface Rule {
     id: string;
@@ -15,6 +16,8 @@ interface GodModePanelProps {
     onToggleRule: (id: string) => void;
     constants: Record<string, number>;
     onConstantChange: (name: string, value: number) => void;
+    entities?: Entity[];
+    onEntityPropertyChange?: (id: string, property: string, value: any) => void;
 }
 
 export const GodModePanel: React.FC<GodModePanelProps> = ({
@@ -24,7 +27,19 @@ export const GodModePanel: React.FC<GodModePanelProps> = ({
     onToggleRule,
     constants,
     onConstantChange,
+    entities = [],
+    onEntityPropertyChange,
 }) => {
+    const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const handleSelect = (e: any) => setSelectedEntityId(e.detail.id);
+        window.addEventListener('GENESIS_ENTITY_SELECT', handleSelect);
+        return () => window.removeEventListener('GENESIS_ENTITY_SELECT', handleSelect);
+    }, []);
+
+    const selectedEntity = entities.find(e => e.id === selectedEntityId);
+
     return (
         <motion.div 
             initial={{ x: -100, opacity: 0 }}
@@ -62,6 +77,52 @@ export const GodModePanel: React.FC<GodModePanelProps> = ({
             </div>
 
             <div className="space-y-10 overflow-y-auto pr-2 custom-scrollbar flex-1 relative z-10">
+                {/* Entity Inspector (New - Audit Requirement) */}
+                <AnimatePresence>
+                    {selectedEntity && (
+                        <motion.section
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="bg-blue-600/10 border border-blue-500/20 rounded-2xl p-4 mb-10 overflow-hidden"
+                        >
+                            <div className="flex items-center gap-2 mb-4">
+                                <Box className="w-3 h-3 text-blue-400" />
+                                <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Inspector: {selectedEntity.name || 'Object'}</h4>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Mass */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[8px] font-bold text-gray-500 uppercase tracking-widest">
+                                        <span>Mass</span>
+                                        <span className="text-blue-400">{selectedEntity.physics.mass.toFixed(1)}kg</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.1" max="100" step="0.1" 
+                                        value={selectedEntity.physics.mass}
+                                        onChange={(e) => onEntityPropertyChange?.(selectedEntity.id, 'mass', parseFloat(e.target.value))}
+                                        className="w-full h-1 bg-white/5 rounded-full appearance-none accent-blue-500 cursor-pointer"
+                                    />
+                                </div>
+                                {/* Restitution */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[8px] font-bold text-gray-500 uppercase tracking-widest">
+                                        <span>Bounciness</span>
+                                        <span className="text-blue-400">{(selectedEntity.physics.restitution * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0" max="1" step="0.01" 
+                                        value={selectedEntity.physics.restitution}
+                                        onChange={(e) => onEntityPropertyChange?.(selectedEntity.id, 'restitution', parseFloat(e.target.value))}
+                                        className="w-full h-1 bg-white/5 rounded-full appearance-none accent-blue-500 cursor-pointer"
+                                    />
+                                </div>
+                            </div>
+                        </motion.section>
+                    )}
+                </AnimatePresence>
+
                 {/* ELIx Complexity Slider */}
                 <section>
                     <div className="flex items-center justify-between mb-5">
