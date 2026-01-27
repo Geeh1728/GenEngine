@@ -15,13 +15,15 @@ export async function POST(req: Request) {
 
         const context = `Complexity: ${complexity}\n` + (rules || []).map((r: WorldRuleItem) => `${r.rule}: ${r.description}`).join('\n');
 
-        const output = await physicistAgent.run({
+        const result = await physicistAgent.run({
             userTopic: topic,
             context,
             isSabotageMode: Math.random() < 0.1, // Randomly activate for learning
             requireDeepLogic: true, // Increased for better generation
             fileUri
         });
+
+        const output = result.output;
 
         // FORCE UPGRADE: Ensure the mode is always a 3D mode if successful
         if (output && output.mode === 'METAPHOR') {
