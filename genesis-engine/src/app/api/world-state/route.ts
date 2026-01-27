@@ -19,9 +19,14 @@ export async function POST(req: Request) {
             userTopic: topic,
             context,
             isSabotageMode: Math.random() < 0.1, // Randomly activate for learning
-            requireDeepLogic: false,
+            requireDeepLogic: true, // Increased for better generation
             fileUri
         });
+
+        // FORCE UPGRADE: Ensure the mode is always a 3D mode if successful
+        if (output && output.mode === 'METAPHOR') {
+            output.mode = 'PHYSICS';
+        }
 
         return NextResponse.json(output);
     } catch (error) {

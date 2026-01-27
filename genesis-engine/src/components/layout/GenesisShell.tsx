@@ -193,20 +193,20 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                     {/* Background Layer: Holodeck */}
                     <motion.div
                         animate={{
-                            filter: ((!skillTree && !isIngested) && !isPhysicsMode) || isProcessing ? 'blur(8px)' : 'blur(0px)',
-                            opacity: ((!skillTree && !isIngested) && !isPhysicsMode) ? 0.4 : 1,
+                            filter: isProcessing ? 'blur(8px)' : 'blur(0px)',
+                            opacity: (!isPhysicsMode && !isIngested) ? 0.4 : 1,
                         }}
                         className="absolute inset-0 z-0"
                     >
                         <ErrorBoundary componentName="Holodeck">
                             <Holodeck
-                                debug={true}
+                                debug={false}
                                 isPaused={isPaused}
                                 onCollision={(mag: number) => {
                                     sfx.playCollision(mag);
                                     handleSimulationFailure(`Impact detected: ${mag.toFixed(1)}`);
                                 }}
-                                backgroundMode={(!skillTree && !isIngested) || isProcessing}
+                                backgroundMode={!isPhysicsMode && !isProcessing}
                                 gardenNodes={gardenState.nodes}
                             />
                         </ErrorBoundary>

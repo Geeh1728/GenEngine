@@ -344,23 +344,28 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                     blackboardContext={bbCtx}
                 />
             )) : (
-                <EntityRenderer
-                    entity={{
-                        id: 'sentinel-cube',
-                        type: 'cube',
-                        position: { x: 0, y: 5, z: 0 },
-                        rotation: { x: 0, y: 0, z: 0 },
-                        dimensions: { x: 1, y: 1, z: 1 },
-                        physics: { mass: 1, friction: 0.5, restitution: 0.5 },
-                        color: '#3b82f6',
-                        name: 'Sentinel Cube'
-                    }}
-                    onRegister={registerRb}
-                    onCollision={onCollision}
-                    onSelect={handleSelect}
-                    isSelected={'sentinel-cube' === state.selectedEntityId}
-                    blackboardContext={bbCtx}
-                />
+                <group>
+                    <EntityRenderer
+                        entity={{
+                            id: 'sentinel-obelisk',
+                            type: 'box',
+                            position: { x: 0, y: 5, z: 0 },
+                            rotation: { x: 0, y: 45, z: 0 },
+                            dimensions: { x: 0.5, y: 8, z: 0.5 },
+                            physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                            color: '#3b82f6',
+                            name: 'Quantum Obelisk',
+                            texturePrompt: 'glowing obsidian with neon blue circuits'
+                        }}
+                        onRegister={registerRb}
+                        onCollision={onCollision}
+                        onSelect={handleSelect}
+                        isSelected={'sentinel-obelisk' === state.selectedEntityId}
+                        blackboardContext={bbCtx}
+                    />
+                    {/* Visual Flare for the Obelisk */}
+                    <pointLight position={[0, 5, 0]} intensity={5} color="#3b82f6" />
+                </group>
             )}
 
             {worldState.joints?.map(joint => (
