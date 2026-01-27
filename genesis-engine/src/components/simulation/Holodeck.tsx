@@ -38,7 +38,7 @@ export const Holodeck: React.FC<HolodeckProps> = ({
 
     const handleContextLost = React.useCallback((event: any) => {
         event.preventDefault();
-        console.error("Critical: WebGL Context Lost! The GPU has crashed or reset.", event);
+        console.error("CRITICAL: WebGL Context Lost! The GPU has crashed or reset. Restarting renderer...", event);
     }, []);
 
     return (
@@ -48,15 +48,16 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                 camera={{ position: [0, 5, 12], fov: 50 }}
                 gl={{ 
                     powerPreference: "high-performance",
-                    antialias: false, 
+                    antialias: false,
                     stencil: false,
                     alpha: false,
-                    depth: true
+                    depth: true,
+                    failIfMajorPerformanceCaveat: true
                 }}
                 onCreated={({ gl }) => {
                     gl.domElement.addEventListener('webglcontextlost', handleContextLost, false);
                 }}
-                dpr={[1, 1.5]} // Lowered for stability
+                dpr={[1, 1.5]} // Lowered for stability on mobile
             >
                 <AdaptiveDpr pixelated />
                 <color attach="background" args={['#020205']} />
