@@ -70,9 +70,42 @@ export function UniversalCanvas({ type, customCode }: { type?: string, customCod
             render();
         } 
         
-        // --- SECURITY: Dynamic Tool Synthesis Disabled (Sandboxing required) ---
-        // The previous implementation using new Function() has been removed due to XSS risk.
-        // Future implementation should use WebWorkers.
+// --- OPTION B: Recursive Tool Synthesis (Clawdbot Logic) ---
+        else if (customCode) {
+            try {
+                // Initialize the Logic Bubble Worker
+                const worker = new Worker(new URL('@/lib/simulation/simulation.worker.ts', import.meta.url));
+                
+                worker.postMessage({ type: 'INIT', code: customCode });
+
+                worker.onmessage = (e) => {
+                    const { type, transforms, error } = e.data;
+                    if (type === 'TRANSFORMS') {
+                        // In a 2D canvas context, we map the transforms to drawing calls
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        transforms.forEach((t: any) => {
+                            ctx.fillStyle = t.color || '#3b82f6';
+                            ctx.fillRect(t.position.x, t.position.y, 20, 20);
+                        });
+                    }
+                    if (error) console.error("[Logic Bubble] Worker Error:", error);
+                };
+
+                const render = (time: number) => {
+                    // Send current entities state to worker for next step calculation
+                    worker.postMessage({ type: 'STEP', entities: [], time: time / 1000 });
+                    animationFrameId = requestAnimationFrame(render);
+                };
+                animationFrameId = requestAnimationFrame(render);
+
+                return () => {
+                    worker.terminate();
+                    cancelAnimationFrame(animationFrameId);
+                };
+            } catch (e) {
+                console.error("[UniversalCanvas] Logic Bubble failure:", e);
+            }
+        }
 
         return () => cancelAnimationFrame(animationFrameId);
     }, [type, customCode]);
