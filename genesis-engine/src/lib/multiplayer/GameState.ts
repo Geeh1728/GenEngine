@@ -164,6 +164,7 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return {
                 ...state,
                 worldState: validation.data as WorldState,
+                mode: (validation.data.mode as any) || 'PHYSICS',
                 lastUpdated: Date.now(),
             };
         }
