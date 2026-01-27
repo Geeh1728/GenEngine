@@ -156,13 +156,32 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         } catch (err) {
             console.error('[OmniBar] Error:', err);
             const msg = err instanceof Error ? err.message : 'Unknown error';
+            
+            // FAILOVER: Trigger Resilience Voxel Mode on API failure
+            dispatch({ 
+                type: 'SYNC_WORLD', 
+                payload: {
+                    scenario: "Resilience Voxel Grid",
+                    mode: "VOXEL",
+                    voxels: [
+                        { x: 0, y: 0, z: 0, color: '#3b82f6' },
+                        { x: 1, y: 0, z: 0, color: '#3b82f6' },
+                        { x: 0, y: 1, z: 0, color: '#3b82f6' }
+                    ],
+                    constraints: ["Emergency Voxel Rendering Active"],
+                    successCondition: "Observe geometry",
+                    description: "The primary physics link failed. Initiating low-level voxel visualization.",
+                    explanation: "System Error Detected. Falling back to primitive geometry to maintain visual feed."
+                } as any
+            });
+
             if (msg.includes('?') || msg.toLowerCase().includes('considering')) {
                 dispatch({ type: 'SET_CHALLENGE', payload: msg });
                 setStatus('idle');
             } else {
                 setStatus('error');
-                dispatch({ type: 'SET_ERROR', payload: msg });
-                setTimeout(() => setStatus('idle'), 2000);
+                dispatch({ type: 'SET_ERROR', payload: `Link Error: ${msg}. Voxel failover active.` });
+                setTimeout(() => setStatus('idle'), 5000);
             }
         } finally {
             dispatch({ type: 'SET_PROCESSING', payload: false });

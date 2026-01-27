@@ -214,8 +214,8 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
 
                     {/* Foreground Layer: Views */}
                     <AnimatePresence mode="wait">
-                        {!skillTree && !isIngested && !isPhysicsMode ? (
-                            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center pointer-events-none">
+                        {!isPhysicsMode && !skillTree && !isIngested ? (
+                            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center pointer-events-none">
                                 <h1 className="text-6xl font-outfit font-black mb-4 tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">Genesis</h1>
                                 <p className="text-gray-500 text-sm uppercase tracking-[0.5em]">The Ultimate Aggregator</p>
                                 <div className="mt-8 flex gap-3 pointer-events-auto">

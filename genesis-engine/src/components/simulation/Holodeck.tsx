@@ -36,13 +36,27 @@ export const Holodeck: React.FC<HolodeckProps> = ({
     const { state } = useGenesisStore();
     const activeState = state.worldState || bridgeScenario;
 
+    const handleContextLost = React.useCallback((event: any) => {
+        event.preventDefault();
+        console.error("Critical: WebGL Context Lost! The GPU has crashed or reset.", event);
+    }, []);
+
     return (
         <div className="w-full h-full relative overflow-hidden">
             <Canvas
                 shadows
                 camera={{ position: [0, 5, 12], fov: 50 }}
-                gl={{ antialias: true, powerPreference: "high-performance" }}
-                dpr={[1, 2]} // Performance scaling
+                gl={{ 
+                    powerPreference: "high-performance",
+                    antialias: false, 
+                    stencil: false,
+                    alpha: false,
+                    depth: true
+                }}
+                onCreated={({ gl }) => {
+                    gl.domElement.addEventListener('webglcontextlost', handleContextLost, false);
+                }}
+                dpr={[1, 1.5]} // Lowered for stability
             >
                 <AdaptiveDpr pixelated />
                 <color attach="background" args={['#020205']} />
