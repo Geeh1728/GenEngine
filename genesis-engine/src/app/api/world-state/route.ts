@@ -1,6 +1,8 @@
 import { physicistAgent } from '@/lib/genkit/agents/physicist';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 interface WorldRuleItem {
     rule: string;
     description: string;

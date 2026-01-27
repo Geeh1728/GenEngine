@@ -70,23 +70,9 @@ export function UniversalCanvas({ type, customCode }: { type?: string, customCod
             render();
         } 
         
-        // --- OPTION B: Recursive Tool Synthesis (Clawdbot Logic) ---
-        else if (customCode) {
-            try {
-                // Safely evaluate the dynamic tool script
-                // eslint-disable-next-line no-new-func
-                const drawFunc = new Function('return ' + customCode)();
-                
-                const render = (time: number) => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    drawFunc(ctx, time / 1000);
-                    animationFrameId = requestAnimationFrame(render);
-                };
-                animationFrameId = requestAnimationFrame(render);
-            } catch (e) {
-                console.error("[UniversalCanvas] Dynamic script failure:", e);
-            }
-        }
+        // --- SECURITY: Dynamic Tool Synthesis Disabled (Sandboxing required) ---
+        // The previous implementation using new Function() has been removed due to XSS risk.
+        // Future implementation should use WebWorkers.
 
         return () => cancelAnimationFrame(animationFrameId);
     }, [type, customCode]);

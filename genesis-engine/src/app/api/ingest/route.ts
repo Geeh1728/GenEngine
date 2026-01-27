@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
         console.log(`[Ingest] Uploading ${file.name} to Gemini File API...`);
         
         // Save temp file for upload (GoogleAIFileManager needs a path)
-        const tempPath = `/tmp/${Date.now()}-${file.name}`;
+        // SECURITY: Use random UUID instead of file.name to prevent path traversal
+        const tempPath = `/tmp/${crypto.randomUUID()}.pdf`;
         const fs = require('fs');
         fs.writeFileSync(tempPath, Buffer.from(arrayBuffer));
 
