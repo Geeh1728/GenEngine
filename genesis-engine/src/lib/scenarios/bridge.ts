@@ -1,99 +1,113 @@
 import { WorldState } from '../simulation/schema';
 
 export const bridgeScenario: WorldState = {
-    scenario: "Suspension Bridge Test",
+    scenario: "The Prometheus Singularity",
     mode: "PHYSICS",
-    description: "A suspension bridge with 10 dynamic segments connected by fixed joints between two static towers.",
-    explanation: "Simulation of a bridge structure to test joint constraints and structural integrity.",
+    description: "A high-fidelity gravitational playground featuring a central Singularity and orbiting monoliths.",
+    explanation: "This simulation demonstrates the Genesis Engine's ability to handle complex orbital mechanics, custom shaders, and interactive structural anomalies.",
     entities: [
-        // Tower A
+        // The Singularity (Event Horizon)
         {
-            id: 'tower-a',
-            type: 'cube',
-            name: 'Tower A',
-            position: { x: -5.5, y: 2.5, z: 0 },
+            id: 'singularity',
+            type: 'sphere',
+            name: 'Singularity Core',
+            position: { x: 0, y: 5, z: 0 },
             rotation: { x: 0, y: 0, z: 0 },
-            dimensions: { x: 1, y: 5, z: 1 },
-            physics: { mass: 0, friction: 0.5, restitution: 0.1 },
+            dimensions: { x: 2, y: 2, z: 2 },
+            physics: { mass: 1000, friction: 0.1, restitution: 0.9 },
             isStatic: true,
-            color: 'gray'
+            color: '#000000',
+            texturePrompt: 'black hole event horizon with glowing cyan edges'
         },
-        // Tower B
-        {
-            id: 'tower-b',
-            type: 'cube',
-            name: 'Tower B',
-            position: { x: 5.5, y: 2.5, z: 0 },
+        // The Orbiting Ring (Monoliths)
+        ...Array.from({ length: 8 }).map((_, i) => {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 8;
+            return {
+                id: `monolith-${i}`,
+                type: 'cube' as const,
+                name: 'Neural Monolith',
+                position: { 
+                    x: Math.cos(angle) * radius, 
+                    y: 5 + Math.sin(angle * 2) * 2, 
+                    z: Math.sin(angle) * radius 
+                },
+                rotation: { x: angle, y: angle, z: 0 },
+                dimensions: { x: 0.5, y: 3, z: 1 },
+                physics: { mass: 5, friction: 0.5, restitution: 0.5 },
+                isStatic: false,
+                color: i % 2 === 0 ? '#3b82f6' : '#8b5cf6',
+                texturePrompt: 'brushed obsidian with bioluminescent blue circuitry'
+            };
+        }),
+        // Floating Satellites
+        ...Array.from({ length: 12 }).map((_, i) => ({
+            id: `satellite-${i}`,
+            type: 'sphere' as const,
+            name: 'Data Spore',
+            position: { 
+                x: (Math.random() - 0.5) * 20, 
+                y: 10 + Math.random() * 5, 
+                z: (Math.random() - 0.5) * 20 
+            },
             rotation: { x: 0, y: 0, z: 0 },
-            dimensions: { x: 1, y: 5, z: 1 },
-            physics: { mass: 0, friction: 0.5, restitution: 0.1 },
-            isStatic: true,
-            color: 'gray'
-        },
-        // Planks
-        ...Array.from({ length: 10 }).map((_, i) => ({
-            id: `plank-${i}`,
-            type: 'cube' as const,
-            name: i === 5 ? 'Brittle Section' : 'Steel Beam', // Special naming for material logic
-            position: { x: -4.5 + i, y: 4, z: 0 },
-            rotation: { x: 0, y: 0, z: 0 },
-            dimensions: { x: 1, y: 0.2, z: 2 },
-            physics: { mass: 1, friction: 0.5, restitution: 0.2 },
+            dimensions: { x: 0.3, y: 0.3, z: 0.3 },
+            physics: { mass: 0.5, friction: 0.1, restitution: 0.8 },
             isStatic: false,
-            color: i === 5 ? '#f87171' : '#94a3b8',
-            texturePrompt: i === 5 ? 'cracked rusted steel' : 'brushed structural steel'
+            color: '#06b6d4',
+            analogyLabel: 'Data Packet'
         })),
-        // Ground
+        // The Foundation
         {
             id: 'ground',
-            type: 'cube',
-            name: 'Ground',
+            type: 'plane',
+            name: 'Genesis Platform',
             position: { x: 0, y: -0.5, z: 0 },
             rotation: { x: 0, y: 0, z: 0 },
-            dimensions: { x: 20, y: 1, z: 20 },
-            physics: { mass: 0, friction: 0.8, restitution: 0.5 },
+            dimensions: { x: 50, y: 1, z: 50 },
+            physics: { mass: 0, friction: 0.9, restitution: 0.3 },
             isStatic: true,
-            color: 'grass'
-        }
-    ],
-    joints: [
-        // Connect Tower A to Plank 0
-        {
-            id: 'joint-tower-a',
-            type: 'fixed',
-            bodyA: 'tower-a',
-            bodyB: 'plank-0',
-            anchorA: { x: 0.5, y: 2, z: 0 },
-            anchorB: { x: -0.5, y: 0, z: 0 }
-        },
-        // Connect Planks
-        ...Array.from({ length: 9 }).map((_, i) => ({
-            id: `joint-plank-${i}`,
-            type: 'fixed' as const, // Cast to literal type
-            bodyA: `plank-${i}`,
-            bodyB: `plank-${i + 1}`,
-            anchorA: { x: 0.5, y: 0, z: 0 },
-            anchorB: { x: -0.5, y: 0, z: 0 }
-        })),
-        // Connect Plank 9 to Tower B
-        {
-            id: 'joint-tower-b',
-            type: 'fixed',
-            bodyA: 'plank-9',
-            bodyB: 'tower-b',
-            anchorA: { x: 0.5, y: 0, z: 0 },
-            anchorB: { x: -0.5, y: 2, z: 0 }
+            color: '#020205',
+            texturePrompt: 'cyberpunk dark metal floor with hexagonal grid'
         }
     ],
     constraints: [
-        "The bridge must not collapse under its own weight.",
-        "The towers must remain static."
+        "Monoliths will eventually be drawn into the Singularity if momentum fails.",
+        "Gravity is non-uniform near the core."
     ],
-    successCondition: "The bridge stays intact.",
+    successCondition: "Achieve stable orbit or synthesize new reality.",
     environment: {
         gravity: { x: 0, y: -9.81, z: 0 },
-        timeScale: 1
+        timeScale: 1.2
     },
-    sabotage_reveal: "WARNING: Section 5 detected with critical micro-fractures. In a frozen environment, this brittle steel will fail under shear stress.",
-    societalImpact: "Structural integrity is the foundation of civil mobility. A single flawed beam can isolate entire rural communities from healthcare and education."
+    // Safe MacGyver Move: Custom Shader Effect for the Event Horizon
+    custom_canvas_code: `(ctx, time) => {
+        const centerX = ctx.canvas.width / 2;
+        const centerY = ctx.canvas.height / 2;
+        const radius = 100 + Math.sin(time * 2) * 10;
+        
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#3b82f6';
+        
+        // Draw Neural Ripple
+        for(let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius + (i * 20), 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(59, 130, 246, ${0.3 - (i * 0.1)})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        // Return positions for the worker (simulating orbits)
+        return Array.from({length: 5}).map((_, i) => ({
+            id: 'particle-' + i,
+            position: {
+                x: centerX + Math.cos(time + i) * 150,
+                y: centerY + Math.sin(time + i) * 150
+            },
+            color: '#8b5cf6'
+        }));
+    }`,
+    sabotage_reveal: "ALERT: Gravitational shear detected in Sector 7. The singularity is consuming data packets. Reality coherence dropping.",
+    societalImpact: "When knowledge becomes so dense it collapses into a singularity, we must ensure the event horizon is navigable by all, not just the elite."
 };
