@@ -5,6 +5,7 @@
  * Objective: True Offline vectorization in the browser.
  */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let pipelineInstance: any = null;
 let modelLoadingProgress: number = 0;
 
@@ -27,6 +28,7 @@ export async function generateLocalEmbedding(text: string, onProgress?: (progres
             console.log("[LocalEmbeddings] Loading model: all-MiniLM-L6-v2...");
             
             pipelineInstance = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 progress_callback: (data: any) => {
                     if (data.status === 'progress') {
                         modelLoadingProgress = data.progress;

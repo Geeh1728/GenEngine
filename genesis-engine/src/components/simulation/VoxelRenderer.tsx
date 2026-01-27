@@ -8,6 +8,7 @@ interface VoxelRendererProps {
     voxels: NonNullable<WorldState['voxels']>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const VoxelRenderer: React.FC<any> = ({ voxels: initialVoxels, data }) => {
     // 1. DATA INGEST: Handle both direct prop and data object prop
     const voxels = useMemo(() => {
@@ -30,6 +31,7 @@ export const VoxelRenderer: React.FC<any> = ({ voxels: initialVoxels, data }) =>
     useLayoutEffect(() => {
         if (!meshRef.current || count === 0) return;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         voxels.forEach((voxel: any, i: number) => {
             tempObject.position.set(voxel.x, voxel.y, voxel.z);
             tempObject.updateMatrix();

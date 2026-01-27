@@ -1,38 +1,53 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 1. Disable Strict Mode to prevent double-render bugs in 3D
+  // 1. Standalone Output for optimized Vercel deployment
+  output: 'standalone',
+
+  // 2. Disable Strict Mode to prevent double-render bugs in 3D
   reactStrictMode: false,
 
-  // 2. Ignore Typescript/Lint errors during build 
-  // (We want to ship the MVP, not win a code beauty contest)
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
+  // 3. Experimental Features
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
     },
   },
-  serverExternalPackages: ["@xenova/transformers", "sharp"],
 
-  // 3. Critical Webpack Config for Transformers.js / Genkit
-  webpack: (config) => {
+  // 4. External Packages
+  serverExternalPackages: ["@xenova/transformers", "sharp", "pdf-parse"],
+
+  // 5. Critical Webpack Config for Transformers.js / Genkit / PDF.js
+  webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       "sharp$": false,
       "onnxruntime-node$": false,
       "canvas": false, // for pdfjs-dist
     };
+
+    // Optimization for bundle size
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+      };
+    }
+
     return config;
   },
 
-  // 4. Image Optimization for Reality Lens
+  // 6. Image Optimization for Reality Lens
   images: {
+    // SECURITY: Restricted to prevent SSRF. 
     remotePatterns: [
-      { protocol: "https", hostname: "**" },
+      { protocol: "https", hostname: "*.googleusercontent.com" },
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "raw.githubusercontent.com" },
     ],
+    unoptimized: true, // Fallback for local/arbitrary user data
   },
 };
 

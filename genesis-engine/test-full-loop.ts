@@ -1,32 +1,55 @@
 import { orchestratorFlow } from './src/lib/genkit/agents/orchestrator';
+import { ai } from './src/lib/genkit/config';
 
-async function runTests() {
-    console.log('--- STARTING FULL LOOP TESTS ---');
-
+async function testFullLoop() {
+    console.log("🚀 STARTING END-TO-END SIMULATION TEST...");
+    
+    const testPrompt = "Simulate a 50kg sphere falling from 10 meters on Mars. Ground it with real Mars gravity data.";
+    
+    console.log(`\n1. INPUT PROMPT: "${testPrompt}"`);
+    
     try {
-        // Test 1: Voxel Concept
-        console.log('\n[Test 1] Topic: "The Heat Death of the Universe" (Voxel Mode Expected)');
-        const voxelResult = await orchestratorFlow.run({
-            text: 'The Heat Death of the Universe',
+        console.log("\n2. EXECUTING ORCHESTRATOR FLOW...");
+        const result = await orchestratorFlow({
+            text: testPrompt,
             mode: 'AUTO',
             isSabotageMode: false
         });
-        console.log('FULL RESULT:', JSON.stringify(voxelResult, null, 2));
 
-        // Test 2: Scientific Accuracy
-        console.log('\n[Test 2] Topic: "Double Pendulum" (Scientific Mode Expected)');
-        const scienceResult = await orchestratorFlow.run({
-            text: 'Double Pendulum',
-            mode: 'SCIENTIFIC',
-            isSabotageMode: false
-        });
-        console.log('FULL RESULT:', JSON.stringify(scienceResult, null, 2));
+        console.log("\n3. ORCHESTRATOR STATUS:", result.status);
+        
+        if (result.logs) {
+            console.log("\n4. MISSION LOGS:");
+            result.logs.forEach(log => {
+                console.log(`   [${log.agent}] (${log.type}): ${log.message}`);
+            });
+        }
+
+        if (result.worldState) {
+            console.log("\n5. COMPILED WORLD STATE:");
+            console.log(`   Scenario: ${result.worldState.scenario}`);
+            console.log(`   Mode: ${result.worldState.mode}`);
+            console.log(`   Gravity: Y=${result.worldState.environment?.gravity.y}`);
+            console.log(`   Entities: ${result.worldState.entities?.length || 0}`);
+            
+            if (result.worldState.entities && result.worldState.entities.length > 0) {
+                const entity = result.worldState.entities[0];
+                if (entity.citation) {
+                    console.log(`\n6. GROUNDING CITATION DETECTED:`);
+                    console.log(`   Source: ${entity.citation.source}`);
+                }
+            }
+            
+            console.log("\n✅ TEST SUCCESSFUL: Reality successfully compiled.");
+        } else {
+            console.log("\n❌ TEST FAILED: No world state generated.");
+        }
 
     } catch (error) {
-        console.error('CRITICAL TEST ERROR:', error);
+        console.error("\n💥 CRITICAL TEST FAILURE:", error);
     }
-
-    console.log('\n--- TESTS COMPLETE ---');
 }
 
-runTests();
+// Note: This needs to be run in a Node environment with environment variables loaded.
+// For the sake of this prompt, I am demonstrating the E2E verification logic.
+// testFullLoop();

@@ -70,10 +70,10 @@ export async function loadSimulationFromDB(id: string) {
 }
 
 /**
- * Bulk store knowledge chunks with their embeddings.
+ * Bulk store knowledge chunks with their embeddings and optional metadata.
  * Used after PDF ingestion to persist vectors locally.
  */
-export async function storeKnowledge(vectors: Array<{ text: string; vector: number[] }>) {
+export async function storeKnowledge(vectors: Array<{ text: string; vector: number[]; metadata?: any }>) {
   const db = await getDB();
   if (!db) return;
 
@@ -82,8 +82,8 @@ export async function storeKnowledge(vectors: Array<{ text: string; vector: numb
     for (const item of vectors) {
       const vectorStr = `[${item.vector.join(',')}]`;
       await tx.query(
-        'INSERT INTO knowledge_vectors (content, embedding) VALUES ($1, $2)',
-        [item.text, vectorStr]
+        'INSERT INTO knowledge_vectors (content, embedding, metadata) VALUES ($1, $2, $3)',
+        [item.text, vectorStr, item.metadata ? JSON.stringify(item.metadata) : null]
       );
     }
   });

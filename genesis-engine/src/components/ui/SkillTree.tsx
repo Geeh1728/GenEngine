@@ -104,7 +104,7 @@ export default function SkillTree({ nodes, recommendedPath, completedNodeIds, on
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-[8px] font-black uppercase tracking-[0.4em] text-blue-400/60">
-                    Neural Node: 0{index + 1} // {node.engineMode || 'GEN'}
+                    Neural Node: 0{index + 1} {'//'} {node.engineMode || 'GEN'}
                   </span>
                   {isActive && (
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 rounded-full border border-blue-500/30 text-[7px] font-black uppercase text-blue-400 animate-pulse">

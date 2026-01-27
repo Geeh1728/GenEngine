@@ -9,12 +9,13 @@ import {
     Send,
     Play,
     Brain,
-    Zap,
+    Search,
     Loader2,
     X,
-    ShieldAlert
+    ShieldAlert,
+    MessageCircle
 } from 'lucide-react';
-import { useGenesisEngine } from '@/hooks/useGenesisEngine';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { routeIntentLocally, executeLocalTool } from '@/lib/ai/edgeRouter';
 import { generateSimulationLogic, getEmbedding } from '@/app/actions';
 import { queryKnowledge } from '@/lib/db/pglite';
@@ -22,13 +23,16 @@ import { sfx } from '@/lib/sound/SoundManager';
 
 interface OmniBarProps {
     onCameraClick: () => void;
-    engine: ReturnType<typeof useGenesisEngine>;
     initialPrompt?: string; // Optional prompt from parent
     externalPrompt?: string; // Controlled prop
     onPromptChange?: (val: string) => void; // Controlled prop handler
+    handleIngest: (file: File) => Promise<void>; // Logical function remains for now or move to action
 }
 
-export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engine, externalPrompt, onPromptChange }) => {
+export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, externalPrompt, onPromptChange, handleIngest }) => {
+    const { state, dispatch } = useGenesisStore();
+    const { worldState, isSabotaged, isProcessing, fileUri } = state;
+
     // Internal state is fallback if no external control provided
     const [internalPrompt, setInternalPrompt] = useState('');
 
@@ -40,22 +44,24 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
     const [status, setStatus] = useState<'idle' | 'compiling' | 'error'>('idle');
     const [isListening, setIsListening] = useState(false);
     const [isLongRunning, setIsLongRunning] = useState(false);
+    const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const {
-        setWorldState,
-        setError,
-        setLastHypothesis,
-        setIsSabotaged,
-        isSabotaged,
-        handleIngest,
-        isProcessing,
-        setActiveChallenge // Add this
-    } = engine;
-
     const isYouTube = /youtube\.com|youtu\.be/.test(prompt);
     const isThinking = isProcessing; // Simplified logic without interactionState
+
+    // Track Online Status
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     // Auto-resize textarea
     useEffect(() => {
@@ -97,78 +103,69 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
             executeLocalTool(localTool, (action) => {
                 console.log("[OmniBar] Local Action:", action);
                 sfx.playSuccess();
-
-                // Dispatch directly to the Reducer (Brain Transplant Complete)
-                if (engine.dispatch) {
-                    engine.dispatch(action as any);
-                } else {
-                    // Fallback for older interface compatibility
-                    console.warn("Dispatch not available on engine hook");
-                }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                dispatch(action as any);
             });
             setPrompt('');
             return;
         }
 
         setStatus('compiling');
-        setError(null);
+        dispatch({ type: 'SET_PROCESSING', payload: true });
+        dispatch({ type: 'SET_ERROR', payload: null });
 
         try {
-            // 3. Convert Image to Base64 (if any)
-            let imageBase64 = undefined;
-            if (selectedFile && selectedFile.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.readAsDataURL(selectedFile);
-                await new Promise(r => reader.onload = r);
-                imageBase64 = reader.result as string;
-            }
-
-            // 4. Context Retrieval (RAG)
+            // 3. Context Retrieval (RAG)
             const embResult = await getEmbedding(prompt);
             let contextText = "";
-            if (embResult && embResult.success && embResult.embedding) {
+            if (embResult.success) {
                 const contextResults = await queryKnowledge(embResult.embedding);
                 contextText = contextResults.map((r) => (r as { content: string }).content).join('\n---\n');
             }
 
-            // 5. Orchestrator Flow via Server Action (Context-Aware + Timeout Protection)
-            const currentState = engine.worldState; // Access recent state from hook
-
-            // Timeout Promise to prevent infinite loading (Extended to 45s for Deep Thinking models)
+            // 4. Orchestrator Flow via Server Action
+            const currentState = worldState; 
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Neural Link Timeout: The Architect is silent.")), 45000)
+                setTimeout(() => reject(new Error("Neural Link Timeout")), 45000)
             );
 
-            // Race the API call against the timeout
             const result: any = await Promise.race([
-                generateSimulationLogic(prompt, contextText, currentState),
+                generateSimulationLogic(prompt, contextText, currentState, fileUri || undefined),
                 timeoutPromise
             ]);
 
-            if (result.success && result.worldState) {
+            if (result.success) {
                 sfx.playSuccess();
-                setWorldState(result.worldState);
-                setIsSabotaged(result.isSabotaged || false);
-                setLastHypothesis(prompt);
+                dispatch({ type: 'SYNC_WORLD', payload: result.worldState });
+                dispatch({ type: 'SET_SABOTAGED', payload: result.isSabotaged || false });
+                dispatch({ type: 'SET_HYPOTHESIS', payload: prompt });
+                
+                if (result.logs) {
+                    result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
+                }
+
                 setPrompt('');
                 setSelectedFile(null);
                 setStatus('idle');
             } else {
+                if (result.logs) {
+                    result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
+                }
                 throw new Error(result.error || 'Logic compilation failed');
             }
         } catch (err) {
             console.error('[OmniBar] Error:', err);
             const msg = err instanceof Error ? err.message : 'Unknown error';
-
-            // CHALLENGE INTERCEPTION: If it looks like a question, it's Socrates, not a crash.
             if (msg.includes('?') || msg.toLowerCase().includes('considering')) {
-                setActiveChallenge(msg);
+                dispatch({ type: 'SET_CHALLENGE', payload: msg });
                 setStatus('idle');
             } else {
                 setStatus('error');
-                setError(msg);
+                dispatch({ type: 'SET_ERROR', payload: msg });
                 setTimeout(() => setStatus('idle'), 2000);
             }
+        } finally {
+            dispatch({ type: 'SET_PROCESSING', payload: false });
         }
     };
 
@@ -186,8 +183,19 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
         }
     };
 
+    const handleWhatsAppShare = () => {
+        if (!worldState) return;
+        // Use a persistent room ID for the session if possible, or generate a new one
+        const roomId = Math.random().toString(36).substring(7);
+        const url = `${window.location.origin}${window.location.pathname}?s=${roomId}`;
+        const text = `I built a "${worldState.scenario}" in Genesis. Can you beat it? Check it out here: ${url}`;
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(waUrl, '_blank');
+        sfx.playSuccess();
+    };
+
     return (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-3xl px-6 z-[1000]">
+        <div className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 w-full max-w-full md:max-w-3xl px-4 md:px-6 z-[1000]">
             {/* 1. File Preview Pill */}
             <AnimatePresence>
                 {selectedFile && (
@@ -195,7 +203,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                         initial={{ opacity: 0, y: 10, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                        className="absolute -top-14 left-8 flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white text-[10px] font-bold shadow-2xl"
+                        className="absolute -top-14 left-4 md:left-8 flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white text-[10px] font-bold shadow-2xl"
                     >
                         <Paperclip className="w-3 h-3 opacity-50" />
                         <span className="truncate max-w-[150px]">{selectedFile.name}</span>
@@ -210,8 +218,14 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
             </AnimatePresence>
 
             {/* 2. Interaction Badges */}
-            <div className="absolute -top-10 left-8 flex gap-3">
+            <div className="absolute -top-10 left-4 md:left-8 flex flex-wrap gap-2 md:gap-3">
                 <AnimatePresence>
+                    {!isOnline && (
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-amber-600 rounded-full shadow-[0_0_20px_rgba(217,119,6,0.4)] border border-amber-400/50">
+                            <ShieldAlert className="w-3 h-3 text-white animate-pulse" />
+                            <span className="text-[10px] font-black uppercase text-white tracking-widest">Genesis: Offline Mode</span>
+                        </motion.div>
+                    )}
                     {isThinking && (
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-blue-600 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.4)]">
                             <Brain className="w-3 h-3 text-white animate-pulse" />
@@ -226,6 +240,12 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                             <span className="text-[10px] font-black uppercase text-white tracking-widest">Anomaly Detected</span>
                         </motion.div>
                     )}
+                    {isOnline && (
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-cyan-600/20 border border-cyan-500/30 rounded-full">
+                            <Search className="w-3 h-3 text-cyan-400" />
+                            <span className="text-[10px] font-black uppercase text-cyan-400 tracking-widest">Deep Research Active</span>
+                        </motion.div>
+                    )}
                 </AnimatePresence>
             </div>
 
@@ -236,26 +256,47 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                         isThinking ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.1)',
                     boxShadow: isThinking ? '0 0 30px rgba(59, 130, 246, 0.2)' : '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                 }}
-                className="relative bg-black/40 backdrop-blur-3xl rounded-[32px] border border-white/10 overflow-hidden p-2 transition-all duration-500"
+                className="relative bg-black/40 backdrop-blur-3xl rounded-[24px] md:rounded-[32px] border border-white/10 overflow-hidden p-2 md:p-2 transition-all duration-500"
             >
-                <div className="flex items-end gap-2 px-2 py-1">
-                    {/* Tool Buttons */}
-                    <div className="flex items-center gap-1 pb-1">
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-2xl transition-all"
-                        >
-                            <Paperclip className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-2xl transition-all"
-                        >
-                            <Camera className="w-5 h-5" />
-                        </button>
+                <div className="flex flex-col md:flex-row items-stretch md:items-end gap-2 md:gap-2 px-1 md:px-2">
+                    {/* Mobile: Top Action Bar / Desktop: Left Tools */}
+                    <div className="flex items-center justify-between md:justify-start gap-2 pb-2 md:pb-0 border-b border-white/5 md:border-none mb-1 md:mb-0 w-full md:w-auto">
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-2 md:p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl md:rounded-2xl transition-all"
+                            >
+                                <Paperclip className="w-4 h-4 md:w-5 md:h-5" />
+                            </button>
+                            <button
+                                onClick={() => onCameraClick()}
+                                className="p-2 md:p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl md:rounded-2xl transition-all"
+                            >
+                                <Camera className="w-4 h-4 md:w-5 md:h-5" />
+                            </button>
+                        </div>
+                        
+                        {/* Mobile Right Actions */}
+                        <div className="md:hidden flex items-center gap-1">
+                             <button
+                                onClick={() => setIsListening(!isListening)}
+                                className={`p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Mic className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => handleSubmit()}
+                                disabled={(!prompt.trim() && !selectedFile) || isThinking}
+                                className={`
+                                    p-2 rounded-xl transition-all
+                                    ${(!prompt.trim() && !selectedFile) ? 'text-gray-700 bg-white/5' : 'bg-white text-black'}
+                                `}
+                            >
+                                {status === 'compiling' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Hidden Input */}
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -264,20 +305,27 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                         accept="image/*,.pdf"
                     />
 
-                    {/* Text Input */}
                     <textarea
                         ref={textareaRef}
                         rows={1}
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={isThinking ? "Consulting the Council..." : "Ask Genesis / Paste YouTube URL..."}
+                        placeholder={isThinking ? "Consulting the Council..." : "Ask Genesis..."}
                         disabled={isThinking}
-                        className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-gray-500 text-base font-medium py-3 px-2 resize-none max-h-48 scrollbar-none font-mono"
+                        className="flex-1 w-full bg-transparent border-none outline-none text-white placeholder:text-gray-500 text-sm md:text-base font-medium py-2 md:py-3 px-2 resize-none max-h-32 md:max-h-48 scrollbar-none font-mono"
                     />
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2 pb-1 pr-1">
+                    <div className="hidden md:flex items-center gap-2 pb-1 pr-1">
+                        {worldState && (
+                            <button
+                                onClick={handleWhatsAppShare}
+                                className="p-3 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/5 rounded-2xl transition-all"
+                                title="Share to WhatsApp"
+                            >
+                                <MessageCircle className="w-5 h-5" />
+                            </button>
+                        )}
                         <button
                             onClick={() => setIsListening(!isListening)}
                             className={`p-3 rounded-2xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
@@ -299,7 +347,6 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
                     </div>
                 </div>
 
-                {/* Cyber-Zen Progress Bar */}
                 {isThinking && (
                     <motion.div
                         initial={{ scaleX: 0 }}
@@ -312,3 +359,5 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, engi
         </div>
     );
 });
+
+OmniBar.displayName = 'OmniBar';

@@ -11,12 +11,14 @@ import { routeIntentLocally, executeLocalTool } from '@/lib/ai/edgeRouter';
 export const GodInput: React.FC = () => {
     const [prompt, setPrompt] = useState('');
     const [status, setStatus] = useState<'idle' | 'compiling' | 'error'>('idle');
-    const { 
-        setWorldState, 
-        setError, 
-        setLastHypothesis, 
+    const {
+        setWorldState,
+        setError,
+        setLastHypothesis,
         setIsSabotaged,
-        interactionState 
+        interactionState,
+        fileUri,
+        dispatch
     } = useGenesisEngine();
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -31,6 +33,7 @@ export const GodInput: React.FC = () => {
             executeLocalTool(localTool, (action) => {
                 // Here you would normally use a dispatch, but we update engine state directly
                 console.log("Local Action Dispatched:", action);
+                dispatch(action as any);
             });
             setPrompt('');
             return;
@@ -42,25 +45,54 @@ export const GodInput: React.FC = () => {
         try {
             // 1. Get Embedding for search context
             const embResult = await getEmbedding(prompt);
-            if (!embResult.success || !embResult.embedding) {
+            if (!embResult.success) {
                 throw new Error(embResult.error || 'Neural link failed');
             }
 
+            const embedding = embResult.embedding;
+
             // 2. Query Local Knowledge (PGLite)
-            const contextResults = await queryKnowledge(embResult.embedding);
+            const contextResults = await queryKnowledge(embedding);
             const contextText = contextResults.map((r) => (r as { content: string }).content).join('\n---\n');
 
             // 3. Trigger Compiler Agent
-            const result = await generateSimulationLogic(prompt, contextText);
 
-            if (result.success && result.worldState) {
+            const result = await generateSimulationLogic(prompt, contextText, null, fileUri || undefined);
+
+            if (result.success) {
+
+                // ADD MISSION LOGS
+
+                if (result.logs) {
+
+                    result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
+
+                }
+
                 setWorldState(result.worldState);
+
                 setIsSabotaged(result.isSabotaged || false); // Trigger Glitch if sabotaged
+
                 setLastHypothesis(prompt);
+
                 setPrompt('');
+
                 setStatus('idle');
+
             } else {
-                throw new Error(result.error || 'Logic compilation failed');
+
+                // ADD MISSION LOGS on failure
+
+                if (result.logs) {
+
+                    result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
+
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+                throw new Error((result as any).error || 'Logic compilation failed');
+
             }
         } catch (err) {
             console.error('[GodInput] Error:', err);

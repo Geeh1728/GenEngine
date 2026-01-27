@@ -1,9 +1,12 @@
 import { useReducer, useCallback, useEffect } from 'react';
 import { WorldState } from '@/lib/simulation/schema';
-import { gameReducer, initialGameState, GlobalGameState } from '@/lib/multiplayer/GameState';
+import { gameReducer, initialGameState, GameAction } from '@/lib/multiplayer/GameState';
 import { usePersistence } from './utils/usePersistence';
 import { blackboard } from '@/lib/genkit/context';
-import { ComplexityLevel } from '@/lib/genkit/schemas';
+import { ComplexityLevel, WorldRuleSchema } from '@/lib/genkit/schemas';
+import { z } from 'genkit';
+
+type WorldRule = z.infer<typeof WorldRuleSchema>;
 
 /**
  * useSimulationState: Manages the core physics/logic state of the world.
@@ -37,13 +40,13 @@ export function useSimulationState() {
         }
     }, []);
 
-    const dispatchAction = useCallback((action: any) => {
+    const dispatchAction = useCallback((action: GameAction) => {
         dispatch(action);
     }, []);
 
     const fetchWorldState = useCallback(async (
         topic: string,
-        rules: any[],
+        rules: WorldRule[],
         complexity: ComplexityLevel
     ) => {
         try {

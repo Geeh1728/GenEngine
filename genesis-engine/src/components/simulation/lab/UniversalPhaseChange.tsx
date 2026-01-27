@@ -6,6 +6,7 @@ import { Html } from '@react-three/drei';
 import LiveGraph from './LiveGraph';
 import { motion, AnimatePresence } from 'framer-motion';
 import { blackboard } from '@/lib/genkit/context';
+import * as THREE from 'three';
 
 interface PhaseChangeConfig {
     substance: string;
@@ -154,10 +155,13 @@ export default function UniversalPhaseChange({ config }: { config: PhaseChangeCo
 
 function Particle({ isGas, isLiquid, color }: { isGas: boolean, isLiquid: boolean, color: string }) {
     const mesh = useRef<THREE.Mesh>(null);
-    const { speed, offset } = useMemo(() => ({
-        speed: Math.random() * 0.05 + 0.02,
-        offset: Math.random() * Math.PI * 2
-    }), []);
+    const speed = useRef(0.02);
+    const offset = useRef(0);
+
+    useEffect(() => {
+        speed.current = Math.random() * 0.05 + 0.02;
+        offset.current = Math.random() * Math.PI * 2;
+    }, []);
 
     useFrame((state) => {
         if (!mesh.current) return;
@@ -165,17 +169,17 @@ function Particle({ isGas, isLiquid, color }: { isGas: boolean, isLiquid: boolea
         
         if (isGas) {
             // Chaotic movement
-            mesh.current.position.y += speed * 2;
-            mesh.current.position.x += Math.sin(t + offset) * 0.02;
+            mesh.current.position.y += speed.current * 2;
+            mesh.current.position.x += Math.sin(t + offset.current) * 0.02;
             if (mesh.current.position.y > 2) mesh.current.position.y = -1;
         } else if (isLiquid) {
             // Sloshing movement
-            mesh.current.position.y = -2 + Math.sin(t * 2 + offset) * 0.2;
-            mesh.current.position.x = Math.cos(t + offset) * 0.8;
+            mesh.current.position.y = -2 + Math.sin(t * 2 + offset.current) * 0.2;
+            mesh.current.position.x = Math.cos(t + offset.current) * 0.8;
         } else {
             // Fixed vibrating movement
-            mesh.current.position.y = -2.2 + Math.sin(t * 10 + offset) * 0.02;
-            mesh.current.position.x = Math.cos(offset) * 0.5;
+            mesh.current.position.y = -2.2 + Math.sin(t * 10 + offset.current) * 0.02;
+            mesh.current.position.x = Math.cos(offset.current) * 0.5;
         }
     });
 

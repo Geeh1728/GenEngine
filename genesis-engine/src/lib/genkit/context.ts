@@ -13,9 +13,17 @@ export interface BlackboardContext {
         density: number;
     }>;
     currentMetaphor: string | null;
+    researchFindings: string | null;
+    externalConstants: Record<string, number> | null;
     lastUserError: string | null;
     activeNodes: string[];
     complexity: 'fundamental' | 'standard' | 'expert';
+    missionLogs: Array<{
+        agent: string;
+        message: string;
+        type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING';
+        timestamp: number;
+    }>;
 }
 
 class Blackboard {
@@ -30,9 +38,12 @@ class Blackboard {
             'Water': { brittleness: 0, conductivity: 0.6, density: 1000 },
         },
         currentMetaphor: null,
+        researchFindings: null,
+        externalConstants: null,
         lastUserError: null,
         activeNodes: [],
         complexity: 'standard',
+        missionLogs: [],
     };
 
     private constructor() {}
@@ -42,6 +53,20 @@ class Blackboard {
             Blackboard.instance = new Blackboard();
         }
         return Blackboard.instance;
+    }
+
+    public log(agent: string, message: string, type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' = 'INFO') {
+        this.context.missionLogs.push({
+            agent,
+            message,
+            type,
+            timestamp: Date.now()
+        });
+        // Keep only last 100 logs in context
+        if (this.context.missionLogs.length > 100) {
+            this.context.missionLogs.shift();
+        }
+        this.notify();
     }
 
     public subscribe(listener: (ctx: BlackboardContext) => void) {

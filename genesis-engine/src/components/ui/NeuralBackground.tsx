@@ -17,6 +17,7 @@ interface Particle {
 export const NeuralBackground: React.FC = () => {
     // Use state to hold particles, ensuring generation happens only on client-side mount
     const [particles, setParticles] = useState<Particle[]>([]);
+    const [streams, setStreams] = useState<Array<{ duration: number; delay: number; left: number }>>([]);
 
     useEffect(() => {
         const generatedParticles = Array.from({ length: 40 }).map((_, i) => ({
@@ -29,8 +30,18 @@ export const NeuralBackground: React.FC = () => {
             deltaX: (Math.random() - 0.5) * 5,
             deltaY: (Math.random() - 0.5) * 5,
         }));
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setParticles(generatedParticles);
+        
+        const generatedStreams = Array.from({ length: 10 }).map(() => ({
+            duration: Math.random() * 5 + 5,
+            delay: Math.random() * 5,
+            left: Math.random() * 100
+        }));
+
+        const timer = setTimeout(() => {
+            setParticles(generatedParticles);
+            setStreams(generatedStreams);
+        }, 0);
+        return () => clearTimeout(timer);
     }, []);
 
     return (
@@ -72,19 +83,19 @@ export const NeuralBackground: React.FC = () => {
 
             {/* Holographic Data Streams */}
             <div className="absolute inset-0 opacity-[0.05] pointer-events-none">
-                {Array.from({ length: 10 }).map((_, i) => (
+                {streams.map((s, i) => (
                     <motion.div
                         key={i}
                         initial={{ y: '-100%' }}
                         animate={{ y: '200%' }}
                         transition={{
-                            duration: Math.random() * 5 + 5,
+                            duration: s.duration,
                             repeat: Infinity,
                             ease: "linear",
-                            delay: Math.random() * 5
+                            delay: s.delay
                         }}
                         className="absolute w-[1px] h-[40%] bg-gradient-to-b from-transparent via-blue-500 to-transparent"
-                        style={{ left: `${Math.random() * 100}%` }}
+                        style={{ left: `${s.left}%` }}
                     />
                 ))}
             </div>

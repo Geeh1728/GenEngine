@@ -12,6 +12,7 @@ import { BabelNode } from '@/components/simulation/BabelNode';
 import AudioPlayer from '@/components/ui/AudioPlayer';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 import { WorldState } from '@/lib/simulation/schema';
+import { GodModePanel } from '@/components/intervention/GodModePanel';
 
 interface DashboardViewProps {
     engine: ReturnType<typeof useGenesisEngine>;
@@ -19,12 +20,12 @@ interface DashboardViewProps {
     onToggleListening: () => void;
     handleStartPodcast: () => void;
     isGeneratingPodcast: boolean;
-    podcastScript: any;
+    podcastScript: { host: 'A' | 'B'; text: string }[] | null;
     handleRunVerification: () => void;
     isExecutingPython: boolean;
-    pythonOutput: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pythonOutput: { stdout: string | null; result: any; error: string | null } | null;
     handleExport: () => void;
-    onEntityPropertyChange: (id: string, property: string, value: any) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -37,8 +38,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     handleRunVerification,
     isExecutingPython,
     pythonOutput,
-    handleExport,
-    onEntityPropertyChange
+    handleExport
 }) => {
     const {
         worldState,
@@ -53,8 +53,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         setMasteryState,
         handleMasteryComplete,
         commentary,
-        setWorldState,
-        selectedEntityId
+        setWorldState: _setWorldState,
+        selectedEntityId: _selectedEntityId
     } = engine;
 
     return (
@@ -74,7 +74,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     constants={godModeState.constants}
                     onConstantChange={(n, v) => engine.handleConstantChange(n, v)}
                     entities={worldState?.entities}
-                    onEntityPropertyChange={onEntityPropertyChange}
                 />
             </div>
 

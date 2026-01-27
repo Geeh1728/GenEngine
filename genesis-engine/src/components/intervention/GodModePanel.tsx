@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Shield, AlertTriangle, Sliders, Activity, Target, Box, Weight, Move } from 'lucide-react';
 import { Entity } from '@/lib/simulation/schema';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
 
 interface Rule {
     id: string;
@@ -17,7 +18,6 @@ interface GodModePanelProps {
     constants: Record<string, number>;
     onConstantChange: (name: string, value: number) => void;
     entities?: Entity[];
-    onEntityPropertyChange?: (id: string, property: string, value: any) => void;
 }
 
 export const GodModePanel: React.FC<GodModePanelProps> = ({
@@ -28,24 +28,23 @@ export const GodModePanel: React.FC<GodModePanelProps> = ({
     constants,
     onConstantChange,
     entities = [],
-    onEntityPropertyChange,
 }) => {
-    const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
-
-    useEffect(() => {
-        const handleSelect = (e: any) => setSelectedEntityId(e.detail.id);
-        window.addEventListener('GENESIS_ENTITY_SELECT', handleSelect);
-        return () => window.removeEventListener('GENESIS_ENTITY_SELECT', handleSelect);
-    }, []);
+    const { state, dispatch } = useGenesisStore();
+    const { selectedEntityId } = state;
 
     const selectedEntity = entities.find(e => e.id === selectedEntityId);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onEntityPropertyChange = (id: string, property: string, value: any) => {
+        dispatch({ type: 'UPDATE_ENTITY', payload: { id, property, value } });
+    };
 
     return (
         <motion.div 
             initial={{ x: -100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="w-80 h-full flex flex-col bg-black/60 backdrop-blur-3xl border-r border-white/5 p-8 relative overflow-hidden"
+            className="w-full md:w-80 h-full flex flex-col bg-black/60 backdrop-blur-3xl border-r border-white/5 p-6 md:p-8 relative overflow-hidden"
         >
             {/* Holographic Scanline */}
             <div className="absolute inset-0 pointer-events-none opacity-[0.03] overflow-hidden">

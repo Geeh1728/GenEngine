@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { generatePodcastScript } from '@/app/actions/podcast';
 import { runPython } from '@/lib/python/pyodide';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
+import { Entity } from '@/lib/simulation/schema';
 
 export interface LocalInterfaceState {
     isListening: boolean;
@@ -13,10 +14,11 @@ export interface LocalInterfaceState {
     podcastScript: { host: 'A' | 'B', text: string }[] | null;
     isGeneratingPodcast: boolean;
     handleStartPodcast: () => Promise<void>;
-    pythonOutput: { stdout: string | null; result: any; error: string | null } | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pythonOutput: { stdout: string | null; result: number | string | Record<string, any> | null; error: string | null } | null;
     isExecutingPython: boolean;
     handleRunVerification: () => Promise<void>;
-    handleTeleport: (newEntities: any[]) => void;
+    handleTeleport: (newEntities: Entity[]) => void;
     handleExport: () => void;
     handleSaboteurReply: (reply: string) => void;
 }
@@ -31,13 +33,14 @@ export function useLocalInterface(engine: ReturnType<typeof useGenesisEngine>): 
     const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
 
     // Python State
-    const [pythonOutput, setPythonOutput] = useState<{ stdout: string | null; result: any; error: string | null } | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [pythonOutput, setPythonOutput] = useState<{ stdout: string | null; result: number | string | Record<string, any> | null; error: string | null } | null>(null);
     const [isExecutingPython, setIsExecutingPython] = useState(false);
 
     const handleStartPodcast = async () => {
         if (!engine.worldRules.length) return;
         setIsGeneratingPodcast(true);
-        
+
         // CONTEXT-AWARE PODCAST: Include details about the current simulation
         const world = engine.worldState;
         const simulationContext = world ? `
@@ -50,7 +53,7 @@ export function useLocalInterface(engine: ReturnType<typeof useGenesisEngine>): 
 
         const rulesContent = engine.worldRules.map(r => `${r.rule}: ${r.description}`).join('\n');
         const fullContent = `RULES:\n${rulesContent}\n\n${simulationContext}`;
-        
+
         const script = await generatePodcastScript(fullContent);
         setPodcastScript(script);
         setIsGeneratingPodcast(false);
@@ -64,7 +67,7 @@ export function useLocalInterface(engine: ReturnType<typeof useGenesisEngine>): 
         setIsExecutingPython(false);
     };
 
-    const handleTeleport = (newEntities: any[]) => {
+    const handleTeleport = (newEntities: Entity[]) => {
         const current = engine.worldState;
         if (!current) return;
 

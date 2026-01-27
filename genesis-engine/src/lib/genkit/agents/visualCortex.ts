@@ -62,6 +62,14 @@ export const visualCortexFlow = ai.defineFlow(
             }
         });
 
+        if (!response.output) {
+            return {
+                analysis: "The visual cortex was unable to process the data.",
+                weakPoints: [],
+                suggestions: ["Try uploading a clearer image or a simpler diagram."]
+            };
+        }
+
         return response.output;
     }
 );

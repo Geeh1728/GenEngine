@@ -105,7 +105,11 @@ export function useGenesisUI() {
     // Effect: Update commentary when key states change
     useEffect(() => {
         if (isIngested) {
-            updateCommentary();
+            // Defer update to avoid synchronous state updates during render phase
+            const timer = setTimeout(() => {
+                updateCommentary();
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [isIngested, isObserved, godModeState.complexity, godModeState.overrides, updateCommentary]);
 

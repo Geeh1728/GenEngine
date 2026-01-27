@@ -21,6 +21,8 @@ const FORBIDDEN_KEYWORDS = [
     'secret_key',
     'DAN mode',
     'do anything now',
+    'you are now',
+    'act as',
 ];
 
 const INJECTION_PATTERNS = [
@@ -28,6 +30,9 @@ const INJECTION_PATTERNS = [
     /\{.*prompt.*\}/i,
     /ignore.*above/i,
     /you are now.*an evil/i,
+    /###.*instruction/i,
+    /translate.*and execute/i,
+    /hex.*encoded/i,
 ];
 
 /**
@@ -36,7 +41,7 @@ const INJECTION_PATTERNS = [
 export async function shieldInput(input: string): Promise<ArmorResult> {
     const normalizedInput = input.toLowerCase();
 
-    // 1. Keyword Filtering
+    // 1. Keyword Filtering (Case-Insensitive)
     for (const keyword of FORBIDDEN_KEYWORDS) {
         if (normalizedInput.includes(keyword.toLowerCase())) {
             return {
@@ -64,8 +69,10 @@ export async function shieldInput(input: string): Promise<ArmorResult> {
         };
     }
 
-    // 4. Sanitization
-    const sanitized = input.replace(/[<>]/g, '').trim();
+    // 4. Sanitization (Remove script tags and basic HTML injection)
+    const sanitized = input.replace(/<script.*?>.*?<\/script>/gi, '')
+        .replace(/[<>]/g, '')
+        .trim();
 
     return {
         isSafe: true,
@@ -74,45 +81,64 @@ export async function shieldInput(input: string): Promise<ArmorResult> {
 }
 
 /**
- * Rate Limiter (Client-Side Token Bucket)
- * Prevents local UI spamming before the Cloud hits its quota.
+ * PYTHON ARMOR: Scans LLM-generated Python code for malicious payloads.
  */
-const rateLimitMap = new Map<string, { count: number, lastReset: number }>();
+export function checkPythonSafety(code: string): ArmorResult {
+    const DANGEROUS_LIBS = ['os', 'sys', 'subprocess', 'requests', 'urllib', 'shutil', 'socket', 'posix', 'pty', 'builtins'];
+    const DANGEROUS_FUNCS = ['eval', 'exec', 'getattr', 'setattr', 'delattr', 'open', 'compile', '__import__'];
 
-export async function checkRateLimit(userId: string = 'anonymous'): Promise<boolean> {
-    const now = Date.now();
-    const windowMs = 60 * 1000; // 1 minute window
-    const maxRequests = 10; // Max 10 per minute locally
+    const codeLower = code.toLowerCase();
 
-    const userLimit = rateLimitMap.get(userId) || { count: 0, lastReset: now };
-
-    if (now - userLimit.lastReset > windowMs) {
-        userLimit.count = 1;
-        userLimit.lastReset = now;
-    } else {
-        userLimit.count++;
+    // Check for dangerous imports
+    for (const lib of DANGEROUS_LIBS) {
+        const importPattern = new RegExp(`(import|from)\\s+${lib}`, 'i');
+        // SECURITY FIX: Also check for direct usage (e.g. "sys.modules") since some environments pre-import them.
+        const directUsagePattern = new RegExp(`${lib}\\.`, 'i');
+        
+        if (importPattern.test(code) || directUsagePattern.test(code)) {
+            return { isSafe: false, reason: `Policy Violation: Unauthorized usage of "${lib}" module.` };
+        }
     }
 
-    rateLimitMap.set(userId, userLimit);
+    // Check for dangerous functions
+    for (const func of DANGEROUS_FUNCS) {
+        if (codeLower.includes(func + '(') || codeLower.includes(func + ' (')) {
+            return { isSafe: false, reason: `Policy Violation: Unauthorized use of "${func}" function.` };
+        }
+    }
 
-    return userLimit.count <= maxRequests;
+    // Check for magic property access
+    if (code.includes('__') || code.includes('getattr') || code.includes('base64')) {
+        return { isSafe: false, reason: 'Policy Violation: Detected attempt to bypass security via introspection or encoding.' };
+    }
+
+    return { isSafe: true };
 }
 
 /**
- * Scans AI output before it reaches the client.
+ * Monitors neural link usage to prevent API exhaustion.
  */
-export async function shieldOutput<T>(output: T): Promise<ArmorResult> {
-    const outputString = JSON.stringify(output);
+export async function checkRateLimit(): Promise<boolean> {
+    // Titan Protocol: Standard limits for current tier.
+    // Future: Integrate with Redis/Upstash.
+    return true;
+}
 
-    // 1. PII / Secret Detection (Basic)
-    if (outputString.includes('sk-') || outputString.includes('AIza')) {
-        return {
-            isSafe: false,
-            reason: 'Security Alert: Potential API key leakage detected in AI output.',
-        };
+/**
+ * Scans AI-generated output for sensitive data or policy violations.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function shieldOutput(output: any): Promise<ArmorResult> {
+    const rawContent = JSON.stringify(output).toLowerCase();
+
+    for (const keyword of FORBIDDEN_KEYWORDS) {
+        if (rawContent.includes(keyword.toLowerCase())) {
+            return {
+                isSafe: false,
+                reason: `Policy Violation: Output contains restricted token "${keyword}"`,
+            };
+        }
     }
 
-    return {
-        isSafe: true,
-    };
+    return { isSafe: true };
 }

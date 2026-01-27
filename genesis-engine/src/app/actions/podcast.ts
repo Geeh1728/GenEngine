@@ -3,7 +3,7 @@
 import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 
-export async function generatePodcastScript(content: string) {
+export async function generatePodcastScript(content: string): Promise<{ host: 'A' | 'B', text: string }[]> {
   const { text } = await generateText({
     model: google('gemini-2.0-flash'),
     prompt: `
@@ -29,7 +29,7 @@ export async function generatePodcastScript(content: string) {
 
   try {
     // Extract JSON if model wrapped it in markdown blocks
-    const jsonMatch = text.match(/\[.*\]/s);
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
     return JSON.parse(jsonMatch ? jsonMatch[0] : text);
   } catch (e) {
     console.error("Failed to parse podcast script:", e);

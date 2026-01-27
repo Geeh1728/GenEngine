@@ -29,7 +29,7 @@ export const SaboteurDialogue: React.FC<SaboteurDialogueProps> = ({ question, on
                 </div>
 
                 <p className="text-lg font-outfit text-amber-50 mb-8 leading-relaxed italic">
-                    "{question}"
+                    &quot;{question}&quot;
                 </p>
 
                 <div className="relative">

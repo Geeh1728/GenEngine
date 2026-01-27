@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, Volume2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, Pause, SkipForward } from 'lucide-react';
 
 interface ScriptLine {
   host: 'A' | 'B';
@@ -54,7 +54,10 @@ export default function AudioPlayer({ script }: { script: ScriptLine[] }) {
 
   useEffect(() => {
     if (isPlaying) {
-      playLine(currentIndex);
+      const timer = setTimeout(() => {
+        playLine(currentIndex);
+      }, 0);
+      return () => clearTimeout(timer);
     } else {
       synth?.cancel();
     }

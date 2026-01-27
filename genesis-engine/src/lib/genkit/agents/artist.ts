@@ -6,6 +6,7 @@ import { blackboard } from '../context';
 
 export const ArtistInputSchema = z.object({
     concept: z.string(),
+    fileUri: z.string().optional().describe('Gemini File API URI for grounding.'),
 });
 
 /**
@@ -20,14 +21,21 @@ export const artistAgent = ai.defineFlow(
         outputSchema: WorldStateSchema,
     },
     async (input) => {
+        const { concept, fileUri } = input;
         const blackboardFragment = blackboard.getSystemPromptFragment();
         const output = await generateWithResilience({
-            prompt: `Visualize this abstract concept as 3D Voxel art: "${input.concept}"`,
+            prompt: [
+                { text: `Visualize this abstract concept as 3D Voxel art: "${concept}"` },
+                ...(fileUri ? [{ media: { url: fileUri, contentType: 'application/pdf' } }] : [])
+            ],
             system: `
                 You are the Artist Agent of the Genesis Engine.
                 Your role is to visualize abstract concepts as 3D Voxel Art.
                 
                 ${blackboardFragment}
+
+                GROUNDING PROTOCOL:
+                If a file is provided, search it for symbols, metaphors, or structural descriptions related to the concept.
 
                 TASK:
                 1. Translate the concept (e.g. "Inflation") into a set of 3D cubes.
@@ -48,6 +56,7 @@ export const artistAgent = ai.defineFlow(
                     id: "fallback-voxel", 
                     type: "cube", 
                     position: { x: 0, y: 0, z: 0 }, 
+                    rotation: { x: 0, y: 0, z: 0 },
                     dimensions: { x: 2, y: 2, z: 2 },
                     physics: { mass: 0, friction: 0.5, restitution: 0.5 },
                     isStatic: true,

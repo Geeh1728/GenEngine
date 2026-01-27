@@ -1,4 +1,10 @@
-import { WorldState } from '@/lib/simulation/schema';
+import { WorldState, WorldStateSchema } from '@/lib/simulation/schema';
+import { SimulationFactory } from '@/lib/simulation/SimulationFactory';
+import { SkillNodeSchema } from '@/lib/genkit/schemas';
+import { Quest } from '@/lib/gamification/questEngine';
+import { z } from 'zod';
+
+type SkillNode = z.infer<typeof SkillNodeSchema>;
 
 export interface PlayerState {
     id: string;
@@ -7,13 +13,21 @@ export interface PlayerState {
     selection: string | null;
 }
 
-export type InteractionState = 
-    | 'IDLE' 
-    | 'LISTENING' 
-    | 'ANALYZING' 
-    | 'BUILDING' 
-    | 'PLAYING' 
+export type InteractionState =
+    | 'IDLE'
+    | 'LISTENING'
+    | 'ANALYZING'
+    | 'BUILDING'
+    | 'PLAYING'
     | 'REFLECTION';
+
+export interface MissionLog {
+    id: string;
+    timestamp: number;
+    agent: string;
+    message: string;
+    type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING';
+}
 
 export interface GlobalGameState {
     sessionId: string;
@@ -23,6 +37,16 @@ export interface GlobalGameState {
     lastUpdated: number;
     activeChallenge: string | null; // Socratic questions from Critic
     selectedEntityId: string | null;
+    activeNode: SkillNode | null;
+    isProcessing: boolean;
+    quests: Quest[];
+    currentQuestId: string | null;
+    lastHypothesis: string;
+    error: string | null;
+    isSabotaged: boolean;
+    fileUri: string | null;
+    missionLogs: MissionLog[];
+    mode: 'IDLE' | 'PHYSICS' | 'VOXEL' | 'SCIENTIFIC' | 'ASSEMBLER';
 }
 
 export type GameAction =
@@ -37,8 +61,18 @@ export type GameAction =
     | { type: 'CLEAR_CHALLENGE' }
     | { type: 'SELECT_ENTITY'; payload: string }
     | { type: 'DESELECT_ENTITY' }
-    | { type: 'UPDATE_ENTITY'; payload: { id: string, property: string, value: any } }
-    | { type: 'RESET_SIMULATION' };
+    | { type: 'UPDATE_ENTITY'; payload: { id: string, property: string, value: number | string | boolean } }
+    | { type: 'RESET_SIMULATION' }
+    | { type: 'SET_ACTIVE_NODE'; payload: SkillNode | null }
+    | { type: 'SET_PROCESSING'; payload: boolean }
+    | { type: 'SET_QUESTS'; payload: Quest[] }
+    | { type: 'SET_CURRENT_QUEST'; payload: string | null }
+    | { type: 'SET_HYPOTHESIS'; payload: string }
+    | { type: 'SET_ERROR'; payload: string | null }
+    | { type: 'SET_SABOTAGED'; payload: boolean }
+    | { type: 'SET_FILE_URI'; payload: string | null }
+    | { type: 'ADD_MISSION_LOG'; payload: Omit<MissionLog, 'id' | 'timestamp'> }
+    | { type: 'CLEAR_MISSION_LOGS' };
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
@@ -48,6 +82,16 @@ export const initialGameState: GlobalGameState = {
     lastUpdated: Date.now(),
     activeChallenge: null,
     selectedEntityId: null,
+    activeNode: null,
+    isProcessing: false,
+    quests: [],
+    currentQuestId: null,
+    lastHypothesis: '',
+    error: null,
+    isSabotaged: false,
+    fileUri: null,
+    missionLogs: [],
+    mode: 'IDLE',
 };
 
 /**
@@ -55,6 +99,36 @@ export const initialGameState: GlobalGameState = {
  */
 export function gameReducer(state: GlobalGameState, action: GameAction): GlobalGameState {
     switch (action.type) {
+        case 'ADD_MISSION_LOG':
+            return {
+                ...state,
+                missionLogs: [
+                    ...state.missionLogs,
+                    {
+                        ...action.payload,
+                        id: Math.random().toString(36).substring(7),
+                        timestamp: Date.now()
+                    }
+                ].slice(-50) // Keep last 50 logs
+            };
+        case 'CLEAR_MISSION_LOGS':
+            return { ...state, missionLogs: [] };
+        case 'SET_HYPOTHESIS':
+            return { ...state, lastHypothesis: action.payload };
+        case 'SET_ERROR':
+            return { ...state, error: action.payload };
+        case 'SET_SABOTAGED':
+            return { ...state, isSabotaged: action.payload };
+        case 'SET_FILE_URI':
+            return { ...state, fileUri: action.payload };
+        case 'SET_ACTIVE_NODE':
+            return { ...state, activeNode: action.payload };
+        case 'SET_PROCESSING':
+            return { ...state, isProcessing: action.payload };
+        case 'SET_QUESTS':
+            return { ...state, quests: action.payload };
+        case 'SET_CURRENT_QUEST':
+            return { ...state, currentQuestId: action.payload };
         case 'UPDATE_ENTITY': {
             if (!state.worldState?.entities) return state;
             return {
@@ -64,9 +138,9 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
                     entities: state.worldState.entities.map(e => {
                         if (e.id !== action.payload.id) return e;
                         const newPhysics = { ...e.physics };
-                        if (action.payload.property === 'mass') newPhysics.mass = action.payload.value;
-                        if (action.payload.property === 'restitution') newPhysics.restitution = action.payload.value;
-                        if (action.payload.property === 'friction') newPhysics.friction = action.payload.value;
+                        if (action.payload.property === 'mass') newPhysics.mass = action.payload.value as number;
+                        if (action.payload.property === 'restitution') newPhysics.restitution = action.payload.value as number;
+                        if (action.payload.property === 'friction') newPhysics.friction = action.payload.value as number;
                         return { ...e, physics: newPhysics };
                     })
                 }
@@ -80,12 +154,19 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return { ...state, activeChallenge: action.payload };
         case 'CLEAR_CHALLENGE':
             return { ...state, activeChallenge: null };
-        case 'SYNC_WORLD':
+        case 'SYNC_WORLD': {
+            // DATA INTEGRITY CHECK: Validate incoming world state against schema
+            const validation = WorldStateSchema.safeParse(action.payload);
+            if (!validation.success) {
+                console.error("[GameState] Data Integrity Failure:", validation.error);
+                return state; // Reject corrupt data
+            }
             return {
                 ...state,
-                worldState: action.payload,
+                worldState: validation.data as WorldState,
                 lastUpdated: Date.now(),
             };
+        }
         case 'SET_INTERACTION_STATE':
             return {
                 ...state,
@@ -93,44 +174,30 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             };
         case 'UPDATE_PHYSICS':
         case 'UPDATE_WORLD_ENVIRONMENT': {
-            const currentWorld = state.worldState || { 
-                entities: [], 
-                mode: 'PHYSICS', 
-                scenario: 'Physics Environment', 
-                environment: { gravity: { x: 0, y: -9.8, z: 0 }, timeScale: 1 },
-                constraints: [],
-                successCondition: 'Explore the environment',
-                description: 'A physical space with basic gravity.',
-                explanation: 'This mode allows for direct manipulation of physical constants.'
-            };
+            const currentWorld = state.worldState || SimulationFactory.createEmptyWorld();
             const newMode = 'PHYSICS';
-            
+
             // CLEANUP: If we are in the default "Suspension Bridge" and changing physics,
             // wipe the bridge so the user can see the simple physics clearly.
             let newEntities = currentWorld.entities || [];
             if (currentWorld.scenario === "Suspension Bridge Test") {
-                newEntities = []; // Clear the bridge
+                newEntities = [SimulationFactory.createGround()]; // Keep the floor
             }
 
-            // Auto-Spawn: If world is empty (or we just cleared it), spawn a "Test Object"
-            if (newEntities.length === 0) {
-                newEntities = [{
-                    id: 'gravity-test',
-                    type: 'cube',
-                    position: { x: 0, y: 5, z: 0 },
-                    physics: { mass: 1, friction: 0.5, restitution: 0.7 },
-                    dimensions: { x: 1, y: 1, z: 1 },
-                    color: '#3b82f6', // Blue
-                    name: 'Gravity Test'
-                }];
+            // Auto-Spawn: If world is empty (or only has ground), spawn a "Test Object"
+            const hasTestObject = newEntities.some(e => e.id !== 'ground');
+            if (!hasTestObject) {
+                newEntities = [...newEntities, SimulationFactory.createTestCube({ id: 'gravity-test' })];
             }
 
             return {
                 ...state,
+                mode: 'PHYSICS',
                 worldState: {
                     ...currentWorld,
                     mode: newMode,
                     entities: newEntities,
+                    custom_canvas_code: currentWorld.custom_canvas_code, // Preserve custom code
                     environment: {
                         ...(currentWorld.environment || {}),
                         ...action.payload
@@ -166,7 +233,10 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
                 players: newPlayers,
             };
         }
+        case 'RESET_SIMULATION':
+            return initialGameState;
         default:
             return state;
     }
 }
+

@@ -65,11 +65,12 @@ export const visionFlow = ai.defineFlow(
                 ],
                 output: { schema: StructuralAnalysisSchema }
             });
+            if (!response.output) throw new Error("No structured output from Gemini 3 Vision");
             return response.output;
         } catch (error) {
             console.error("Gemini 3 Vision Failed, falling back to Flash Lite:", error);
             
-            return await generateWithResilience({
+            const fallbackResult = await generateWithResilience({
                 system: systemPrompt,
                 prompt: [
                     { text: "Analyze this scene for objects and spatial coordinates." },
@@ -85,6 +86,9 @@ export const visionFlow = ai.defineFlow(
                     suggestion: "Try uploading a clearer image or a simpler scene."
                 }
             });
+
+            if (!fallbackResult) throw new Error("Vision Agent completely failed.");
+            return fallbackResult;
         }
     }
 );

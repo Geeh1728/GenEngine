@@ -24,7 +24,7 @@ export function usePersistence(
                 console.error("[Persistence] Corrupt State", e);
             }
         }
-    }, []);
+    }, [setWorldState, worldState]);
 
     // Save on Change (Debounced)
     useEffect(() => {

@@ -15,6 +15,7 @@ class SoundManager {
 
     private getContext() {
         if (!this.ctx) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
         return this.ctx;

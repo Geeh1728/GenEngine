@@ -1,87 +1,165 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSimulationState } from './useSimulationState';
 import { useGamification } from './useGamification';
 import { useGenesisUI } from './useGenesisUI';
 import { getEmbedding } from '@/lib/ai/embeddings';
 import { storeKnowledge } from '@/lib/db/pglite';
-import { WorldRuleSchema } from '@/lib/genkit/schemas';
+import { WorldRuleSchema, SkillNodeSchema, ComplexityLevel, SkillTree } from '@/lib/genkit/schemas';
 import { z } from 'genkit';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
+import { blackboard } from '@/lib/genkit/context';
+import { WorldState } from '@/lib/simulation/schema';
+import { usePersistence } from './utils/usePersistence';
+import { p2p } from '@/lib/multiplayer/P2PConnector';
 
-type WorldRule = z.infer<typeof WorldRuleSchema>;
-// Type Definitions
 // (Kept for compatibility if exported, though now inferred from sub-hooks)
+type WorldRule = z.infer<typeof WorldRuleSchema>;
+type SkillNode = z.infer<typeof SkillNodeSchema>;
+
+interface CommentaryState {
+    text: string;
+    citation: string;
+    suggestedYoutubeId?: string;
+}
+
+interface DiagnosticsState {
+    hypothesis: string;
+    outcome: string;
+    sabotageReveal?: string;
+}
 
 /**
  * useGenesisEngine: The central hook for managing the simulation lifecycle.
- * Refactored for TITAN PROTOCOL v4: Composition over Inheritance.
- * Now acts as a facade over atomic hooks.
+ * Refactored for performance, security, and cleanliness (Titan Protocol v3.5).
+ * "Brain Transplant" v3: Now consumes the global Context Store.
  */
 export function useGenesisEngine() {
-    // 1. Core Physics & Logic
-    const simulation = useSimulationState();
+    const { state, dispatch } = useGenesisStore();
     const {
-        gameState,
         worldState,
         selectedEntityId,
-        dispatch,
-        fetchWorldState,
-        syncWorldState
-    } = simulation;
+        isProcessing,
+        error,
+        lastHypothesis,
+        isSabotaged,
+        fileUri,
+        activeNode,
+        activeChallenge,
+        interactionState,
+        mode
+    } = state;
 
-    // 2. UI & Interaction State
-    const ui = useGenesisUI();
-    const {
-        isIngested, setIsIngested,
-        isProcessing, setIsProcessing,
-        neuralEngineProgress, setNeuralEngineProgress,
-        worldRules, setWorldRules,
-        sourceTitle, setSourceTitle,
-        error, setError,
-        isObserved, setIsObserved,
-        godModeState, setGodModeState,
-        commentary,
-        isPaused, setIsPaused,
-        diagnostics, setDiagnostics,
-        lastHypothesis, setLastHypothesis,
-        isSabotaged, setIsSabotaged,
-        omniPrompt, setOmniPrompt,
-        activeChallenge, setActiveChallenge,
-        updateCommentary,
-        setComplexity
-    } = ui;
+    // --- Ingestion & Local Logic ---
+    const [isIngested, setIsIngested] = useState(false);
+    const [neuralEngineProgress, setNeuralEngineProgress] = useState(0);
+    const [worldRules, setWorldRules] = useState<WorldRule[]>([]);
+    const [sourceTitle, setSourceTitle] = useState('');
+    const [isObserved, setIsObserved] = useState(false);
 
-    // 3. Gamification & Mastery
-    const gamification = useGamification();
-    const {
-        skillTree,
-        activeNode, setActiveNode,
-        completedNodeIds, setCompletedNodeIds,
-        activeQuest, setActiveQuest,
-        isQuestVisible, setIsQuestVisible,
-        masteryState, setMasteryState,
-        gardenState, setGardenState,
-        updateGardenHealth,
-        generateSkillTree,
-        trackFailure
-    } = gamification;
+    // --- Mastery OS / Skill Tree ---
+    const [skillTree, setSkillTree] = useState<SkillTree | null>(null);
+    const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
 
-    // --- AGGREGATED ACTIONS (GLUE LOGIC) ---
+    // --- God Mode Configuration ---
+    const [godModeState, setGodModeState] = useState({
+        complexity: 'standard' as ComplexityLevel,
+        constants: { gravity: 9.8, planck: 1, timeScale: 1 },
+        overrides: [] as string[],
+    });
 
-    // Ingestion touches UI, DB, and Simulation
+    // --- Dialogue & Mastery Features ---
+    const [commentary, setCommentary] = useState<CommentaryState | null>(null);
+    const [masteryState, setMasteryState] = useState({
+        questions: [],
+        isChallengeOpen: false,
+        isCrystalUnlocked: false,
+        score: 0,
+        isGenerating: false,
+    });
+
+    // --- Simulation Controls ---
+    const [isPaused, setIsPaused] = useState(false);
+    const [diagnostics, setDiagnostics] = useState<DiagnosticsState | null>(null);
+    const [omniPrompt, setOmniPrompt] = useState('');
+
+    const [gardenState, setGardenState] = useState({ nodes: [] });
+
+    // --- Setters mapped to Dispatch ---
+    const setIsProcessing = useCallback((val: boolean) => dispatch({ type: 'SET_PROCESSING', payload: val }), [dispatch]);
+    const setError = useCallback((val: string | null) => dispatch({ type: 'SET_ERROR', payload: val }), [dispatch]);
+    const setIsSabotaged = useCallback((val: boolean) => dispatch({ type: 'SET_SABOTAGED', payload: val }), [dispatch]);
+    const setLastHypothesis = useCallback((val: string) => dispatch({ type: 'SET_HYPOTHESIS', payload: val }), [dispatch]);
+    const setActiveNode = useCallback((val: SkillNode | null) => dispatch({ type: 'SET_ACTIVE_NODE', payload: val }), [dispatch]);
+    const setActiveChallenge = useCallback((val: string | null) => {
+        if (val) dispatch({ type: 'SET_CHALLENGE', payload: val });
+        else dispatch({ type: 'CLEAR_CHALLENGE' });
+    }, [dispatch]);
+
+    // --- IMMERSION: PERSISTENCE LAYER ---
+    usePersistence(worldState, (state) => {
+        if (state) dispatch({ type: 'SYNC_WORLD', payload: state });
+    });
+
+    // --- Quantum Bridge Sync ---
+    useEffect(() => {
+        if (worldState && Object.keys(worldState).length > 0) {
+            blackboard.updateFromWorldState(worldState);
+        }
+    }, [worldState]);
+
+    // --- Ghost Mesh Connectivity ---
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const params = new URLSearchParams(window.location.search);
+        const roomId = params.get('s');
+
+        if (roomId) {
+            p2p.connect(roomId);
+        }
+    }, []);
+
+    const syncWorldState = useCallback((newState: WorldState | null) => {
+        if (!newState) {
+            dispatch({ type: 'RESET_SIMULATION' });
+        } else {
+            dispatch({ type: 'SYNC_WORLD', payload: newState });
+        }
+    }, [dispatch]);
+
+    const fetchWorldState = useCallback(async (rules: WorldRule[]) => {
+        try {
+            const response = await fetch('/api/world-state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic: sourceTitle || 'Quantum Physics',
+                    rules,
+                    complexity: godModeState.complexity,
+                    fileUri: state.fileUri
+                }),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                dispatch({ type: 'SYNC_WORLD', payload: data });
+                setGodModeState(prev => ({
+                    ...prev,
+                    constants: { ...data.constants, timeScale: 1 }
+                }));
+            }
+        } catch (err) {
+            console.error('Failed to fetch world state', err);
+        }
+    }, [sourceTitle, godModeState.complexity, dispatch]);
+
     const handleIngest = useCallback(async (file: File) => {
         setIsProcessing(true);
         setError(null);
         try {
             const formData = new FormData();
             formData.append('file', file);
-
-            const response = await fetch('/api/ingest', {
-                method: 'POST',
-                body: formData,
-            });
-
+            const response = await fetch('/api/ingest', { method: 'POST', body: formData });
             if (!response.ok) throw new Error('Ingestion failed');
-
             const data = await response.json();
 
             if (data.chunks) {
@@ -94,7 +172,7 @@ export function useGenesisEngine() {
                 await storeKnowledge(vectors);
             }
 
-            const rulesWithIds: WorldRule[] = (data.rules || []).map((r: any, i: number) => ({
+            const rulesWithIds: WorldRule[] = (data.rules || []).map((r: WorldRule, i: number) => ({
                 id: r.id || `rule-${i}`,
                 rule: r.rule || 'Unknown Rule',
                 description: r.description || '',
@@ -105,36 +183,93 @@ export function useGenesisEngine() {
             setWorldRules(rulesWithIds);
             setSourceTitle(data.metadata?.title || 'Unknown Source');
             setIsIngested(true);
+            if (data.fileUri) {
+                dispatch({ type: 'SET_FILE_URI', payload: data.fileUri });
+            }
 
-            // Trigger Simulation Update
-            await fetchWorldState(rulesWithIds, godModeState.complexity);
-
-            // Trigger Gamification Update
-            await generateSkillTree(data.metadata?.title || 'Physics');
-
-            setGardenState(prev => ({
-                nodes: [
-                    ...prev.nodes,
-                    {
-                        id: `garden-${Date.now()}`,
-                        topic: data.metadata?.title || 'Physics',
-                        lastReviewDate: Date.now(),
-                        health: 1.0
-                    }
-                ]
-            }));
+            await fetchWorldState(rulesWithIds);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Ingestion failed');
         } finally {
             setIsProcessing(false);
         }
-    }, [fetchWorldState, generateSkillTree, godModeState.complexity, setGardenState, setSourceTitle, setWorldRules, setIsIngested, setIsProcessing, setError, setNeuralEngineProgress]);
+    }, [fetchWorldState, setError, setIsProcessing]);
 
-    // Mastery Challenge touches UI and Gamification
+    const startSimulation = useCallback(async (node: SkillNode) => {
+        setActiveNode(node);
+        setIsProcessing(true);
+        try {
+            const response = await fetch('/api/world-state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic: node.label,
+                    context: node.description,
+                    complexity: godModeState.complexity,
+                    fileUri: state.fileUri
+                }),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                dispatch({ type: 'SYNC_WORLD', payload: data });
+            }
+        } catch (err) {
+            console.error('Failed to start simulation', err);
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [godModeState.complexity, dispatch, setActiveNode, setIsProcessing]);
+
+    const toggleRule = useCallback((id: string) => {
+        setWorldRules(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));
+        setGodModeState(prev => {
+            const isOverridden = prev.overrides.includes(id);
+            return {
+                ...prev,
+                overrides: isOverridden
+                    ? prev.overrides.filter(o => o !== id)
+                    : [...prev.overrides, id]
+            };
+        });
+    }, []);
+
+    const handleConstantChange = useCallback((name: string, value: number) => {
+        setGodModeState(prev => ({
+            ...prev,
+            constants: { ...prev.constants, [name]: value }
+        }));
+    }, []);
+
+    const setComplexity = useCallback((complexity: ComplexityLevel) => {
+        setGodModeState(prev => ({ ...prev, complexity }));
+    }, []);
+
+    const handleSimulationFailure = useCallback((outcome: string) => {
+        if (!worldState) return;
+        setIsPaused(true);
+        setDiagnostics({
+            hypothesis: lastHypothesis,
+            outcome,
+            sabotageReveal: worldState.sabotage_reveal
+        });
+    }, [worldState, lastHypothesis]);
+
+    const resetSimulation = useCallback(() => {
+        setIsPaused(false);
+        setDiagnostics(null);
+        dispatch({ type: 'RESET_SIMULATION' });
+    }, [dispatch]);
+
+    const handleMasteryComplete = useCallback((score: number) => {
+        setMasteryState(prev => ({ ...prev, score, isCrystalUnlocked: true }));
+    }, []);
+
     const startMasteryChallenge = useCallback(async () => {
+        if (!worldRules.length) return;
+        
         setMasteryState(prev => ({ ...prev, isGenerating: true }));
         try {
-            const response = await fetch('/api/mastery', {
+            const response = await fetch('/api/mastery/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -142,78 +277,25 @@ export function useGenesisEngine() {
                     complexity: godModeState.complexity
                 }),
             });
+            
             if (response.ok) {
                 const data = await response.json();
-                setMasteryState(prev => ({
-                    ...prev,
+                setMasteryState({
                     questions: data.questions,
                     isChallengeOpen: true,
-                    isGenerating: false
-                }));
+                    isCrystalUnlocked: false,
+                    score: 0,
+                    isGenerating: false,
+                });
             }
         } catch (err) {
             console.error('Failed to start mastery challenge', err);
+        } finally {
             setMasteryState(prev => ({ ...prev, isGenerating: false }));
         }
-    }, [worldRules, godModeState.complexity, setMasteryState]);
-
-    const handleMasteryComplete = useCallback((score: number) => {
-        setMasteryState(prev => ({
-            ...prev,
-            score,
-            isCrystalUnlocked: true
-        }));
-    }, [setMasteryState]);
-
-    // Simulation Failure touches Simulation, UI, and Gamification
-    const handleSimulationFailure = useCallback((outcome: string) => {
-        if (!worldState) return;
-
-        trackFailure(); // Updates failure count and toggles Quest visibility internally if needed
-
-        setIsPaused(true);
-        setDiagnostics({
-            hypothesis: lastHypothesis,
-            outcome,
-            sabotageReveal: worldState.sabotage_reveal
-        });
-    }, [worldState, lastHypothesis, trackFailure, setIsPaused, setDiagnostics]);
-
-    // Start Simulation from Skill Node
-    const startSimulation = useCallback(async (node: typeof activeNode) => {
-        if (!node) return;
-        setActiveNode(node);
-        setIsProcessing(true);
-        try {
-            await fetchWorldState(node.label, godModeState.complexity);
-        } catch (err) {
-            console.error('Failed to start simulation', err);
-        } finally {
-            setIsProcessing(false);
-        }
-    }, [godModeState.complexity, setActiveNode, setIsProcessing, fetchWorldState]);
-
-    const resetSimulationAll = useCallback(() => {
-        simulation.resetSimulation();
-        setIsPaused(false);
-        setDiagnostics(null);
-        setIsQuestVisible(false);
-    }, [simulation, setIsPaused, setDiagnostics, setIsQuestVisible]);
-
-    // Garden Health Loop
-    useEffect(() => {
-        const interval = setInterval(updateGardenHealth, 1000 * 60 * 60);
-        return () => clearInterval(interval);
-    }, [updateGardenHealth]);
+    }, [worldRules, godModeState.complexity]);
 
     return {
-        // ...simulation
-        worldState,
-        selectedEntityId,
-        dispatch,
-        setWorldState: syncWorldState,
-
-        // ...ui
         isIngested,
         isProcessing,
         worldRules,
@@ -221,48 +303,44 @@ export function useGenesisEngine() {
         error,
         isObserved,
         godModeState,
+        worldState,
+        dispatch,
         commentary,
+        masteryState,
         isPaused,
         diagnostics,
-        lastHypothesis,
         isSabotaged,
-        omniPrompt,
-        activeChallenge,
-        neuralEngineProgress,
-
-        // ...gamification
         skillTree,
         activeNode,
         completedNodeIds,
-        activeQuest,
-        isQuestVisible,
-        masteryState,
-        gardenState,
+        neuralEngineProgress,
+        selectedEntityId,
+        fileUri,
+        interactionState,
 
-        // ...actions
         handleIngest,
-        toggleRule: ui.toggleRule,
-        handleConstantChange: ui.handleConstantChange,
+        toggleRule,
+        handleConstantChange,
         setComplexity,
         setIsObserved,
-        startMasteryChallenge,
         setMasteryState,
         handleMasteryComplete,
-        updateCommentary,
+        startMasteryChallenge,
+        setWorldState: syncWorldState,
         setError,
         setIsSabotaged,
         handleSimulationFailure,
-        resetSimulation: resetSimulationAll,
+        resetSimulation,
         setLastHypothesis,
+        gardenState,
         setGardenState,
-        updateGardenHealth,
-        setIsQuestVisible,
-        setActiveQuest,
-        generateSkillTree,
         startSimulation,
         setCompletedNodeIds,
         setActiveNode,
+        omniPrompt,
         setOmniPrompt,
-        setActiveChallenge
+        activeChallenge,
+        setActiveChallenge,
+        mode
     };
 }

@@ -3,7 +3,7 @@ import { SkillTreeSchema, SkillNodeSchema } from '@/lib/genkit/schemas';
 import { storeKnowledge } from '@/lib/db/pglite';
 import { z } from 'genkit';
 import { Question } from '@/components/mastery/MasteryChallenge';
-import { Quest } from '@/lib/gamification/questEngine';
+import { Quest, MASTER_QUESTS } from '@/lib/gamification/questEngine';
 
 type SkillTree = z.infer<typeof SkillTreeSchema>;
 type SkillNode = z.infer<typeof SkillNodeSchema>; // No longer unused
@@ -27,15 +27,18 @@ interface GardenState {
     nodes: GardenNode[];
 }
 
+import { useGenesisStore } from '@/lib/store/GenesisContext';
+
 export function useGamification() {
+    const { state, dispatch } = useGenesisStore();
+    const { quests, currentQuestId } = state;
+
     // --- Mastery OS / Skill Tree ---
     const [skillTree, setSkillTree] = useState<SkillTree | null>(null);
     const [activeNode, setActiveNode] = useState<SkillNode | null>(null);
     const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
 
     // --- Quest & Gamification ---
-    const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
-    const [isQuestVisible, setIsQuestVisible] = useState(false);
     const [failureCount, setFailureCount] = useState(0);
 
     // --- Mastery Features ---
@@ -52,12 +55,28 @@ export function useGamification() {
         nodes: []
     });
 
+    const setActiveQuest = useCallback((quest: Quest | null) => {
+        if (quest) {
+            dispatch({ type: 'SET_QUESTS', payload: [...quests, quest] });
+            dispatch({ type: 'SET_CURRENT_QUEST', payload: quest.id });
+        } else {
+            dispatch({ type: 'SET_CURRENT_QUEST', payload: null });
+        }
+    }, [dispatch, quests]);
+
+    const setIsQuestVisible = useCallback((visible: boolean) => {
+        if (!visible) dispatch({ type: 'SET_CURRENT_QUEST', payload: null });
+    }, [dispatch]);
+
     const generateSkillTree = useCallback(async (goal: string) => {
         try {
             const response = await fetch('/api/mastery/curriculum', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ goal }),
+                body: JSON.stringify({ 
+                    goal,
+                    fileUri: state.fileUri
+                }),
             });
             if (response.ok) {
                 const data = await response.json();
@@ -91,10 +110,13 @@ export function useGamification() {
         const newCount = failureCount + 1;
         setFailureCount(newCount);
         if (newCount >= 3) {
-            setIsQuestVisible(true);
+            // Trigger a default master quest if none active
+            if (!currentQuestId && MASTER_QUESTS.length > 0) {
+                setActiveQuest(MASTER_QUESTS[0]);
+            }
             setFailureCount(0);
         }
-    }, [failureCount]);
+    }, [failureCount, currentQuestId, setActiveQuest]);
 
     return {
         skillTree,
@@ -102,9 +124,9 @@ export function useGamification() {
         setActiveNode,
         completedNodeIds,
         setCompletedNodeIds,
-        activeQuest,
+        activeQuest: quests.find(q => q.id === currentQuestId) || null,
         setActiveQuest,
-        isQuestVisible,
+        isQuestVisible: !!currentQuestId,
         setIsQuestVisible,
         masteryState,
         setMasteryState,
@@ -115,3 +137,4 @@ export function useGamification() {
         trackFailure
     };
 }
+

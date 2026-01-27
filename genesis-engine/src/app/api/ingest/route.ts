@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { embeddingModel, cleanText } from "@/lib/google";
 import { extractTextFromPDF } from "@/lib/ingestion/pdf-processor";
+import { GoogleAIFileManager } from "@google/generative-ai/server";
 
 // Vercel / Next.js Config for Long-Running Processes
 export const maxDuration = 60; // Increase to 60 seconds (Pro/Hobby limit)
 export const dynamic = 'force-dynamic';
+
+const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "";
+const fileManager = new GoogleAIFileManager(apiKey);
 
 export async function POST(req: NextRequest) {
     try {
@@ -16,21 +20,35 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        // 2. Parse PDF (Server-Side)
+        // 2. Parse PDF (Server-Side) for Local PGLite (Offline Support)
         const arrayBuffer = await file.arrayBuffer();
         const data = await extractTextFromPDF(arrayBuffer);
-
         const rawText = cleanText(data);
 
-        // 3. Chunking (Critical for Embeddings)
-        // We split the long text into smaller pieces (e.g., 500 chars)
-        // so the AI doesn't choke.
+        // 3. Managed RAG: Upload to Gemini File API
+        console.log(`[Ingest] Uploading ${file.name} to Gemini File API...`);
+        
+        // Save temp file for upload (GoogleAIFileManager needs a path)
+        const tempPath = `/tmp/${Date.now()}-${file.name}`;
+        const fs = require('fs');
+        fs.writeFileSync(tempPath, Buffer.from(arrayBuffer));
+
+        const uploadResult = await fileManager.uploadFile(tempPath, {
+            mimeType: "application/pdf",
+            displayName: file.name,
+        });
+
+        // Cleanup temp file
+        fs.unlinkSync(tempPath);
+
+        // 4. Chunking for Local PGLite (Fallback)
         const chunks = rawText.match(/.{1,1000}/g) || [];
 
-        // 4. Return data for Local Embedding (Transformers.js) or API Embedding
+        // 5. Return data
         return NextResponse.json({
             success: true,
-            chunks: chunks.slice(0, 20), // Send chunks back to client for local embedding if offline
+            chunks: chunks.slice(0, 20),
+            fileUri: uploadResult.file.uri, // This is the magic key for Agentic RAG
             metadata: { title: file.name }
         });
 

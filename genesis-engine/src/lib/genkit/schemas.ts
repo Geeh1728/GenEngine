@@ -1,4 +1,5 @@
 import { z } from 'genkit';
+import { NodeData, EntitySchema, WorldStateSchema as BaseWorldStateSchema } from '../simulation/schema';
 
 export const ComplexityLevelSchema = z.enum(['fundamental', 'standard', 'expert']);
 
@@ -36,25 +37,26 @@ export const SimulationCardSchema = z.object({
 // Schema for the physical "Reality" of a specific topic (The Prometheus Protocol)
 export const WorldStateSchema = z.object({
     scenario: z.string().describe('The name of the generated scenario'),
-    mode: z.enum(['PHYSICS', 'METAPHOR']).describe('Whether to simulate literal physics or abstract metaphors'),
-    entities: z.array(z.object({
-        id: z.string(),
-        type: z.enum(['cube', 'sphere', 'fluid', 'softbody', 'complex']),
-        physics: z.object({
-            mass: z.number(),
-            friction: z.number(),
-            restitution: z.number(),
-            initialPosition: z.tuple([z.number(), z.number(), z.number()]).optional(),
-        }),
-        visuals: z.object({
-            color: z.string(),
-            scale: z.tuple([z.number(), z.number(), z.number()]),
-            modelUrl: z.string().optional(),
-        }).optional(),
-        analogyLabel: z.string().optional().describe('Label for metaphor mode (e.g., "Money Supply")'),
-    })),
+    mode: z.enum(['PHYSICS', 'METAPHOR', 'SCIENTIFIC', 'VOXEL', 'ASSEMBLER']).describe('The simulation engine to use.'),
+    entities: z.array(EntitySchema).optional(),
+    voxels: z.array(z.object({
+        x: z.number(),
+        y: z.number(),
+        z: z.number(),
+        color: z.string(),
+    })).optional(),
+    environment: z.object({
+        gravity: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+        timeScale: z.number().default(1),
+    }).optional(),
     constraints: z.array(z.string()).describe('Rules for the Saboteur to check'),
     successCondition: z.string().describe('What defines winning the simulation'),
+    description: z.string().optional(),
+    explanation: z.string().optional(),
+    python_code: z.string().optional().describe('Python code to execute for mathematical verification or plotting.'),
+    custom_canvas_code: z.string().optional().describe('Dynamic HTML5 Canvas JS code for custom math visualizations.'),
+    sabotage_reveal: z.string().optional(),
+    societalImpact: z.string().optional(),
 });
 
 // Schema for the global God Mode / Intervention state
@@ -79,6 +81,7 @@ export const SkillNodeSchema = z.object({
         reason: z.string(),
         subject: z.string().describe('The related subject area, e.g. "Biology", "Economics"')
     })).optional().describe('Semantic links to other subjects or previous simulations.'),
+    data: z.custom<NodeData>().optional().describe('Simulation data associated with this node (PhysicsParams, VoxelData[], or WorldState)'),
 });
 
 export const SkillTreeSchema = z.object({
@@ -100,4 +103,11 @@ export const StructuralAnalysisSchema = z.object({
     })),
     physicsConstraints: z.array(z.string()).describe('Inferred physical rules (e.g., "Fixed support at base")'),
     stabilityScore: z.number().min(0).max(100).optional(),
+    analysis: z.string().optional().describe('Mental model of the structure.'),
+    suggestion: z.string().optional().describe('Advice for the user.'),
 });
+
+export type SkillTree = z.infer<typeof SkillTreeSchema>;
+export type ComplexityLevel = z.infer<typeof ComplexityLevelSchema>;
+export type SkillNode = z.infer<typeof SkillNodeSchema>;
+export type StructuralAnalysis = z.infer<typeof StructuralAnalysisSchema>;

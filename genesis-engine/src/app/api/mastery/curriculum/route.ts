@@ -3,10 +3,13 @@ import { architectFlow } from "@/lib/genkit/agents/architect";
 
 export async function POST(req: NextRequest) {
     try {
-        const { goal } = await req.json();
+        const { goal, fileUri } = await req.json();
         if (!goal) return NextResponse.json({ error: "No goal provided" }, { status: 400 });
 
-        const skillTree = await architectFlow(goal);
+        const skillTree = await architectFlow({ 
+            userGoal: goal,
+            fileUri
+        });
         return NextResponse.json(skillTree);
     } catch (error) {
         console.error("Architect API Error:", error);

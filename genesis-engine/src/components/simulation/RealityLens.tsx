@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Zap, Box, Trash2, X, ChevronRight, Ruler, Height, Info, Compass, AlertCircle, Wrench, Brain } from 'lucide-react';
+import { Camera, Zap, Box, Trash2, X, ChevronRight, Ruler, ArrowUp, Info, Compass, AlertCircle, Wrench, Brain } from 'lucide-react';
 import Image from 'next/image';
 import { analyzeReality, analyzeStructuralIntegrity } from '@/app/actions/vision';
 import { parseBoundingBoxes2D } from '@/lib/gemini/spatialParser';
@@ -395,6 +395,7 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                                 <span className="text-[10px] text-gray-500 font-bold uppercase">Reference:</span>
                                 <select 
                                     value={referenceType} 
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     onChange={(e) => setReferenceType(e.target.value as any)}
                                     className="bg-transparent text-white text-[10px] font-bold outline-none cursor-pointer"
                                 >

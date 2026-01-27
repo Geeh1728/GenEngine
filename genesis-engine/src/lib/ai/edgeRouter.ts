@@ -59,6 +59,7 @@ export async function routeIntentLocally(input: string): Promise<LocalTool | nul
 /**
  * Execute a local tool directly in the app state.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function executeLocalTool(tool: LocalTool, dispatch: (action: { type: string, payload?: any }) => void) {
     console.log(`[EdgeRouter] Executing Local Tool: ${tool.type}`, tool.payload);
     

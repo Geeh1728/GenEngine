@@ -9,7 +9,7 @@ import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 export const Bridge: React.FC = () => {
     const [hypothesis, setHypothesis] = useState('');
     const [isCompiling, setIsCompiling] = useState(false);
-    const { setWorldState, setError } = useGenesisEngine();
+    const { setWorldState, setError, fileUri } = useGenesisEngine();
 
     const handleCompile = async () => {
         if (!hypothesis.trim()) return;
@@ -20,23 +20,26 @@ export const Bridge: React.FC = () => {
         try {
             // 1. Get Embedding for search
             const embResult = await getEmbedding(hypothesis);
-            if (!embResult.success || !embResult.embedding) {
+            if (!embResult.success) {
                 throw new Error(embResult.error || 'Failed to generate embedding');
             }
 
+            const embedding = embResult.embedding;
+
             // 2. Query Local PGLite for context
-            const contextResults = await queryKnowledge(embResult.embedding);
+            const contextResults = await queryKnowledge(embedding);
             const context = contextResults.map((r) => (r as { content: string }).content).join('\n---\n');
 
             // 3. Compile Hypothesis via Gemini
-            const result = await compileHypothesis(hypothesis, context);
+            const result = await compileHypothesis(hypothesis, context, fileUri || undefined);
 
-            if (result.success && result.worldState) {
+            if (result.success) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setWorldState(result.worldState as any);
                 setHypothesis(''); // Clear input on success
             } else {
-                throw new Error(result.error || 'Failed to compile reality');
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                throw new Error((result as any).error || 'Failed to compile reality');
             }
         } catch (err) {
             console.error('Bridge Error:', err);

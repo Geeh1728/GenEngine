@@ -9,14 +9,16 @@ interface WorldRuleItem {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { topic, rules, complexity } = body;
+        const { topic, rules, complexity, fileUri } = body;
 
-        const context = `Complexity: ${complexity}\n` + rules.map((r: WorldRuleItem) => `${r.rule}: ${r.description}`).join('\n');
+        const context = `Complexity: ${complexity}\n` + (rules || []).map((r: WorldRuleItem) => `${r.rule}: ${r.description}`).join('\n');
 
         const output = await physicistAgent.run({
             userTopic: topic,
             context,
-            isSabotageMode: Math.random() < 0.1 // Randomly activate for learning
+            isSabotageMode: Math.random() < 0.1, // Randomly activate for learning
+            requireDeepLogic: false,
+            fileUri
         });
 
         return NextResponse.json(output);

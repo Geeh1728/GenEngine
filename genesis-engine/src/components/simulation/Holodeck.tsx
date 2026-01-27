@@ -3,21 +3,16 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
-import { OrbitControls, Environment, Sky, Float, ContactShadows, Html } from '@react-three/drei';
+import { OrbitControls, Environment, Sky, Float, ContactShadows, Html, AdaptiveDpr } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { UniversalRenderer } from './Renderer';
-import { WorldState } from '@/lib/simulation/schema';
-import { SkillNodeSchema } from '@/lib/genkit/schemas';
 import { z } from 'zod';
 import { bridgeScenario } from '@/lib/scenarios/bridge';
 import { LSystemTree } from './LSystemTree';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
 // SoundManager decoupled
 
-type SkillNode = z.infer<typeof SkillNodeSchema>;
-
 interface HolodeckProps {
-    worldState: WorldState | null;
-    activeNode?: SkillNode | null;
     debug?: boolean;
     isPaused?: boolean;
     onCollision?: (impactMagnitude: number) => void;
@@ -31,18 +26,15 @@ interface HolodeckProps {
  * Performance: Optimized for low-end devices by keeping Main Thread clear.
  */
 export const Holodeck: React.FC<HolodeckProps> = ({
-    worldState,
-    activeNode,
     debug = true,
     isPaused = false,
     onCollision,
     backgroundMode = false,
     gardenNodes = []
 }) => {
-    // Falls back to bridge scenario if no state is provided
-    const activeState = worldState || bridgeScenario;
-
-    // Sound decoupled to parent
+    // Falls back to bridge scenario if no state is provided (mostly for environment now)
+    const { state } = useGenesisStore();
+    const activeState = state.worldState || bridgeScenario;
 
     return (
         <div className="w-full h-full relative overflow-hidden">
@@ -52,6 +44,7 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                 gl={{ antialias: true, powerPreference: "high-performance" }}
                 dpr={[1, 2]} // Performance scaling
             >
+                <AdaptiveDpr pixelated />
                 <color attach="background" args={['#020205']} />
 
                 <Suspense fallback={<Html><div className="text-white">Loading Holodeck...</div></Html>}>
@@ -70,8 +63,6 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                             paused={isPaused}
                         >
                             <UniversalRenderer
-                                worldState={activeState}
-                                activeNode={activeNode}
                                 onCollision={onCollision}
                             />
                         </Physics>
@@ -84,7 +75,7 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                     <OrbitControls makeDefault />
 
                     {/* Neural Post-Processing */}
-                    <EffectComposer disableNormalPass>
+                    <EffectComposer enableNormalPass={false}>
                         <Bloom luminanceThreshold={1} mipmapBlur intensity={0.5} />
                         <ChromaticAberration offset={[0.0005, 0.0005]} />
                         <Vignette eskil={false} offset={0.1} darkness={1.1} />

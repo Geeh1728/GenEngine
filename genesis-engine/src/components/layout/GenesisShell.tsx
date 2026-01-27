@@ -15,19 +15,26 @@ import { MindGarden } from '@/components/simulation/MindGarden';
 import SkillTree from '@/components/ui/SkillTree';
 import { OmniBar } from '@/components/ui/OmniBar';
 import { SaboteurDialogue } from '@/components/ui/SaboteurDialogue';
+import { QuestOverlay } from '@/components/ui/QuestOverlay';
+import { MissionLog } from '@/components/ui/MissionLog';
+import { DynamicController } from '@/components/ui/DynamicController';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { Holodeck } from '@/components/simulation/Holodeck';
+import { PerformanceMonitor } from '@/components/common/PerformanceMonitor';
+import { Settings, List, X } from 'lucide-react';
 
 // View Modules
 import { DashboardView } from '@/components/views/DashboardView';
 import { SimulationView } from '@/components/views/SimulationView';
 import { NavigationHeader } from '@/components/views/NavigationHeader';
 import { StatusFooter } from '@/components/views/StatusFooter';
-
+// ...
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 import { useLocalInterface } from '@/hooks/useLocalInterface';
+import { useBiometrics } from '@/hooks/useBiometrics';
 
 // Dynamic Imports
-const Holodeck = dynamic(() => import('@/components/simulation/Holodeck').then(mod => mod.Holodeck), { ssr: false });
+
 const NeuralBackground = dynamic(() => import('@/components/ui/NeuralBackground').then(mod => mod.NeuralBackground), { ssr: false });
 
 interface GenesisShellProps {
@@ -40,6 +47,12 @@ interface GenesisShellProps {
  * Handles layout, overlays, and view switching. Decoupled from logic.
  */
 export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
+    // Initialize Biometrics (Cognitive Sentinel)
+    useBiometrics();
+
+    const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+    const [isLogsOpen, setIsLogsOpen] = React.useState(false);
+
     const {
         isIngested,
         isProcessing,
@@ -66,7 +79,8 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
         setActiveChallenge,
         toggleRule,
         handleConstantChange,
-        isSabotaged
+        isSabotaged,
+        mode
     } = engine;
 
     const {
@@ -84,15 +98,27 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
         handleSaboteurReply
     } = ui;
 
-    const isPhysicsMode = worldState?.mode === 'PHYSICS' || worldState?.mode === 'VOXEL' || worldState?.mode === 'SCIENTIFIC' || worldState?.mode === 'ASSEMBLER';
-
-    const handleEntityPropertyChange = (id: string, property: string, value: any) => {
-        engine.dispatch?.({ type: 'UPDATE_ENTITY', payload: { id, property, value } });
-    };
+    const isPhysicsMode = mode === 'PHYSICS' || mode === 'VOXEL' || mode === 'SCIENTIFIC' || mode === 'ASSEMBLER';
 
     return (
         <main className="min-h-screen relative overflow-hidden font-inter text-foreground bg-[#020205]">
             <NeuralBackground />
+
+            {/* Top Bar Controls (Mobile Only) */}
+            <div className="fixed top-6 left-0 right-0 px-6 z-[1001] flex justify-between items-center md:hidden pointer-events-none">
+                <button 
+                    onClick={() => setIsLogsOpen(!isLogsOpen)}
+                    className="p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl text-blue-400 pointer-events-auto active:scale-95 transition-all"
+                >
+                    <List className="w-5 h-5" />
+                </button>
+                <button 
+                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                    className="p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl text-red-500 pointer-events-auto active:scale-95 transition-all"
+                >
+                    <Settings className="w-5 h-5" />
+                </button>
+            </div>
 
             {/* Saboteur & Challenge Dialogues */}
             <AnimatePresence>
@@ -104,6 +130,25 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                     />
                 )}
             </AnimatePresence>
+
+            {/* Mission Log */}
+            <div className={`
+                fixed inset-y-0 left-0 z-[1002] md:z-[100] transition-transform duration-500 transform
+                ${isLogsOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
+                md:relative md:inset-auto md:w-auto md:h-auto
+            `}>
+                <div className="h-full md:h-auto pointer-events-auto">
+                    {isLogsOpen && (
+                        <button 
+                            onClick={() => setIsLogsOpen(false)}
+                            className="absolute top-6 right-6 md:hidden p-2 text-white/50 hover:text-white z-[1003]"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                    )}
+                    <MissionLog />
+                </div>
+            </div>
 
             {/* Neural Sync Progress */}
             <AnimatePresence>
@@ -141,25 +186,9 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
             {/* Layout */}
             {!isPhysicsMode && <NavigationHeader setIsGardenOpen={setIsGardenOpen} />}
 
-            <div className="relative z-10 flex h-[calc(100vh-100px)]">
-                {/* Sidebar: God Mode */}
-                <AnimatePresence>
-                    {isIngested && !skillTree && !isPhysicsMode && (
-                        <GodModePanel
-                            complexity={godModeState.complexity}
-                            onComplexityChange={setComplexity}
-                            rules={worldRules}
-                            onToggleRule={toggleRule}
-                            constants={godModeState.constants}
-                            onConstantChange={handleConstantChange}
-                            entities={worldState?.entities}
-                            onEntityPropertyChange={handleEntityPropertyChange}
-                        />
-                    )}
-                </AnimatePresence>
-
+            <div className="relative z-10 flex h-full md:h-[calc(100vh-100px)]">
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col relative overflow-hidden">
+                <div className="flex-1 flex flex-col relative overflow-hidden h-full">
 
                     {/* Background Layer: Holodeck */}
                     <motion.div
@@ -171,8 +200,6 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                     >
                         <ErrorBoundary componentName="Holodeck">
                             <Holodeck
-                                worldState={worldState}
-                                activeNode={activeNode}
                                 debug={true}
                                 isPaused={isPaused}
                                 onCollision={(mag: number) => {
@@ -223,20 +250,54 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                                 isExecutingPython={isExecutingPython}
                                 pythonOutput={pythonOutput}
                                 handleExport={handleExport}
-                                onEntityPropertyChange={handleEntityPropertyChange}
                             />
                         )}
                     </AnimatePresence>
                 </div>
 
+                {/* Sidebar: God Mode (Moved to Right) */}
+                <div className={`
+                    fixed inset-y-0 right-0 md:relative z-[1005] md:z-10 transition-transform duration-500 transform
+                    ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+                    w-full md:w-auto h-full border-l border-white/5
+                `}>
+                    <AnimatePresence>
+                        {(isIngested || isPhysicsMode) && !skillTree && (
+                            <div className="relative h-full pointer-events-auto bg-[#020205]/95 backdrop-blur-xl md:bg-transparent md:backdrop-blur-0">
+                                {isSettingsOpen && (
+                                    <button 
+                                        onClick={() => setIsSettingsOpen(false)}
+                                        className="absolute top-8 left-8 md:hidden p-2 text-white/50 hover:text-white z-[1006]"
+                                    >
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                )}
+                                <GodModePanel
+                                    complexity={godModeState.complexity}
+                                    onComplexityChange={setComplexity}
+                                    rules={worldRules}
+                                    onToggleRule={toggleRule}
+                                    constants={godModeState.constants}
+                                    onConstantChange={handleConstantChange}
+                                    entities={worldState?.entities}
+                                />
+                            </div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
                 <AnimatePresence>
-                    {isIngested && !isPhysicsMode && <WorldRulesList rules={worldRules} />}
+                    {isIngested && !isPhysicsMode && (
+                        <div className="hidden lg:block">
+                            <WorldRulesList rules={worldRules} />
+                        </div>
+                    )}
                 </AnimatePresence>
             </div>
 
             {!isPhysicsMode && <StatusFooter overridesCount={godModeState.overrides.length} complexity={godModeState.complexity} />}
 
-            <OmniBar onCameraClick={() => setIsRealityLensOpen(true)} engine={engine} externalPrompt={omniPrompt} onPromptChange={setOmniPrompt} />
+            <OmniBar onCameraClick={() => setIsRealityLensOpen(true)} externalPrompt={omniPrompt} onPromptChange={setOmniPrompt} handleIngest={engine.handleIngest} />
 
             <RealityDiff isOpen={!!diagnostics} hypothesis={diagnostics?.hypothesis || ''} outcome={diagnostics?.outcome || ''} sabotageReveal={diagnostics?.sabotageReveal} onReset={resetSimulation} />
 
@@ -247,6 +308,12 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
             <AnimatePresence>
                 {isGardenOpen && <MindGarden nodes={gardenState.nodes} onClose={() => setIsGardenOpen(false)} />}
             </AnimatePresence>
+
+            <DynamicController />
+
+            <QuestOverlay />
+
+            <PerformanceMonitor />
         </main>
     );
 };

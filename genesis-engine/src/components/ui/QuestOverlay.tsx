@@ -5,18 +5,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Target, Star, X } from 'lucide-react';
 import { Quest } from '@/lib/gamification/questEngine';
 
-interface QuestOverlayProps {
-    quest: Quest | null;
-    isVisible: boolean;
-    onClose: () => void;
-}
+import { useGenesisStore } from '@/lib/store/GenesisContext';
 
 /**
  * Module I: The Quest Board UI
  * A cyberpunk-styled overlay that displays the current learning mission.
+ * Refactored: Consumes GenesisStore directly.
  */
-export function QuestOverlay({ quest, isVisible, onClose }: QuestOverlayProps) {
+export function QuestOverlay() {
+    const { state, dispatch } = useGenesisStore();
+    const { quests, currentQuestId } = state;
+
+    // Find active quest
+    const quest = quests.find(q => q.id === currentQuestId);
+    const isVisible = !!quest;
+
     if (!quest) return null;
+
+    const onClose = () => {
+        dispatch({ type: 'SET_CURRENT_QUEST', payload: null });
+    };
 
     return (
         <AnimatePresence>
@@ -59,11 +67,10 @@ export function QuestOverlay({ quest, isVisible, onClose }: QuestOverlayProps) {
                                     <Star className="text-yellow-400" size={14} fill="currentColor" />
                                     <span className="text-yellow-400 font-bold text-sm">{quest.xpReward} XP</span>
                                 </div>
-                                <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                    quest.difficulty === 'Easy' ? 'bg-green-500/20 text-green-400' :
-                                    quest.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                                    'bg-red-500/20 text-red-400'
-                                }`}>
+                                <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${quest.difficulty === 'Easy' ? 'bg-green-500/20 text-green-400' :
+                                        quest.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                            'bg-red-500/20 text-red-400'
+                                    }`}>
                                     {quest.difficulty}
                                 </div>
                             </div>
@@ -71,7 +78,7 @@ export function QuestOverlay({ quest, isVisible, onClose }: QuestOverlayProps) {
 
                         {/* Progress Bar (Static for now) */}
                         <div className="h-1 w-full bg-white/10">
-                            <motion.div 
+                            <motion.div
                                 className="h-full bg-cyan-500"
                                 initial={{ width: 0 }}
                                 animate={{ width: '30%' }}

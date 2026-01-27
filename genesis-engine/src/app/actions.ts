@@ -7,10 +7,12 @@ import { orchestratorFlow } from '@/lib/genkit/agents/orchestrator';
 import { architectFlow } from '@/lib/genkit/agents/architect';
 import { sanitizeInput } from '@/lib/utils/text';
 
-export async function generateCurriculum(userGoal: string) {
+import { SkillTree } from '@/lib/genkit/schemas';
+
+export async function generateCurriculum(userGoal: string): Promise<SkillTree | null> {
     try {
         // This runs the EXACT logic you tested in the CLI
-        const result = await architectFlow(userGoal);
+        const result = await architectFlow({ userGoal });
         return result;
     } catch (error) {
         console.error("Architect failed:", error);
@@ -22,13 +24,19 @@ export async function generateCurriculum(userGoal: string) {
  * Kinetic Core: The Physics Bridge
  * Compiles a user hypothesis into a valid physical WorldState JSON.
  */
-export async function compileHypothesis(hypothesis: string, context: string) {
-    return generateSimulationLogic(hypothesis, context);
+export async function compileHypothesis(hypothesis: string, context: string, fileUri?: string): Promise<ReturnType<typeof generateSimulationLogic>> {
+    return generateSimulationLogic(hypothesis, context, null, fileUri);
 }
 
-import { WorldState } from '@/lib/simulation/schema';
+import { WorldState, Entity } from '@/lib/simulation/schema';
+import { Quest } from '@/lib/genkit/agents/questAgent';
+import { StructuralAnalysis } from '@/lib/genkit/schemas';
 
-export async function generateSimulationLogic(hypothesis: string, context: string, currentWorldState?: WorldState | null) {
+export async function generateSimulationLogic(hypothesis: string, context: string, currentWorldState?: WorldState | null, fileUri?: string): Promise<
+    | { success: true; worldState: WorldState; quest: Quest | undefined; isSabotaged: boolean; logs?: any[] }
+    | { success: false; isBlocked: true; error: string; message: string; nativeReply: string; logs?: any[] }
+    | { success: false; error: string; logs?: any[] }
+> {
     try {
         // 1. Rate Limit Check
         const isRateLimited = !(await checkRateLimit());
@@ -57,7 +65,8 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
             {
                 text: fullPrompt,
                 mode: 'AUTO',
-                isSabotageMode: isSabotageMode
+                isSabotageMode: isSabotageMode,
+                fileUri
             }
         );
 
@@ -66,14 +75,15 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
                 success: false,
                 isBlocked: true,
                 // Map message to 'error' so OmniBar displays it correctly
-                error: result.message || 'Input rejected by the Socratic Saboteur.',
-                message: result.message,
-                nativeReply: result.nativeReply
+                error: String(result.message || 'Input rejected by the Socratic Saboteur.'),
+                message: String(result.message || ''),
+                nativeReply: String(result.nativeReply || ''),
+                logs: result.logs
             };
         }
 
         if (result.status === 'ERROR' || !result.worldState) {
-            throw new Error(result.message || 'AI failed to compile the hypothesis.');
+            throw new Error(String(result.message || 'AI failed to compile the hypothesis.'));
         }
 
         // 4. Output Armor
@@ -84,9 +94,10 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
 
         return {
             success: true,
-            worldState: result.worldState,
+            worldState: result.worldState as WorldState,
             quest: result.quest,
-            isSabotaged: !!result.worldState.sabotage_reveal
+            isSabotaged: !!(result.worldState as WorldState).sabotage_reveal,
+            logs: result.logs
         };
     } catch (error) {
         console.error('Kinetic Core Error:', error);
@@ -105,7 +116,12 @@ export async function processMultimodalIntent(params: {
     image?: string;
     audioTranscript?: string;
     mode?: 'AUTO' | 'PHYSICS' | 'VOXEL' | 'SCIENTIFIC';
-}) {
+    fileUri?: string;
+}): Promise<
+    | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | undefined; nativeReply: string; logs?: any[] }
+    | { success: false; isBlocked: true; message: string; nativeReply: string; logs?: any[] }
+    | { success: false; error: string; logs?: any[] }
+> {
     try {
         if (!(await checkRateLimit())) throw new Error('Neural link bandwidth exceeded.');
 
@@ -116,23 +132,31 @@ export async function processMultimodalIntent(params: {
             mode: 'AUTO',
             ...params,
             text: cleanText, // Use sanitized text
-            isSabotageMode: Math.random() < 0.2
+            isSabotageMode: Math.random() < 0.2,
+            fileUri: params.fileUri
         });
 
         if (result.status === 'BLOCKED') {
-            return { success: false, isBlocked: true, message: result.message, nativeReply: result.nativeReply };
+            return {
+                success: false,
+                isBlocked: true,
+                message: String(result.message || ''),
+                nativeReply: String(result.nativeReply || ''),
+                logs: result.logs
+            };
         }
 
         if (result.status === 'ERROR' || !result.worldState) {
-            throw new Error(result.message || 'Multimodal processing failed.');
+            throw new Error(String(result.message || 'Multimodal processing failed.'));
         }
 
         return {
             success: true,
-            worldState: result.worldState,
+            worldState: result.worldState as WorldState,
             visionData: result.visionData,
             quest: result.quest,
-            nativeReply: result.nativeReply
+            nativeReply: String(result.nativeReply || ''),
+            logs: result.logs
         };
     } catch (error) {
         console.error('Multimodal Gateway Error:', error);
@@ -144,7 +168,7 @@ export async function processMultimodalIntent(params: {
  * Generates an embedding for a given text.
  * Used for client-side PGLite queries.
  */
-export async function getEmbedding(text: string) {
+export async function getEmbedding(text: string): Promise<{ success: true; embedding: number[] } | { success: false; error: string }> {
     try {
         // 1. Input Armor
         const armorResult = await shieldInput(text);
@@ -164,7 +188,8 @@ export async function getEmbedding(text: string) {
  * Genesis Lens: Analyze real-world images using Robotics/Vision models.
  * Toggles between expensive Robotics-ER (Paid) and Flash (Free).
  */
-export async function analyzeRealWorldImage(imageBase64: string, userIsPremium: boolean) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function analyzeRealWorldImage(imageBase64: string, userIsPremium: boolean): Promise<{ success: true; analysis: any } | { success: false; error: string }> {
     try {
         // 1. Rate Limit
         if (!(await checkRateLimit())) throw new Error('Vision link bandwidth exceeded.');

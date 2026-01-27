@@ -29,14 +29,14 @@ export async function translatePhysicsIntent(
         });
 
         if (result.status === 'ERROR' || !result.worldState) {
-            throw new Error(result.message || 'Failed to translate physics intent');
+            throw new Error(String(result.message || 'Failed to translate physics intent'));
         }
 
         // Map Orchestrator output to legacy Babel output for compatibility
-        return { 
-            success: true, 
-            physicsDelta: result.worldState, 
-            translatedCommentary: result.nativeReply || result.worldState.explanation || '',
+        return {
+            success: true,
+            physicsDelta: result.worldState as WorldState,
+            translatedCommentary: String(result.nativeReply || (result.worldState as WorldState).explanation || ''),
             originalIntent: transcript
         };
     } catch (error) {
