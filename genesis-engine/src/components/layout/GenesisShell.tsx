@@ -99,6 +99,7 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
     } = ui;
 
     const showSimulation = mode !== 'IDLE' && mode !== null;
+    const isPhysicsMode = mode === 'PHYSICS' || mode === 'VOXEL' || mode === 'SCIENTIFIC' || mode === 'ASSEMBLER';
 
     return (
         <main className="min-h-screen relative overflow-hidden font-inter text-foreground bg-[#020205]">
