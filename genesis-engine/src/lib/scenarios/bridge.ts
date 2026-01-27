@@ -80,7 +80,7 @@ export const bridgeScenario: WorldState = {
         gravity: { x: 0, y: -9.81, z: 0 },
         timeScale: 1.2
     },
-    // Safe MacGyver Move: Custom Shader Effect for the Event Horizon
+    // Safe MacGyver Move: Fixed syntax for Vercel build
     custom_canvas_code: `(ctx, time) => {
         const centerX = ctx.canvas.width / 2;
         const centerY = ctx.canvas.height / 2;
@@ -89,16 +89,14 @@ export const bridgeScenario: WorldState = {
         ctx.shadowBlur = 30;
         ctx.shadowColor = '#3b82f6';
         
-        // Draw Neural Ripple
         for(let i = 0; i < 3; i++) {
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius + (i * 20), 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(59, 130, 246, ${0.3 - (i * 0.1)})`;
+            ctx.strokeStyle = 'rgba(59, 130, 246, ' + (0.3 - (i * 0.1)) + ')';
             ctx.lineWidth = 2;
             ctx.stroke();
         }
         
-        // Return positions for the worker (simulating orbits)
         return Array.from({length: 5}).map((_, i) => ({
             id: 'particle-' + i,
             position: {
