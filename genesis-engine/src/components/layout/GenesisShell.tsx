@@ -256,23 +256,3 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
         </main>
     );
 };
-
-            {/* FOOTER */}
-            {!isPhysicsMode && <StatusFooter overridesCount={godModeState.overrides.length} complexity={godModeState.complexity} />}
-
-            {/* MODALS & POPUPS */}
-            <AnimatePresence>
-                {activeChallenge && (
-                    <SaboteurDialogue question={activeChallenge} onReply={handleSaboteurReply} onClose={() => setActiveChallenge(null)} />
-                )}
-                {isRealityLensOpen && <RealityLens onTeleport={handleTeleport} onClose={() => setIsRealityLensOpen(false)} />}
-                {isGardenOpen && <MindGarden nodes={gardenState.nodes} onClose={() => setIsGardenOpen(false)} />}
-            </AnimatePresence>
-
-            <RealityDiff isOpen={!!diagnostics} hypothesis={diagnostics?.hypothesis || ''} outcome={diagnostics?.outcome || ''} sabotageReveal={diagnostics?.sabotageReveal} onReset={resetSimulation} />
-            <DynamicController />
-            <QuestOverlay />
-            <PerformanceMonitor />
-        </main>
-    );
-};
