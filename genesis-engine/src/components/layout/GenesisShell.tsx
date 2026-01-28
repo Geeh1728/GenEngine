@@ -126,6 +126,33 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                             exit={{ opacity: 0 }}
                             className="absolute inset-0 z-0 flex flex-col"
                         >
+                            {/* Processing Overlay */}
+                            <AnimatePresence>
+                                {isProcessing && (
+                                    <motion.div 
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-3xl"
+                                    >
+                                        <div className="relative">
+                                            <Brain className="w-16 h-16 text-blue-500 animate-pulse" />
+                                            <motion.div 
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                                                className="absolute -inset-4 border-2 border-dashed border-blue-500/20 rounded-full"
+                                            />
+                                        </div>
+                                        <h2 className="mt-12 text-sm font-black uppercase tracking-[1em] text-blue-400 animate-pulse">
+                                            {isPhysicsMode ? "Architecting Reality" : "Synthesizing Neural Path"}
+                                        </h2>
+                                        <p className="mt-4 text-[10px] font-mono text-blue-900 uppercase tracking-widest">
+                                            Executing kinetic compilation...
+                                        </p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             {/* The 3D Layer (Fixed to Fill) */}
                             <div className="absolute inset-0 z-0">
                                 <ErrorBoundary componentName="Holodeck">
