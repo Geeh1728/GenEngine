@@ -84,7 +84,7 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                 </button>
             </div>
 
-            {/* CORE CONTENT AREA */}
+            {/* TITAN FLEX LAYOUT */}
             <div className="flex flex-1 w-full h-full relative overflow-hidden">
                 
                 {/* LEFT SIDE: THE ENGINE */}
@@ -228,9 +228,8 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
             </div>
 
             {/* PERMANENT HUD ELEMENTS */}
-            <div className="relative z-[1000] pointer-events-none">
-                {/* OmniBar is always at the bottom center */}
-                <div className="pointer-events-auto">
+            <div className="fixed bottom-0 left-0 right-0 z-[1000] pointer-events-none flex flex-col items-center">
+                <div className="pointer-events-auto w-full max-w-3xl mb-10">
                     <OmniBar 
                         onCameraClick={() => setIsRealityLensOpen(true)} 
                         externalPrompt={omniPrompt} 
@@ -238,30 +237,25 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                         handleIngest={engine.handleIngest} 
                     />
                 </div>
-
-                {/* Right Sidebar (God Mode) */}
-                <div className={`
-                    fixed inset-y-0 right-0 md:relative z-[1005] transition-transform duration-500 transform
-                    ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
-                    w-full md:w-auto h-full border-l border-white/5 pointer-events-auto
-                `}>
-                    <AnimatePresence>
-                        {isSettingsOpen && (
-                            <div className="h-full bg-[#020205]/95 backdrop-blur-2xl">
-                                <GodModePanel
-                                    complexity={godModeState.complexity}
-                                    onComplexityChange={setComplexity}
-                                    rules={worldRules}
-                                    onToggleRule={toggleRule}
-                                    constants={godModeState.constants}
-                                    onConstantChange={handleConstantChange}
-                                    entities={worldState?.entities}
-                                />
-                            </div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                {!isPhysicsMode && <StatusFooter overridesCount={godModeState.overrides.length} complexity={godModeState.complexity} />}
             </div>
+
+            {/* MODALS & POPUPS */}
+            <AnimatePresence>
+                {activeChallenge && (
+                    <SaboteurDialogue question={activeChallenge} onReply={handleSaboteurReply} onClose={() => setActiveChallenge(null)} />
+                )}
+                {isRealityLensOpen && <RealityLens onTeleport={handleTeleport} onClose={() => setIsRealityLensOpen(false)} />}
+                {isGardenOpen && <MindGarden nodes={gardenState.nodes} onClose={() => setIsGardenOpen(false)} />}
+            </AnimatePresence>
+
+            <RealityDiff isOpen={!!diagnostics} hypothesis={diagnostics?.hypothesis || ''} outcome={diagnostics?.outcome || ''} sabotageReveal={diagnostics?.sabotageReveal} onReset={resetSimulation} />
+            <DynamicController />
+            <QuestOverlay />
+            <PerformanceMonitor />
+        </main>
+    );
+};
 
             {/* FOOTER */}
             {!isPhysicsMode && <StatusFooter overridesCount={godModeState.overrides.length} complexity={godModeState.complexity} />}

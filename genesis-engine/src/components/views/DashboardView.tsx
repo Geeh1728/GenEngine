@@ -77,11 +77,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 />
             </div>
 
-            <div className="text-center pointer-events-auto">
-                <h2 className="text-4xl font-outfit font-bold mb-2 tracking-tight text-white">{activeNode?.label || sourceTitle}</h2>
-                <p className="text-blue-400 text-[10px] uppercase tracking-[0.8em]">{activeNode?.engineMode || 'Laboratory'} Sandbox</p>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start w-full max-w-6xl px-12 pointer-events-auto">
                 <div className="flex flex-col gap-6">
                     <SimulationCard

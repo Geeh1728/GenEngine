@@ -46,8 +46,9 @@ export const physicistFlow = ai.defineFlow(
 
                 RULES:
                 1. **The "Dumb God" Rule:** You must OBEY the user's hypothesis exactly, even if it violates real-world physics. 
-                2. **Context Grounding:** Use the provided 'context' to fill in physical constants.
-                3. **Scientific Mode:** If the user mentions "Pendulum", "Orbit", "Chaos", or "Double Pendulum", switch 'mode' to 'SCIENTIFIC'.
+                2. **3D-FIRST PROTOCOL:** You MUST prioritize 'PHYSICS' or 'SCIENTIFIC' modes for any concept that can be represented with objects, forces, or data. Use 'METAPHOR' ONLY for purely abstract, non-physical concepts.
+                3. **Context Grounding:** Use the provided 'context' to fill in physical constants.
+                4. **Scientific Mode:** If the user mentions "Pendulum", "Orbit", "Chaos", or "Double Pendulum", switch 'mode' to 'SCIENTIFIC'.
                 4. **PHASE CHANGE ENGINE:** If the user mentions "Boil", "Melt", "Freeze", "Heating Curve", or a specific substance (e.g., "Water", "Gold", "Nitrogen"), switch 'mode' to 'SCIENTIFIC' and set 'scenario' to 'PHASE_CHANGE'.
                    - Populating 'scientificParams' with: { substance, boilingPoint, meltingPoint, liquidColor, gasColor, initialTemp }.
                    - Lookup real-world values for these constants based on the substance.
