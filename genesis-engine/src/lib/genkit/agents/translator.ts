@@ -1,4 +1,4 @@
-import { ai } from '../config';
+import { ai, geminiAudio } from '../config';
 import { z } from 'genkit';
 import { generateWithResilience } from '../resilience';
 import { WorldStateSchema } from '../schemas';
@@ -29,6 +29,7 @@ export const translatorAgent = ai.defineFlow(
         const worldContext = worldState ? `CURRENT PHYSICS STATE: ${JSON.stringify(worldState)}` : 'No active simulation context.';
 
         const output = await generateWithResilience({
+            model: geminiAudio.name,
             prompt: `
                 USER INPUT: "${userAudioTranscript}"
                 ${worldContext}

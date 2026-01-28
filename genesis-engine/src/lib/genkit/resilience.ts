@@ -27,12 +27,12 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
     let currentModel = model || geminiPro.name;
     let currentPrompt: MessageData['content'] = Array.isArray(prompt) ? prompt : [{ text: prompt }];
     
-    // Check local quota before starting
+    // Check local quota before starting - Specifically for the 2000 RPD Gemini 3 model
     const usage = await getApiUsage();
-    if (usage > 1980 && currentModel.includes('googleai')) {
-        console.warn("[Apex] High quota detected. Pre-emptively switching to OpenRouter.");
-        if (onLog) onLog('High Google usage detected. Engaging OpenRouter fallback...', 'INFO');
-        currentModel = (OPENROUTER_FREE_MODELS as any)[task] || OPENROUTER_FREE_MODELS.GENERAL;
+    if (usage > 1980 && currentModel.includes('gemini-3-flash')) {
+        console.warn("[Apex] Gemini 3 quota near exhaustion. Pre-emptively switching to Gemma-3.");
+        if (onLog) onLog('Gemini 3 limit near. Engaging high-quota Gemma fallback...', 'INFO');
+        currentModel = geminiFlash.name;
     }
 
     while (attempts <= retryCount) {
@@ -76,11 +76,16 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
             attempts++;
             if (attempts > retryCount) break;
 
-            // Tiered Fallback Logic
+            // Tiered Fallback Logic: Instant reroute to high-quota Gemma or OpenRouter
             if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('limit')) {
-                if (currentModel.includes('googleai')) {
+                if (currentModel.includes('gemini-3-flash')) {
+                    const fallbackModel = geminiFlash.name;
+                    if (onLog) onLog(`Gemini limit reached. Rerouting to high-quota Gemma-3...`, 'ERROR');
+                    currentModel = fallbackModel;
+                    continue;
+                } else if (currentModel.includes('googleai')) {
                     const fallbackModel = (OPENROUTER_FREE_MODELS as any)[task] || OPENROUTER_FREE_MODELS.GENERAL;
-                    if (onLog) onLog(`Google limit reached. Rerouting ${task} to ${fallbackModel}...`, 'ERROR');
+                    if (onLog) onLog(`Google limit reached. Rerouting ${task} to OpenRouter ${fallbackModel}...`, 'ERROR');
                     currentModel = fallbackModel;
                     continue;
                 }
