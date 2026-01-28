@@ -5,7 +5,7 @@ export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<stri
     try {
         // 1. Try pdf-parse (Stable in Node.js)
         const buffer = Buffer.from(arrayBuffer);
-        // @ts-ignore - pdf-parse types can be inconsistent between ESM/CJS
+        // @ts-expect-error - pdf-parse types can be inconsistent between ESM/CJS
         const data = await (pdfParse.default || pdfParse)(buffer);
         return data.text;
     } catch (error) {

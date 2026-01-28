@@ -105,6 +105,10 @@ export const MissionLog: React.FC = () => {
                                                 log.agent === 'Physicist' ? 'text-blue-400' :
                                                 log.agent === 'Researcher' ? 'text-cyan-400' :
                                                 log.agent === 'Aegis' ? 'text-red-400' :
+                                                log.agent === 'Brain' ? 'text-emerald-400' :
+                                                log.agent === 'Dean' ? 'text-amber-400' :
+                                                log.agent === 'Vision' ? 'text-indigo-400' :
+                                                log.agent === 'Conductor' ? 'text-white' :
                                                 'text-purple-400'
                                             }`}>
                                                 {log.agent}

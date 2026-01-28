@@ -5,6 +5,7 @@ import { StructuralAnalysisSchema } from '../schemas';
 
 export const VisionInputSchema = z.object({
     imageBase64: z.string().describe('Base64 encoded image data'),
+    model: z.string().optional().describe('Specialized vision model name'),
 });
 
 export const VisionOutputSchema = StructuralAnalysisSchema;

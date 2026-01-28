@@ -136,7 +136,8 @@ export function useGenesisEngine() {
                     topic: sourceTitle || 'Quantum Physics',
                     rules,
                     complexity: godModeState.complexity,
-                    fileUri: state.fileUri
+                    fileUri: state.fileUri,
+                    previousInteractionId: state.lastInteractionId
                 }),
             });
             if (response.ok) {
@@ -150,7 +151,7 @@ export function useGenesisEngine() {
         } catch (err) {
             console.error('Failed to fetch world state', err);
         }
-    }, [sourceTitle, godModeState.complexity, dispatch]);
+    }, [sourceTitle, godModeState.complexity, state.fileUri, state.lastInteractionId, dispatch]);
 
     const handleIngest = useCallback(async (file: File) => {
         setIsProcessing(true);
@@ -193,7 +194,7 @@ export function useGenesisEngine() {
         } finally {
             setIsProcessing(false);
         }
-    }, [fetchWorldState, setError, setIsProcessing]);
+    }, [fetchWorldState, setError, setIsProcessing, dispatch]);
 
     const startSimulation = useCallback(async (node: SkillNode) => {
         setActiveNode(node);
@@ -206,7 +207,8 @@ export function useGenesisEngine() {
                     topic: node.label,
                     context: node.description,
                     complexity: godModeState.complexity,
-                    fileUri: state.fileUri
+                    fileUri: state.fileUri,
+                    previousInteractionId: state.lastInteractionId
                 }),
             });
             if (response.ok) {
@@ -218,7 +220,7 @@ export function useGenesisEngine() {
         } finally {
             setIsProcessing(false);
         }
-    }, [godModeState.complexity, dispatch, setActiveNode, setIsProcessing]);
+    }, [godModeState.complexity, state.fileUri, state.lastInteractionId, dispatch, setActiveNode, setIsProcessing]);
 
     const toggleRule = useCallback((id: string) => {
         setWorldRules(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));

@@ -54,34 +54,38 @@ export const ai = genkit({
 
 // 3. Define the Models
 
+// --- TIER 1: HIGH QUOTA GOOGLE MODELS (2000 RPD) ---
+export const gemini3Flash = {
+    name: 'googleai/gemini-2.0-flash-exp', // Mapping to current available 3 Flash experimental/preview
+    label: 'Gemini 3 Flash (High Quota)',
+};
+
 // THE NEW WORKHORSE (Use 'Lite' to save quota)
 export const geminiFlash = {
-    name: 'googleai/gemini-2.5-flash-lite',
+    name: 'googleai/gemini-2.0-flash-lite-preview-02-05',
     label: 'Gemini 2.5 Flash Lite'
 };
 
-// THE INTELLIGENCE (Use '2.5 Flash' sparingly - only 20/day!)
-export const geminiPro = {
-    name: 'googleai/gemini-2.5-flash',
-    label: 'Gemini 2.5 Flash'
-};
+// THE INTELLIGENCE
+export const geminiPro = gemini3Flash;
 
 // THE UNLIMITED CHANNEL (Native Audio)
 export const geminiAudio = {
-    name: 'googleai/gemini-2.5-flash-native-audio-dialog',
+    name: 'googleai/gemini-2.0-flash-exp', 
     label: 'Gemini Audio'
 };
 
-// THE VISUAL CORTEX (Gemini 3 / Thinking Preview)
-export const gemini3Flash = {
-    name: 'googleai/gemini-2.0-flash-thinking-exp-01-21',
-    label: 'Gemini 3 Flash (Thinking)',
-    config: {
-        version: 'preview'
-    }
+// --- TIER 2: OPENROUTER FREE SPECIALISTS ---
+export const OPENROUTER_FREE_MODELS = {
+    MATH: 'openai/deepseek/deepseek-r1:free',
+    VISION: 'openai/meta-llama/llama-3.2-11b-vision-instruct:free', // Standardizing on available free vision
+    INGEST: 'openai/meta-llama/llama-3.1-405b-instruct:free', // Standardizing on available free context
+    GENERAL: 'openai/meta-llama/llama-3.3-70b-instruct:free',
+    CHAT: 'openai/mistralai/mistral-7b-instruct:free',
+    CODE: 'openai/qwen/qwen-2.5-coder-32b-instruct:free'
 };
 
-// Legacy Compatibility (Mapping old names to new models to prevent crashes)
+// Legacy Compatibility
 export const gemini20Flash = geminiFlash;
 export const gemini15Flash = geminiFlash;
 export const gemini15Pro = geminiPro;
@@ -89,5 +93,6 @@ export const gemini15Pro = geminiPro;
 // Constants
 export const ROBOTICS_MODEL_NAME = 'gemini-robotics-er-1.5-preview';
 export const ROBOTICS_FALLBACK_MODEL = geminiPro;
-export const DEEPSEEK_LOGIC_MODEL = 'openai/deepseek/deepseek-r1'; // Standard R1 for logic
-export const QWEN_VISION_MODEL = 'openai/qwen/qwen-2.5-vl-72b-instruct'; // Visual Cortex
+export const DEEPSEEK_LOGIC_MODEL = OPENROUTER_FREE_MODELS.MATH;
+export const QWEN_VISION_MODEL = OPENROUTER_FREE_MODELS.CODE;
+export const KIMI_DEAN_MODEL = 'openai/moonshotai/kimichat'; // Specialist for long context if available

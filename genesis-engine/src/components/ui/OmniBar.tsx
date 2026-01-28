@@ -130,13 +130,13 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
             );
 
             const result: any = await Promise.race([
-                generateSimulationLogic(prompt, contextText, currentState, fileUri || undefined),
+                generateSimulationLogic(prompt, contextText, currentState, fileUri || undefined, state.lastInteractionId || undefined),
                 timeoutPromise
             ]);
 
             if (result.success) {
                 sfx.playSuccess();
-                dispatch({ type: 'SYNC_WORLD', payload: result.worldState });
+                dispatch({ type: 'SYNC_WORLD', payload: { ...result.worldState, interactionId: result.interactionId } });
                 dispatch({ type: 'SET_SABOTAGED', payload: result.isSabotaged || false });
                 dispatch({ type: 'SET_HYPOTHESIS', payload: prompt });
                 

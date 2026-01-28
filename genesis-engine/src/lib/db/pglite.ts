@@ -36,11 +36,42 @@ export const getDB = async (): Promise<PGlite | null> => {
                 dna JSONB,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS usage_stats (
+                date TEXT PRIMARY KEY,
+                request_count INTEGER DEFAULT 0
+            );
         `);
     console.log('🔋 Genesis Local DB: Online');
   }
   return dbInstance;
 };
+
+/**
+ * Tracks API usage locally to manage tiered fallback thresholds.
+ */
+export async function incrementApiUsage() {
+  const db = await getDB();
+  if (!db) return 0;
+
+  const today = new Date().toISOString().split('T')[0];
+  const result = await db.query(`
+    INSERT INTO usage_stats (date, request_count)
+    VALUES ($1, 1)
+    ON CONFLICT (date) DO UPDATE SET request_count = usage_stats.request_count + 1
+    RETURNING request_count
+  `, [today]);
+  
+  return (result.rows[0] as { request_count: number }).request_count;
+}
+
+export async function getApiUsage() {
+  const db = await getDB();
+  if (!db) return 0;
+
+  const today = new Date().toISOString().split('T')[0];
+  const result = await db.query('SELECT request_count FROM usage_stats WHERE date = $1', [today]);
+  return (result.rows[0] as { request_count: number })?.request_count || 0;
+}
 
 /**
  * Save a simulation state (DNA) to PGLite.

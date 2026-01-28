@@ -20,26 +20,27 @@ export async function routeIntentLocally(input: string): Promise<LocalTool | nul
     }
 
     // Heuristic-based routing (Local FunctionGemma emulation)
-    if (text.includes('gravity') || text.includes('weightless') || text.includes('heavy')) {
+    if (/\bgravity\b|\bweightless\b|\bheavy\b/i.test(text)) {
         const gravity = { x: 0, y: -9.81, z: 0 };
-        if (text.includes('zero') || text.includes('off') || text.includes('weightless')) gravity.y = 0;
-        if (text.includes('moon')) gravity.y = -1.62;
-        if (text.includes('mars')) gravity.y = -3.71;
-        if (text.includes('jupiter')) gravity.y = -24.79;
+        if (/\bzero\b|\boff\b|\bweightless\b/i.test(text)) gravity.y = 0;
+        if (/\bmoon\b/i.test(text)) gravity.y = -1.62;
+        if (/\bmars\b/i.test(text)) gravity.y = -3.71;
+        if (/\bjupiter\b/i.test(text)) gravity.y = -24.79;
+        if (/\bheavy\b|\bhigh\b/i.test(text)) gravity.y = -50;
         
         return { type: 'UPDATE_PHYSICS', payload: { gravity } };
     }
 
-    if (text.includes('time') || text.includes('slow') || text.includes('fast')) {
+    if (/\btime\b|\bslow\b|\bfast\b|\bfreeze\b/i.test(text)) {
         let timeScale = 1;
-        if (text.includes('slow') || text.includes('matrix')) timeScale = 0.2;
-        if (text.includes('fast') || text.includes('speed up')) timeScale = 2.0;
-        if (text.includes('stop') || text.includes('freeze')) timeScale = 0;
+        if (/\bslow\b|\bmatrix\b/i.test(text)) timeScale = 0.2;
+        if (/\bfast\b|\bspeed up\b/i.test(text)) timeScale = 2.0;
+        if (/\bstop\b|\bfreeze\b/i.test(text)) timeScale = 0;
         
         return { type: 'UPDATE_PHYSICS', payload: { timeScale } };
     }
 
-    if (text.includes('restart') || text.includes('reset')) {
+    if (/\brestart\b|\breset\b|\bclear\b/i.test(text)) {
         return { type: 'RESTART', payload: {} };
     }
 

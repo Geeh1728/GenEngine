@@ -1,4 +1,4 @@
-import { ai } from '../config';
+import { ai, gemini3Flash, geminiFlash, OPENROUTER_FREE_MODELS, DEEPSEEK_LOGIC_MODEL, KIMI_DEAN_MODEL } from '../config';
 import { z } from 'genkit';
 import { criticAgent } from './critic';
 import { physicistAgent } from './physicist';
@@ -12,6 +12,7 @@ import { researcherAgent } from './researcher';
 import { WorldStateSchema, StructuralAnalysisSchema, StructuralAnalysis } from '../schemas';
 import { QuestSchema } from './questAgent';
 import { blackboard } from '../context';
+import { executeApexLoop } from '../resilience';
 
 export const OrchestratorInputSchema = z.object({
     text: z.string().optional(),
@@ -21,6 +22,7 @@ export const OrchestratorInputSchema = z.object({
     isSabotageMode: z.boolean().optional().default(false),
     interactionState: z.enum(['IDLE', 'LISTENING', 'ANALYZING', 'BUILDING', 'PLAYING', 'REFLECTION']).optional(),
     fileUri: z.string().optional().describe('Gemini File API URI for grounding.'),
+    previousInteractionId: z.string().optional().describe('Previous interaction ID for session persistence.'),
 });
 
 export const OrchestratorOutputSchema = z.object({
@@ -30,6 +32,7 @@ export const OrchestratorOutputSchema = z.object({
     worldState: WorldStateSchema.optional(),
     visionData: StructuralAnalysisSchema.optional(),
     quest: QuestSchema.optional(),
+    interactionId: z.string().optional().describe('Unique ID for this interaction.'),
     logs: z.array(z.object({
         agent: z.string(),
         message: z.string(),
@@ -41,7 +44,7 @@ export const OrchestratorOutputSchema = z.object({
 /**
  * The "Council of Agents" Orchestrator
  * Objective: Multimodal Routing and Sequential Guarding.
- * Upgraded with "The Blackboard" and "The Interaction Graph".
+ * Upgraded with "The Blackboard" and "Stateful APEX Architecture".
  */
 export const orchestratorFlow = ai.defineFlow(
     {
@@ -50,8 +53,13 @@ export const orchestratorFlow = ai.defineFlow(
         outputSchema: OrchestratorOutputSchema,
     },
     async (params) => {
-        const { text, image, audioTranscript, mode, isSabotageMode, interactionState } = params;
+        const { text, image, audioTranscript, mode, isSabotageMode, interactionState, previousInteractionId } = params;
         const logs: Array<{ agent: string; message: string; type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' }> = [];
+
+        // 1. STATEFUL MEMORY: Pass previous_interaction_id to the context
+        if (previousInteractionId) {
+            logs.push({ agent: 'Hippocampus', message: `Restoring context from session: ${previousInteractionId.substring(0, 8)}...`, type: 'INFO' });
+        }
 
         // GUARD: Don't process new simulations if the user is in REFLECTION mode unless explicitly asked
         if (interactionState === 'REFLECTION' && !text?.toLowerCase().includes('simulate')) {
@@ -80,9 +88,13 @@ export const orchestratorFlow = ai.defineFlow(
             processedInput = `Analyze and build a curriculum based on this video: ${processedInput}`;
         }
 
+        // 0.2 ROUTE A: The Eye (Vision/Image)
         if (image) {
-            logs.push({ agent: 'Vision', message: 'Processing image for spatial grounding...', type: 'THINKING' });
-            const visionResult = await visionFlow({ imageBase64: image });
+            logs.push({ agent: 'Vision', message: '🔍 Qwen is analyzing the diagram...', type: 'THINKING' });
+            const visionResult = await visionFlow({ 
+                imageBase64: image,
+                model: OPENROUTER_FREE_MODELS.VISION // Force-routing to specialized vision
+            });
             visionData = visionResult;
             if (!processedInput && visionData) {
                 processedInput = `Analyze and simulate these objects: ${visionData.elements.map((v) => v.type).join(', ')}`;
@@ -132,91 +144,71 @@ export const orchestratorFlow = ai.defineFlow(
             logs.push({ agent: 'Researcher', message: 'No additional grounding data found. Using local context.', type: 'INFO' });
         }
 
-        // PHASE 2: Determine Routing
+        // PHASE 2: Determine Routing (TRIANGLE OF POWER)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let primaryAgent: any = physicistAgent;
         let primaryAgentName = 'Physicist';
-        if (mode === 'VOXEL') {
+        let routingTask: any = 'GENERAL';
+
+        if (mode === 'VOXEL' || /sculpture|abstract|art/i.test(processedInput)) {
             primaryAgent = artistAgent;
             primaryAgentName = 'Artist';
-        } else if (mode === 'AUTO') {
-            const abstractKeywords = /love|freedom|time|inflation|history|philosophy|emotion/i;
-            const isAbstract = abstractKeywords.test(processedInput);
-            if (isAbstract) {
-                primaryAgent = artistAgent;
-                primaryAgentName = 'Artist';
-            }
+            routingTask = 'CODE';
+        } else if (/calculate|derive|solve|physics|force|gravity/i.test(processedInput)) {
+            // ROUTE B: The Brain (Math/Physics)
+            logs.push({ agent: 'Brain', message: '📐 DeepSeek is solving the differential equation...', type: 'RESEARCH' });
+            routingTask = 'MATH';
+        } else if (params.fileUri || processedInput.length > 500) {
+            // ROUTE C: The Dean (Heavy Context)
+            logs.push({ agent: 'Dean', message: '📖 Kimi is mapping the textbook context...', type: 'RESEARCH' });
+            routingTask = 'INGEST';
         }
 
-        // PHASE 3: Parallel Execution
-        logs.push({ agent: primaryAgentName, message: `Building WorldState (Clawdbot Recursive Loop active)...`, type: 'THINKING' });
+        // PHASE 3: Parallel Execution via APEX LOOP
+        logs.push({ agent: 'Conductor', message: `Synthesizing neural outputs via Gemini 3 Flash...`, type: 'THINKING' });
         try {
-            let worldState: any;
-            let quest: any;
+            const agentRes = await executeApexLoop({
+                prompt: processedInput,
+                schema: WorldStateSchema,
+                system: `You are the ${primaryAgentName} member of the Council. Construct the WorldState. Context: ${blackboardFragment}`,
+                task: routingTask,
+                previousInteractionId: previousInteractionId,
+                onLog: (msg, type) => logs.push({ agent: 'Apex', message: msg, type })
+            });
 
-            try {
-                const agentPromise = (primaryAgent === physicistAgent)
-                    ? physicistAgent({
-                        userTopic: processedInput,
-                        isSabotageMode,
-                        context: `Standard Earth physics.\nResearch Data: ${researchResult.summary}\n${blackboardFragment}`,
-                        requireDeepLogic: false,
-                        fileUri: params.fileUri
-                    })
-                    : artistAgent({
-                        concept: `${processedInput}\nResearch Data: ${researchResult.summary}\n${blackboardFragment}`,
-                        fileUri: params.fileUri
-                    });
+            const worldState = agentRes.output;
+            const interactionId = agentRes.interactionId;
 
-                [worldState, quest] = await Promise.all([
-                    agentPromise,
-                    questAgent({ topic: processedInput }),
-                ]);
-            } catch (firstAttemptError: any) {
-                if (primaryAgent === physicistAgent) {
-                    logs.push({ agent: 'Physicist', message: 'First attempt failed. Initializing MacGyver Self-Correction...', type: 'ERROR' });
-                    // RECURSIVE SELF-CORRECTION (One attempt only)
-                    const errorMsg = firstAttemptError instanceof Error ? firstAttemptError.message : String(firstAttemptError);
-                    
-                    const retryPromise = physicistAgent({
-                        userTopic: processedInput,
-                        isSabotageMode,
-                        context: `Standard Earth physics.\nResearch Data: ${researchResult.summary}\n${blackboardFragment}`,
-                        requireDeepLogic: true, // Up the logic power for retry
-                        fileUri: params.fileUri,
-                        recursive_self_correction: errorMsg
-                    });
-
-                    [worldState, quest] = await Promise.all([
-                        retryPromise,
-                        questAgent({ topic: processedInput }),
-                    ]);
-                } else {
-                    throw firstAttemptError;
-                }
-            }
+            const questRes = await executeApexLoop({
+                prompt: processedInput,
+                schema: QuestSchema,
+                system: `Design a mastery quest for this simulation.`,
+                task: 'CHAT'
+            });
+            const quest = questRes.output;
 
             // Update Blackboard with new state
-            if (worldState) blackboard.updateFromWorldState(worldState);
+            if (worldState) blackboard.updateFromWorldState(worldState as any);
 
-            logs.push({ agent: primaryAgentName, message: 'Reality Compiled successfully.', type: 'SUCCESS' });
+            logs.push({ agent: 'Conductor', message: 'Reality Compiled successfully.', type: 'SUCCESS' });
 
             return {
                 status: 'SUCCESS' as const,
-                worldState,
+                worldState: worldState as any,
                 visionData,
-                quest,
+                quest: quest as any,
+                interactionId,
                 nativeReply,
                 logs,
                 nextState: 'PLAYING' as const
             };
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-            logs.push({ agent: primaryAgentName, message: `Compilation failed: ${errorMsg}`, type: 'ERROR' });
+            logs.push({ agent: 'Conductor', message: `Compilation failed: ${errorMsg}`, type: 'ERROR' });
             return {
                 status: 'ERROR' as const,
                 message: errorMsg,
-                logs: logs, // Explicitly return logs
+                logs: logs,
                 nextState: 'IDLE' as const
             };
         }

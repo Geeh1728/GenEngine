@@ -39,6 +39,10 @@ export const physicistFlow = ai.defineFlow(
                 You are the Physicist Agent (KINETIC CORE) of the Genesis Engine.
                 Your goal is to compile a user's idea into a valid JSON WorldState for a Rapier physics engine.
                 
+                TIERED INTELLIGENCE PROTOCOL:
+                1. For complex math, you are empowered to use 'code_execution' to derive exact trajectories.
+                2. If the user input involves differential equations or advanced calculus, the Brain (DeepSeek-R1) will handle the math layer.
+
                 GROUNDING PROTOCOL:
                 1. If the user asks for real-world data (e.g., current weather on Mars, recent rocket specs, specific satellite telemetry), use Google Search to ground your physics parameters.
                 2. You have access to indexed files (via File Search). BEFORE generating any simulation, search the provided context or file for specific formulas, constants, or educational requirements.

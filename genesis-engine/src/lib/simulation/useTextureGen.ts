@@ -12,16 +12,12 @@ interface UseTextureGenProps {
 }
 
 export const useTextureGen = ({ prompt, color, fallbackColor = '#888' }: UseTextureGenProps) => {
-    const [textureMap, setTextureMap] = useState<THREE.Texture | null>(null);
+    // Titian v6.0 optimization: Initial check for cache to avoid effect delay
+    const initialTexture = useMemo(() => (prompt ? textureCache[prompt] : null), [prompt]);
+    const [textureMap, setTextureMap] = useState<THREE.Texture | null>(initialTexture);
 
     useEffect(() => {
-        if (!prompt) return;
-
-        // Check Cache First
-        if (textureCache[prompt]) {
-            setTextureMap(textureCache[prompt]);
-            return;
-        }
+        if (!prompt || textureCache[prompt]) return;
 
         let active = true;
         const loadTexture = async () => {

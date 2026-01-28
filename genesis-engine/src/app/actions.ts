@@ -32,8 +32,14 @@ import { WorldState, Entity } from '@/lib/simulation/schema';
 import { Quest } from '@/lib/genkit/agents/questAgent';
 import { StructuralAnalysis } from '@/lib/genkit/schemas';
 
-export async function generateSimulationLogic(hypothesis: string, context: string, currentWorldState?: WorldState | null, fileUri?: string): Promise<
-    | { success: true; worldState: WorldState; quest: Quest | undefined; isSabotaged: boolean; logs?: any[] }
+export async function generateSimulationLogic(
+    hypothesis: string, 
+    context: string, 
+    currentWorldState?: WorldState | null, 
+    fileUri?: string,
+    previousInteractionId?: string
+): Promise<
+    | { success: true; worldState: WorldState; interactionId?: string; quest: Quest | undefined; isSabotaged: boolean; logs?: any[] }
     | { success: false; isBlocked: true; error: string; message: string; nativeReply: string; logs?: any[] }
     | { success: false; error: string; logs?: any[] }
 > {
@@ -66,7 +72,8 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
                 text: fullPrompt,
                 mode: 'AUTO',
                 isSabotageMode: isSabotageMode,
-                fileUri
+                fileUri,
+                previousInteractionId
             }
         );
 
@@ -95,6 +102,7 @@ export async function generateSimulationLogic(hypothesis: string, context: strin
         return {
             success: true,
             worldState: result.worldState as WorldState,
+            interactionId: result.interactionId,
             quest: result.quest,
             isSabotaged: !!(result.worldState as WorldState).sabotage_reveal,
             logs: result.logs

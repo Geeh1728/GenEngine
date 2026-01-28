@@ -47,10 +47,11 @@ export interface GlobalGameState {
     fileUri: string | null;
     missionLogs: MissionLog[];
     mode: 'IDLE' | 'PHYSICS' | 'VOXEL' | 'SCIENTIFIC' | 'ASSEMBLER';
+    lastInteractionId: string | null;
 }
 
 export type GameAction =
-    | { type: 'SYNC_WORLD'; payload: WorldState }
+    | { type: 'SYNC_WORLD'; payload: WorldState & { interactionId?: string } }
     | { type: 'SET_INTERACTION_STATE'; payload: InteractionState }
     | { type: 'PLAYER_JOIN'; payload: PlayerState }
     | { type: 'PLAYER_MOVE'; payload: { id: string; position: [number, number, number] } }
@@ -72,7 +73,8 @@ export type GameAction =
     | { type: 'SET_SABOTAGED'; payload: boolean }
     | { type: 'SET_FILE_URI'; payload: string | null }
     | { type: 'ADD_MISSION_LOG'; payload: Omit<MissionLog, 'id' | 'timestamp'> }
-    | { type: 'CLEAR_MISSION_LOGS' };
+    | { type: 'CLEAR_MISSION_LOGS' }
+    | { type: 'SET_INTERACTION_ID'; payload: string | null };
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
@@ -92,6 +94,7 @@ export const initialGameState: GlobalGameState = {
     fileUri: null,
     missionLogs: [],
     mode: 'IDLE',
+    lastInteractionId: null,
 };
 
 /**
@@ -154,6 +157,8 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return { ...state, activeChallenge: action.payload };
         case 'CLEAR_CHALLENGE':
             return { ...state, activeChallenge: null };
+        case 'SET_INTERACTION_ID':
+            return { ...state, lastInteractionId: action.payload };
         case 'SYNC_WORLD': {
             // DATA INTEGRITY CHECK: Validate incoming world state against schema
             const validation = WorldStateSchema.safeParse(action.payload);
@@ -165,6 +170,7 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
                 ...state,
                 worldState: validation.data as WorldState,
                 mode: (validation.data.mode as any) || 'PHYSICS',
+                lastInteractionId: action.payload.interactionId || state.lastInteractionId,
                 lastUpdated: Date.now(),
             };
         }
