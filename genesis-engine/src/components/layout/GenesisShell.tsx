@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { Brain, Settings, List, X } from 'lucide-react';
+import { Brain, Settings, List, X, Sparkles } from 'lucide-react';
 import { sfx } from '@/lib/sound/SoundManager';
 
 // Components
@@ -39,6 +39,10 @@ interface GenesisShellProps {
     ui: ReturnType<typeof useLocalInterface>;
 }
 
+/**
+ * GenesisShell v6.0: The Neural Operating System
+ * Features: Ambient background mode, strict unmounting, and cinematic transitions.
+ */
 export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
     useBiometrics();
 
@@ -61,88 +65,113 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
         handleTeleport, handleExport, handleSaboteurReply
     } = ui;
 
-    const showSimulation = mode !== 'IDLE' && mode !== null;
-    const isPhysicsMode = mode === 'PHYSICS' || mode === 'VOXEL' || mode === 'SCIENTIFIC' || mode === 'ASSEMBLER';
+    // A world is "active" if it has entities or a custom script
+    const hasActiveContent = worldState && (worldState.entities?.length || worldState.custom_canvas_code);
+    const isActuallySimulating = hasActiveContent && mode !== 'IDLE' && mode !== null;
 
     return (
-        <main className="fixed inset-0 w-screen h-screen overflow-hidden font-inter text-foreground bg-[#020205]">
+        <main className="fixed inset-0 w-screen h-screen overflow-hidden font-inter text-foreground bg-[#020205] flex flex-col">
             <NeuralBackground />
 
-            {/* IMMERSIVE 3D LAYER (Always Base when active) */}
-            <AnimatePresence>
-                {showSimulation && (
-                    <motion.div 
-                        key="holodeck-layer"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-0"
-                    >
-                        <ErrorBoundary componentName="Holodeck">
-                            <Holodeck
-                                debug={false}
-                                isPaused={isPaused}
-                                onCollision={(mag: number) => {
-                                    sfx.playCollision(mag);
-                                    handleSimulationFailure(`Impact detected: ${mag.toFixed(1)}`);
-                                }}
-                                backgroundMode={isProcessing}
-                                gardenNodes={gardenState.nodes}
-                            />
-                        </ErrorBoundary>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* --- 1. THE CINEMATIC BACKGROUND --- */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+                <motion.div
+                    animate={{
+                        filter: isActuallySimulating ? 'blur(0px)' : 'blur(15px)',
+                        scale: isActuallySimulating ? 1 : 1.1,
+                        opacity: isActuallySimulating ? 1 : 0.3
+                    }}
+                    transition={{ duration: 1.5, ease: "easeInOut" }}
+                    className="w-full h-full"
+                >
+                    <ErrorBoundary componentName="Holodeck">
+                        <Holodeck
+                            debug={false}
+                            isPaused={isPaused}
+                            onCollision={(mag: number) => {
+                                sfx.playCollision(mag);
+                                handleSimulationFailure(`Impact detected: ${mag.toFixed(1)}`);
+                            }}
+                            backgroundMode={!isActuallySimulating || isProcessing}
+                            gardenNodes={gardenState.nodes}
+                        />
+                    </ErrorBoundary>
+                </motion.div>
+            </div>
 
-            {/* HUD / UI LAYER */}
-            <div className="relative z-10 w-full h-full pointer-events-none">
+            {/* --- 2. THE HUD / INTERFACE LAYER --- */}
+            <div className="relative z-10 w-full h-full pointer-events-none flex flex-col">
                 
-                {/* Landing Content (Only if NOT simulating) */}
+                {/* ADVANCED LANDING UI */}
                 <AnimatePresence>
-                    {!showSimulation && (
+                    {!isActuallySimulating && (
                         <motion.div 
                             key="landing"
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 1.05 }}
-                            className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-[50]"
                         >
-                            <h1 className="text-6xl md:text-8xl font-outfit font-black mb-4 tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">
-                                Genesis
-                            </h1>
-                            <p className="text-gray-500 text-sm md:text-base uppercase tracking-[0.5em] mb-12">
-                                The Ultimate Aggregator
-                            </p>
-                            <div className="flex flex-wrap justify-center gap-3 pointer-events-auto">
-                                {["Show me Gravity", "Scan Homework", "Simulate Inflation"].map(chip => (
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ duration: 0.8 }}
+                                className="relative"
+                            >
+                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+                                <h1 className="text-7xl md:text-9xl font-outfit font-black mb-2 tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/20 drop-shadow-2xl">
+                                    Genesis
+                                </h1>
+                                <div className="flex items-center justify-center gap-4 mb-12">
+                                    <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-blue-500/50" />
+                                    <p className="text-blue-400 text-xs font-black uppercase tracking-[0.8em]">
+                                        Neural Operating System
+                                    </p>
+                                    <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-blue-500/50" />
+                                </div>
+                            </motion.div>
+
+                            <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.5 }}
+                                className="flex flex-wrap justify-center gap-3 pointer-events-auto max-w-2xl"
+                            >
+                                {["Simulate Gravity", "Orbital Mechanics", "Car Crash Physics", "Molecular Bond"].map(chip => (
                                     <button 
                                         key={chip} 
-                                        onClick={() => setOmniPrompt?.(chip)} 
-                                        className="px-6 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-mono border border-white/10 rounded-full transition-all active:scale-95"
+                                        onClick={() => {
+                                            sfx.playClick();
+                                            setOmniPrompt?.(chip);
+                                        }} 
+                                        className="group relative px-6 py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[10px] font-black uppercase tracking-widest border border-white/5 rounded-full transition-all active:scale-95 overflow-hidden"
                                     >
-                                        [{chip}]
+                                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/10 to-blue-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                                        {chip}
                                     </button>
                                 ))}
-                            </div>
+                            </motion.div>
+
                             {error && (
-                                <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1}} className="mt-8 text-red-400 text-xs font-medium uppercase tracking-widest px-6 py-3 bg-red-400/5 rounded-full border border-red-400/10 pointer-events-auto">
-                                    Error: {error}
-                                </motion.p>
+                                <motion.div initial={{y: 10, opacity: 0}} animate={{y: 0, opacity: 1}} className="mt-8 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-full text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                    <X className="w-3 h-3" /> Error: {error}
+                                </motion.div>
                             )}
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                {/* Simulation Overlays */}
+                {/* SIMULATION OVERLAYS */}
                 <AnimatePresence>
-                    {showSimulation && (
+                    {isActuallySimulating && (
                         <motion.div 
-                            key="overlays"
+                            key="simulation-hud"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="absolute inset-0 flex flex-col"
+                            className="flex-1 flex flex-col w-full h-full relative"
                         >
                             {!isPhysicsMode && <NavigationHeader setIsGardenOpen={setIsGardenOpen} />}
+                            
                             <div className="flex-1 relative">
                                 {isPhysicsMode ? (
                                     <SimulationView engine={engine} />
@@ -165,74 +194,85 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                     )}
                 </AnimatePresence>
 
-                {/* Right Sidebar (God Mode - Floating) */}
-                <aside className={`
-                    fixed inset-y-0 right-0 z-[1005] transition-transform duration-500 transform
-                    ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'}
-                    w-full md:w-80 h-full border-l border-white/5 pointer-events-auto
-                `}>
-                    <div className="h-full bg-[#020205]/95 backdrop-blur-2xl">
-                        <GodModePanel
-                            complexity={godModeState.complexity}
-                            onComplexityChange={setComplexity}
-                            rules={worldRules}
-                            onToggleRule={toggleRule}
-                            constants={godModeState.constants}
-                            onConstantChange={handleConstantChange}
-                            entities={worldState?.entities}
-                        />
-                        <button 
-                            onClick={() => setIsSettingsOpen(false)}
-                            className="absolute top-8 right-8 md:hidden p-2 text-white/50 hover:text-white"
+                {/* THE "BRAIN" PROCESSING OVERLAY */}
+                <AnimatePresence>
+                    {isProcessing && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 z-[2000] flex flex-col items-center justify-center bg-black/40 backdrop-blur-md"
                         >
-                            <X className="w-6 h-6" />
-                        </button>
-                    </div>
-                </aside>
-
-                {/* Mobile Controls */}
-                <div className="fixed top-6 left-0 right-0 px-6 z-[1001] flex justify-between items-center md:hidden pointer-events-none">
-                    <button 
-                        onClick={() => setIsLogsOpen(!isLogsOpen)}
-                        className="p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl text-blue-400 pointer-events-auto active:scale-95"
-                    >
-                        <List className="w-5 h-5" />
-                    </button>
-                    <button 
-                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                        className="p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl text-red-500 pointer-events-auto active:scale-95"
-                    >
-                        <Settings className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Desktop Trigger (Always visible on right edge if ingested) */}
-                <div className="hidden md:flex fixed right-0 top-1/2 -translate-y-1/2 z-[1001] pointer-events-none">
-                    {showSimulation && !isSettingsOpen && (
-                        <button 
-                            onClick={() => setIsSettingsOpen(true)}
-                            className="p-4 bg-black/40 backdrop-blur-xl border-l border-t border-b border-white/10 rounded-l-2xl text-blue-400 pointer-events-auto hover:text-white hover:bg-blue-600/20 transition-all"
-                        >
-                            <Settings className="w-6 h-6 animate-pulse" />
-                        </button>
+                            <div className="relative">
+                                <Brain className="w-12 h-12 text-blue-500 animate-pulse" />
+                                <motion.div 
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                    className="absolute -inset-4 border border-dashed border-blue-500/30 rounded-full"
+                                />
+                            </div>
+                            <h2 className="mt-8 text-[10px] font-black uppercase tracking-[1em] text-blue-400 animate-pulse ml-[1em]">
+                                Architecting Reality
+                            </h2>
+                        </motion.div>
                     )}
+                </AnimatePresence>
+
+                {/* GLOBAL OVERLAYS (OMNIBAR & SIDEBAR) */}
+                <div className="mt-auto relative z-[3000] pointer-events-none">
+                    <div className="pointer-events-auto flex flex-col items-center pb-8">
+                        <div className="w-full max-w-3xl px-6">
+                            <OmniBar 
+                                onCameraClick={() => setIsRealityLensOpen(true)} 
+                                externalPrompt={omniPrompt} 
+                                onPromptChange={setOmniPrompt} 
+                                handleIngest={engine.handleIngest} 
+                            />
+                        </div>
+                    </div>
+
+                    <aside className={`
+                        fixed inset-y-0 right-0 z-[3001] transition-transform duration-500 transform
+                        ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'}
+                        w-full md:w-80 h-full border-l border-white/5 pointer-events-auto
+                    `}>
+                        <div className="h-full bg-[#020205]/95 backdrop-blur-2xl">
+                            <GodModePanel
+                                complexity={godModeState.complexity}
+                                onComplexityChange={setComplexity}
+                                rules={worldRules}
+                                onToggleRule={toggleRule}
+                                constants={godModeState.constants}
+                                onConstantChange={handleConstantChange}
+                                entities={worldState?.entities}
+                            />
+                            <button 
+                                onClick={() => setIsSettingsOpen(false)}
+                                className="absolute top-8 right-8 p-2 text-white/50 hover:text-white"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                    </aside>
                 </div>
             </div>
 
-            {/* PERMANENT HUD ELEMENTS */}
-            <div className="fixed bottom-0 left-0 right-0 z-[1000] pointer-events-none flex flex-col items-center">
-                <div className="pointer-events-auto w-full max-w-3xl mb-10">
-                    <OmniBar 
-                        onCameraClick={() => setIsRealityLensOpen(true)} 
-                        externalPrompt={omniPrompt} 
-                        onPromptChange={setOmniPrompt} 
-                        handleIngest={engine.handleIngest} 
-                    />
-                </div>
-                {!isPhysicsMode && showSimulation && <StatusFooter overridesCount={godModeState.overrides.length} complexity={godModeState.complexity} />}
-            </div>
+            {/* STATUS HUD */}
+            {isActuallySimulating && !isPhysicsMode && (
+                <StatusFooter overridesCount={godModeState.overrides.length} complexity={godModeState.complexity} />
+            )}
 
-            {/* MODALS & POPUPS */}
+            {/* FLOATING TRIGGERS */}
+            {isActuallySimulating && !isSettingsOpen && (
+                <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="fixed right-0 top-1/2 -translate-y-1/2 z-[3000] p-4 bg-black/40 backdrop-blur-xl border-l border-t border-b border-white/10 rounded-l-2xl text-blue-400 hover:text-white hover:bg-blue-600/20 transition-all active:scale-95 pointer-events-auto"
+                >
+                    <Settings className="w-6 h-6 animate-pulse" />
+                </button>
+            )}
+
+            {/* MODALS */}
             <AnimatePresence>
                 {activeChallenge && (
                     <SaboteurDialogue question={activeChallenge} onReply={handleSaboteurReply} onClose={() => setActiveChallenge(null)} />
