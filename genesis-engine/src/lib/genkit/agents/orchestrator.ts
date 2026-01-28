@@ -173,7 +173,30 @@ export const orchestratorFlow = ai.defineFlow(
                 system: `You are the ${primaryAgentName} member of the Council. Construct the WorldState. Context: ${blackboardFragment}`,
                 task: routingTask,
                 previousInteractionId: previousInteractionId,
-                onLog: (msg, type) => logs.push({ agent: 'Apex', message: msg, type })
+                onLog: (msg, type) => logs.push({ agent: 'Apex', message: msg, type }),
+                fallback: {
+                    scenario: "Neural Stabilization Mode",
+                    mode: "PHYSICS",
+                    description: "The primary intelligence link is stabilizing. Observe the baseline grid.",
+                    explanation: "Model connectivity lost. Engaging low-level physical stabilization to maintain reality feed.",
+                    constraints: ["Gravity is active"],
+                    successCondition: "Observe the obelisk",
+                    entities: [{
+                        id: "sentinel-obelisk",
+                        type: "box",
+                        position: { x: 0, y: 4, z: 0 },
+                        rotation: { x: 0, y: 45, z: 0 },
+                        dimensions: { x: 0.5, y: 8, z: 0.5 },
+                        physics: { mass: 0, friction: 0.5, restitution: 0.5 },
+                        color: "#3b82f6",
+                        name: "Quantum Obelisk",
+                        isStatic: true
+                    }],
+                    environment: {
+                        gravity: { x: 0, y: -9.81, z: 0 },
+                        timeScale: 1
+                    }
+                }
             });
 
             const worldState = agentRes.output;

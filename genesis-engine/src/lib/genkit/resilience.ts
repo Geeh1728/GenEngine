@@ -96,7 +96,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
     }
 
     if (onLog) onLog('All routes exhausted. Using low-level fallback.', 'ERROR');
-    return { output: fallback || null };
+    return { output: fallback || null, interactionId: previousInteractionId };
 }
 
 // Keep generateWithResilience for backward compatibility
