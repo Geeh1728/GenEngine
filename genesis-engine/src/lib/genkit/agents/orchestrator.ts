@@ -140,7 +140,8 @@ export const orchestratorFlow = ai.defineFlow(
             primaryAgent = artistAgent;
             primaryAgentName = 'Artist';
         } else if (mode === 'AUTO') {
-            const isAbstract = processedInput.length > 20 || /love|freedom|time|inflation|history/i.test(processedInput);
+            const abstractKeywords = /love|freedom|time|inflation|history|philosophy|emotion/i;
+            const isAbstract = abstractKeywords.test(processedInput);
             if (isAbstract) {
                 primaryAgent = artistAgent;
                 primaryAgentName = 'Artist';

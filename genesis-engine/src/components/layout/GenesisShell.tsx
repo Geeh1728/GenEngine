@@ -205,8 +205,8 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                 {/* RIGHT SIDE: INTERVENTION PANEL (Fixed Width) */}
                 <aside className={`
                     fixed inset-y-0 right-0 md:relative z-[1005] transition-transform duration-500 transform
-                    ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full md:hidden'}
-                    ${isSettingsOpen ? 'w-full md:w-80' : 'w-0'}
+                    ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+                    ${isSettingsOpen ? 'w-full md:w-80' : 'w-0 md:w-80'}
                     h-full border-l border-white/5 pointer-events-auto
                 `}>
                     <AnimatePresence>

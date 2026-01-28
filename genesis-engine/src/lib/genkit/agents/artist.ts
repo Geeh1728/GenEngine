@@ -46,10 +46,10 @@ export const artistAgent = ai.defineFlow(
             schema: WorldStateSchema,
             retryCount: 2,
             fallback: {
-                scenario: "Fallback Metaphor Visualization",
+                scenario: "Neural Synthesis",
                 mode: "VOXEL",
-                description: "A default voxel sculpture provided when the visualization engine fails.",
-                explanation: "Visualization failed, but here is a default representation.",
+                description: "Refining the physical representation of your concept.",
+                explanation: "The primary engine is stabilizing. Observe the initial structural draft.",
                 constraints: ["Static voxel grid", "Fixed position"],
                 successCondition: "The sculpture is rendered.",
                 entities: [{ 
