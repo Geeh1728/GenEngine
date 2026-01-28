@@ -76,7 +76,18 @@ export type GameAction =
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
-    worldState: {} as WorldState,
+    worldState: {
+        scenario: 'Initial State',
+        mode: 'IDLE',
+        constraints: [],
+        successCondition: 'Initialize',
+        description: 'Waiting for input...',
+        explanation: 'System ready.',
+        environment: {
+            gravity: { x: 0, y: -9.81, z: 0 },
+            timeScale: 1
+        }
+    } as WorldState,
     interactionState: 'IDLE',
     players: {},
     lastUpdated: Date.now(),

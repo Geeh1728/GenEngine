@@ -89,7 +89,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         if (e) e.preventDefault();
         if ((!prompt.trim() && !selectedFile) || status === 'compiling') return;
 
-        // 1. Handle PDF Ingestion separately
+        // 1. Handle PDF Ingestion ONLY if a file is actually present
         if (selectedFile && selectedFile.type === 'application/pdf') {
             handleIngest(selectedFile);
             setSelectedFile(null);
@@ -148,6 +148,14 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                 setSelectedFile(null);
                 setStatus('idle');
             } else {
+                // HANDLE CHALLENGE: If blocked with a question, set as challenge, not error
+                if (result.isBlocked && (result.message?.includes('?') || result.nativeReply?.includes('?'))) {
+                    dispatch({ type: 'SET_CHALLENGE', payload: result.message || result.nativeReply });
+                    setStatus('idle');
+                    setPrompt('');
+                    return;
+                }
+
                 if (result.logs) {
                     result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
                 }
