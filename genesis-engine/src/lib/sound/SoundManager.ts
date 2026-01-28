@@ -65,6 +65,28 @@ class SoundManager {
         osc.start();
         osc.stop(ctx.currentTime + 0.3);
     }
+
+    // High-frequency UI "Tick"
+    public playClick() {
+        const ctx = this.getContext();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.05);
+
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.05);
+    }
 }
 
 export const sfx = SoundManager.getInstance();
