@@ -90,6 +90,7 @@ export function useGenesisEngine() {
     const setIsSabotaged = useCallback((val: boolean) => dispatch({ type: 'SET_SABOTAGED', payload: val }), [dispatch]);
     const setLastHypothesis = useCallback((val: string) => dispatch({ type: 'SET_HYPOTHESIS', payload: val }), [dispatch]);
     const setActiveNode = useCallback((val: SkillNode | null) => dispatch({ type: 'SET_ACTIVE_NODE', payload: val }), [dispatch]);
+    const setInteractionId = useCallback((val: string | null) => dispatch({ type: 'SET_INTERACTION_ID', payload: val }), [dispatch]);
     const setActiveChallenge = useCallback((val: string | null) => {
         if (val) dispatch({ type: 'SET_CHALLENGE', payload: val });
         else dispatch({ type: 'CLEAR_CHALLENGE' });
@@ -98,7 +99,7 @@ export function useGenesisEngine() {
     // --- IMMERSION: PERSISTENCE LAYER ---
     usePersistence(worldState, (state) => {
         if (state) dispatch({ type: 'SYNC_WORLD', payload: state });
-    });
+    }, state.lastInteractionId, setInteractionId);
 
     // --- Quantum Bridge Sync ---
     useEffect(() => {
