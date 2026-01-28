@@ -56,13 +56,13 @@ export const ai = genkit({
 
 // --- TIER 1: HIGH QUOTA GOOGLE MODELS (2000 RPD) ---
 export const gemini3Flash = {
-    name: 'googleai/gemini-2.0-flash-exp', // Mapping to current available 3 Flash experimental/preview
+    name: 'gemini-2.0-flash-exp', 
     label: 'Gemini 3 Flash (High Quota)',
 };
 
 // THE NEW WORKHORSE (Use 'Lite' to save quota)
 export const geminiFlash = {
-    name: 'googleai/gemini-2.0-flash-lite-preview-02-05',
+    name: 'gemini-2.0-flash-lite-preview-02-05',
     label: 'Gemini 2.5 Flash Lite'
 };
 
@@ -71,7 +71,7 @@ export const geminiPro = gemini3Flash;
 
 // THE UNLIMITED CHANNEL (Native Audio)
 export const geminiAudio = {
-    name: 'googleai/gemini-2.0-flash-exp', 
+    name: 'gemini-2.0-flash-exp', 
     label: 'Gemini Audio'
 };
 

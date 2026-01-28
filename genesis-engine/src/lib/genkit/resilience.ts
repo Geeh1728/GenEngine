@@ -37,20 +37,19 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
 
     while (attempts <= retryCount) {
         try {
-            console.log(`[Apex] Attempt ${attempts + 1} using ${currentModel}`);
-            if (onLog) onLog(`Routing to: ${currentModel}...`, 'THINKING');
+            const modelName = typeof currentModel === 'string' ? currentModel : (currentModel as any).name;
+            console.log(`[Apex] Attempt ${attempts + 1} using ${modelName}`);
+            if (onLog) onLog(`Routing to: ${modelName}...`, 'THINKING');
 
             const response = await ai.generate({
-                model: currentModel,
+                model: modelName,
                 prompt: currentPrompt,
                 system: system,
                 tools: tools,
                 config: {
                     ...config,
-                    // If Google model, try to use previousInteractionId if the plugin supports it
-                    // Note: Standard Genkit plugins might not expose this directly yet, 
-                    // but we pass it for forward compatibility or custom plugin implementations.
-                    previous_interaction_id: currentModel.includes('googleai') ? previousInteractionId : undefined
+                    // Pass interaction ID for stateful sessions
+                    previous_interaction_id: previousInteractionId
                 },
                 output: {
                     schema: schema,
@@ -59,9 +58,9 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
 
             if (response.output) {
                 await incrementApiUsage();
-                if (onLog) onLog(`Success via ${currentModel}.`, 'SUCCESS');
+                if (onLog) onLog(`Success via ${modelName}.`, 'SUCCESS');
                 
-                // Extract interactionId if present in metadata (implementation dependent)
+                // Extract interactionId if present
                 const interactionId = (response as any).metadata?.interaction_id;
                 
                 return { output: response.output, interactionId };
@@ -71,7 +70,8 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
 
         } catch (error: any) {
             const errorMessage = error.message || String(error);
-            console.error(`[Apex] Attempt ${attempts + 1} failed:`, errorMessage);
+            console.error(`[Apex] Attempt ${attempts + 1} CRASHED:`, errorMessage);
+            if (onLog) onLog(`Attempt ${attempts + 1} Error: ${errorMessage.substring(0, 60)}`, 'ERROR');
             
             attempts++;
             if (attempts > retryCount) break;
