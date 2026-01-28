@@ -68,6 +68,7 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
     // A world is "active" if it has entities or a custom script
     const hasActiveContent = worldState && (worldState.entities?.length || worldState.custom_canvas_code);
     const isActuallySimulating = hasActiveContent && mode !== 'IDLE' && mode !== null;
+    const isPhysicsMode = mode === 'PHYSICS' || mode === 'VOXEL' || mode === 'SCIENTIFIC' || mode === 'ASSEMBLER';
 
     return (
         <main className="fixed inset-0 w-screen h-screen overflow-hidden font-inter text-foreground bg-[#020205] flex flex-col">
