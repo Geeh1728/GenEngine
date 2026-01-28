@@ -45,7 +45,7 @@ export const NeuralBackground: React.FC = () => {
     }, []);
 
     return (
-        <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none bg-[#020205]">
+        <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none bg-[#020205]">
             {/* Base Gradients */}
             <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[120px] animate-pulse" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px] animate-pulse delay-700" />
