@@ -307,9 +307,6 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
 
     return (
         <group onPointerMissed={() => dispatch({ type: 'DESELECT_ENTITY' })}>
-            <gridHelper args={[100, 100, '#111', '#050505']} position={[0, -0.49, 0]} />
-            <axesHelper args={[5]} />
-            
             {worldState.sabotage_reveal && (
                 <Html position={[0, 5, 0]} distanceFactor={15}>
                     <motion.div
