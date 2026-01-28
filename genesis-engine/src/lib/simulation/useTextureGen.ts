@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { textureService } from '@/lib/textures/textureService';
 
+// --- TITAN OPTIMIZATION: GLOBAL TEXTURE CACHE ---
+const textureCache: Record<string, THREE.Texture> = {};
+
 interface UseTextureGenProps {
     prompt?: string;
     color?: string;
@@ -14,6 +17,12 @@ export const useTextureGen = ({ prompt, color, fallbackColor = '#888' }: UseText
     useEffect(() => {
         if (!prompt) return;
 
+        // Check Cache First
+        if (textureCache[prompt]) {
+            setTextureMap(textureCache[prompt]);
+            return;
+        }
+
         let active = true;
         const loadTexture = async () => {
             try {
@@ -23,7 +32,11 @@ export const useTextureGen = ({ prompt, color, fallbackColor = '#888' }: UseText
                     loader.load(dataUrl, (tex: THREE.Texture) => {
                         tex.wrapS = THREE.RepeatWrapping;
                         tex.wrapT = THREE.RepeatWrapping;
-                        setTextureMap(tex);
+                        
+                        // Store in Cache
+                        textureCache[prompt] = tex;
+                        
+                        if (active) setTextureMap(tex);
                     });
                 }
             } catch (e) {
