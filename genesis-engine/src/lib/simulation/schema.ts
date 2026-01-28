@@ -68,7 +68,7 @@ export const EnvironmentSchema = z.object({
 
 export const WorldStateSchema = z.object({
     scenario: z.string().min(10),
-    mode: z.enum(["PHYSICS", "METAPHOR", "SCIENTIFIC", "VOXEL", "ASSEMBLER"]),
+    mode: z.enum(["IDLE", "PHYSICS", "METAPHOR", "SCIENTIFIC", "VOXEL", "ASSEMBLER"]),
     entities: z.array(EntitySchema).optional(),
     voxels: z.array(VoxelSchema).optional(),
     joints: z.array(JointSchema).optional(),

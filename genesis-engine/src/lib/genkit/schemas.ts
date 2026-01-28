@@ -37,7 +37,7 @@ export const SimulationCardSchema = z.object({
 // Schema for the physical "Reality" of a specific topic (The Prometheus Protocol)
 export const WorldStateSchema = z.object({
     scenario: z.string().describe('The name of the generated scenario'),
-    mode: z.enum(['PHYSICS', 'METAPHOR', 'SCIENTIFIC', 'VOXEL', 'ASSEMBLER']).describe('The simulation engine to use.'),
+    mode: z.enum(['IDLE', 'PHYSICS', 'METAPHOR', 'SCIENTIFIC', 'VOXEL', 'ASSEMBLER']).describe('The simulation engine to use.'),
     entities: z.array(EntitySchema).optional(),
     voxels: z.array(z.object({
         x: z.number(),
