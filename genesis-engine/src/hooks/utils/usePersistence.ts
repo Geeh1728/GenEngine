@@ -10,20 +10,20 @@ export function usePersistence(
 ) {
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Load on Mount
+    // Load on Mount (Disabled to return to Home Screen on refresh)
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (parsed && !worldState) {
-                    console.log("[Persistence] Rehydrating World State");
-                    setWorldState(parsed);
-                }
-            } catch (e) {
-                console.error("[Persistence] Corrupt State", e);
-            }
-        }
+        // const saved = localStorage.getItem(STORAGE_KEY);
+        // if (saved) {
+        //     try {
+        //         const parsed = JSON.parse(saved);
+        //         if (parsed && !worldState) {
+        //             console.log("[Persistence] Rehydrating World State");
+        //             setWorldState(parsed);
+        //         }
+        //     } catch (e) {
+        //         console.error("[Persistence] Corrupt State", e);
+        //     }
+        // }
     }, [setWorldState, worldState]);
 
     // Save on Change (Debounced)

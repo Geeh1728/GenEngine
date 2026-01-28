@@ -131,17 +131,17 @@ export const physicistFlow = ai.defineFlow(
                         explanation: "The AI encountered multiple errors while architecting your reality. Here is a baseline simulation.",
                         constraints: ["Gravity is active"],
                         successCondition: "The cube interacts with the floor.",
-                                                entities: [{ 
-                                                    id: "fallback-cube", 
-                                                    type: "cube", 
-                                                    position: { x: 0, y: 5, z: 0 }, 
-                                                    rotation: { x: 0, y: 0, z: 0 },
-                                                    dimensions: { x: 1, y: 1, z: 1 },
-                            physics: { mass: 1, friction: 0.5, restitution: 0.5 },
-                            color: "#3b82f6",
-                            name: "Resilience Cube"
-                        }],
-                        environment: {
+                                                                        entities: [{ 
+                                                                            id: "fallback-cube", 
+                                                                            type: "cube", 
+                                                                            position: { x: 0, y: 0.5, z: 0 }, 
+                                                                            rotation: { x: 0, y: 0, z: 0 },
+                                                                            dimensions: { x: 1, y: 1, z: 1 },
+                                                                            physics: { mass: 0, friction: 0.5, restitution: 0.5 },
+                                                                            isStatic: true,
+                                                                            color: "#3b82f6",
+                                                                            name: "Resilience Cube"
+                                                                        }],                        environment: {
                             gravity: { x: 0, y: -9.81, z: 0 },
                             timeScale: 1
                         }

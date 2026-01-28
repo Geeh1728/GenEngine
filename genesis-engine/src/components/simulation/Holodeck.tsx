@@ -98,21 +98,6 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                 </Suspense>
             </Canvas>
 
-            {/* Overlay Info */}
-            <div className="absolute top-6 left-6 z-10 pointer-events-none max-w-sm">
-                <div className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase tracking-[0.4em] text-blue-400/50 font-bold">
-                        Holographic Reality
-                    </span>
-                    <h3 className="text-xl font-outfit font-bold text-white uppercase tracking-wider mb-2">
-                        {activeState.scenario}
-                    </h3>
-                    <p className="text-xs text-white/60 font-medium leading-relaxed bg-white/5 p-3 rounded-lg border border-white/10 backdrop-blur-sm pointer-events-auto">
-                        {activeState.explanation || activeState.description}
-                    </p>
-                </div>
-            </div>
-
             {/* Debug Label */}
             {debug && (
                 <div className="absolute top-6 right-6 z-10 pointer-events-none">

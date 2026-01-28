@@ -349,12 +349,13 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                         entity={{
                             id: 'sentinel-obelisk',
                             type: 'box',
-                            position: { x: 0, y: 5, z: 0 },
+                            position: { x: 0, y: 4, z: 0 },
                             rotation: { x: 0, y: 45, z: 0 },
                             dimensions: { x: 0.5, y: 8, z: 0.5 },
-                            physics: { mass: 1, friction: 0.5, restitution: 0.5 },
+                            physics: { mass: 0, friction: 0.5, restitution: 0.5 },
                             color: '#3b82f6',
                             name: 'Quantum Obelisk',
+                            isStatic: true,
                             texturePrompt: 'glowing obsidian with neon blue circuits'
                         }}
                         onRegister={registerRb}
