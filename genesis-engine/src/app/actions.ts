@@ -125,8 +125,10 @@ export async function processMultimodalIntent(params: {
     audioTranscript?: string;
     mode?: 'AUTO' | 'PHYSICS' | 'VOXEL' | 'SCIENTIFIC';
     fileUri?: string;
+    isSaboteurReply?: boolean;
+    previousInteractionId?: string;
 }): Promise<
-    | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | undefined; nativeReply: string; logs?: any[] }
+    | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | undefined; nativeReply: string; interactionId?: string; logs?: any[] }
     | { success: false; isBlocked: true; message: string; nativeReply: string; logs?: any[] }
     | { success: false; error: string; logs?: any[] }
 > {
@@ -141,7 +143,9 @@ export async function processMultimodalIntent(params: {
             ...params,
             text: cleanText, // Use sanitized text
             isSabotageMode: Math.random() < 0.2,
-            fileUri: params.fileUri
+            fileUri: params.fileUri,
+            isSaboteurReply: params.isSaboteurReply,
+            previousInteractionId: params.previousInteractionId
         });
 
         if (result.status === 'BLOCKED') {
@@ -164,6 +168,7 @@ export async function processMultimodalIntent(params: {
             visionData: result.visionData,
             quest: result.quest,
             nativeReply: String(result.nativeReply || ''),
+            interactionId: result.interactionId,
             logs: result.logs
         };
     } catch (error) {

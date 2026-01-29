@@ -3,6 +3,7 @@ import { useSimulationState } from './useSimulationState';
 import { useGamification } from './useGamification';
 import { useGenesisUI } from './useGenesisUI';
 import { getEmbedding } from '@/lib/ai/embeddings';
+import { processMultimodalIntent } from '@/app/actions';
 import { storeKnowledge } from '@/lib/db/pglite';
 import { WorldRuleSchema, SkillNodeSchema, ComplexityLevel, SkillTree } from '@/lib/genkit/schemas';
 import { z } from 'genkit';
@@ -11,6 +12,7 @@ import { blackboard } from '@/lib/genkit/context';
 import { WorldState } from '@/lib/simulation/schema';
 import { usePersistence } from './utils/usePersistence';
 import { p2p } from '@/lib/multiplayer/P2PConnector';
+import { sfx } from '@/lib/sound/SoundManager';
 
 // (Kept for compatibility if exported, though now inferred from sub-hooks)
 type WorldRule = z.infer<typeof WorldRuleSchema>;
@@ -82,9 +84,13 @@ export function useGenesisEngine() {
     const [diagnostics, setDiagnostics] = useState<DiagnosticsState | null>(null);
     const [omniPrompt, setOmniPrompt] = useState('');
 
-    const [gardenState, setGardenState] = useState({ nodes: [] });
+        const [ gardenState, setGardenState ] = useState({ nodes: [] });
 
-    // --- Setters mapped to Dispatch ---
+        const [isVerifyingLogic, setIsVerifyingLogic] = useState(false);
+
+    
+
+        // --- Setters mapped to Dispatch ---
     const setIsProcessing = useCallback((val: boolean) => dispatch({ type: 'SET_PROCESSING', payload: val }), [dispatch]);
     const setError = useCallback((val: string | null) => dispatch({ type: 'SET_ERROR', payload: val }), [dispatch]);
     const setIsSabotaged = useCallback((val: boolean) => dispatch({ type: 'SET_SABOTAGED', payload: val }), [dispatch]);
@@ -263,6 +269,50 @@ export function useGenesisEngine() {
         dispatch({ type: 'RESET_SIMULATION' });
     }, [dispatch]);
 
+    const resolveChallenge = useCallback(async (userAnswer: string) => {
+        setIsProcessing(true);
+        setIsVerifyingLogic(true);
+        setError(null);
+        setActiveChallenge(null);
+
+        try {
+            const result = await processMultimodalIntent({
+                text: userAnswer,
+                isSaboteurReply: true,
+                previousInteractionId: state.lastInteractionId || undefined
+            });
+
+            if (result.success) {
+                sfx.playSuccess();
+                dispatch({ 
+                    type: 'SYNC_WORLD', 
+                    payload: { 
+                        ...result.worldState, 
+                        interactionId: result.interactionId 
+                    } 
+                });
+                dispatch({ type: 'SET_SABOTAGED', payload: !!result.worldState.sabotage_reveal });
+                dispatch({ type: 'SET_HYPOTHESIS', payload: userAnswer });
+                
+                if (result.logs) {
+                    result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
+                }
+            } else {
+                if (result.isBlocked) {
+                    setActiveChallenge(result.message || result.nativeReply);
+                } else {
+                    throw new Error(result.error || 'Failed to verify logic');
+                }
+            }
+        } catch (err) {
+            console.error('[Engine] Resolve Challenge Error:', err);
+            setError(err instanceof Error ? err.message : 'Connection failed during verification');
+        } finally {
+            setIsProcessing(false);
+            setIsVerifyingLogic(false);
+        }
+    }, [state.lastInteractionId, dispatch, setError, setIsProcessing, setActiveChallenge]);
+
     const handleMasteryComplete = useCallback((score: number) => {
         setMasteryState(prev => ({ ...prev, score, isCrystalUnlocked: true }));
     }, []);
@@ -334,6 +384,7 @@ export function useGenesisEngine() {
         setIsSabotaged,
         handleSimulationFailure,
         resetSimulation,
+        resolveChallenge,
         setLastHypothesis,
         gardenState,
         setGardenState,
@@ -344,6 +395,7 @@ export function useGenesisEngine() {
         setOmniPrompt,
         activeChallenge,
         setActiveChallenge,
+        isVerifyingLogic,
         mode
     };
 }

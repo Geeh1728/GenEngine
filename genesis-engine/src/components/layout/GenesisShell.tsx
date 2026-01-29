@@ -55,7 +55,8 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
         handleSimulationFailure, gardenState, skillTree, activeNode,
         completedNodeIds, startSimulation, neuralEngineProgress, setError,
         omniPrompt, setOmniPrompt, activeChallenge, selectedEntityId,
-        setActiveChallenge, toggleRule, handleConstantChange, isSabotaged, mode
+        setActiveChallenge, toggleRule, handleConstantChange, isSabotaged, mode,
+        isVerifyingLogic
     } = engine;
 
     const {
@@ -213,7 +214,7 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                                 />
                             </div>
                             <h2 className="mt-8 text-[10px] font-black uppercase tracking-[1em] text-blue-400 animate-pulse ml-[1em]">
-                                Architecting Reality
+                                {isVerifyingLogic ? "Verifying Logic with Saboteur..." : "Architecting Reality"}
                             </h2>
                         </motion.div>
                     )}

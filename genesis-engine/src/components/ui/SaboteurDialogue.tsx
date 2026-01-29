@@ -13,6 +13,12 @@ interface SaboteurDialogueProps {
 export const SaboteurDialogue: React.FC<SaboteurDialogueProps> = ({ question, onReply, onClose }) => {
     const [reply, setReply] = React.useState('');
 
+    const handleSubmit = () => {
+        if (!reply.trim()) return;
+        onReply(reply);
+        setReply('');
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -37,12 +43,12 @@ export const SaboteurDialogue: React.FC<SaboteurDialogueProps> = ({ question, on
                         autoFocus
                         value={reply}
                         onChange={(e) => setReply(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && onReply(reply)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
                         placeholder="Speak your truth..."
                         className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 px-6 text-white placeholder:text-gray-600 outline-none focus:border-amber-500/50 transition-all font-mono"
                     />
                     <button
-                        onClick={() => onReply(reply)}
+                        onClick={handleSubmit}
                         className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-amber-500 text-black rounded-xl hover:scale-105 active:scale-95 transition-all"
                     >
                         <Send className="w-4 h-4" />

@@ -20,6 +20,7 @@ export const OrchestratorInputSchema = z.object({
     audioTranscript: z.string().optional().describe('Text from speech-to-text'),
     mode: z.enum(['AUTO', 'PHYSICS', 'VOXEL', 'SCIENTIFIC']).default('AUTO'),
     isSabotageMode: z.boolean().optional().default(false),
+    isSaboteurReply: z.boolean().optional().default(false),
     interactionState: z.enum(['IDLE', 'LISTENING', 'ANALYZING', 'BUILDING', 'PLAYING', 'REFLECTION']).optional(),
     fileUri: z.string().optional().describe('Gemini File API URI for grounding.'),
     previousInteractionId: z.string().optional().describe('Previous interaction ID for session persistence.'),
@@ -53,7 +54,7 @@ export const orchestratorFlow = ai.defineFlow(
         outputSchema: OrchestratorOutputSchema,
     },
     async (params) => {
-        const { text, image, audioTranscript, mode, isSabotageMode, interactionState, previousInteractionId } = params;
+        const { text, image, audioTranscript, mode, isSabotageMode, isSaboteurReply, interactionState, previousInteractionId } = params;
         const logs: Array<{ agent: string; message: string; type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' }> = [];
 
         // 1. STATEFUL MEMORY: Pass previous_interaction_id to the context
@@ -62,7 +63,7 @@ export const orchestratorFlow = ai.defineFlow(
         }
 
         // GUARD: Don't process new simulations if the user is in REFLECTION mode unless explicitly asked
-        if (interactionState === 'REFLECTION' && !text?.toLowerCase().includes('simulate')) {
+        if (interactionState === 'REFLECTION' && !text?.toLowerCase().includes('simulate') && !isSaboteurReply) {
             const reflectLogs: typeof logs = [{ agent: 'Aegis', message: 'User in REFLECTION mode. Simulation bypassed.', type: 'INFO' }];
             return {
                 status: 'SUCCESS' as const,
@@ -117,7 +118,8 @@ export const orchestratorFlow = ai.defineFlow(
         // PHASE 1: The Guard (Sequential)
         logs.push({ agent: 'Aegis', message: 'Consulting the Socratic Saboteur...', type: 'THINKING' });
         const criticResult = await criticAgent({
-            userTopic: `${blackboardFragment}\n\nUSER INPUT: <UNTRUSTED_USER_DATA>${processedInput}</UNTRUSTED_USER_DATA>`
+            userTopic: `${blackboardFragment}\n\nUSER INPUT: <UNTRUSTED_USER_DATA>${processedInput}</UNTRUSTED_USER_DATA>`,
+            isSaboteurReply: isSaboteurReply
         });
 
         if (criticResult.status === 'TRAP') {

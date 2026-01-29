@@ -83,8 +83,7 @@ export function useLocalInterface(engine: ReturnType<typeof useGenesisEngine>): 
     };
 
     const handleSaboteurReply = (reply: string) => {
-        engine.setOmniPrompt?.(reply);
-        engine.setActiveChallenge(null);
+        engine.resolveChallenge?.(reply);
     };
 
     return {
