@@ -315,10 +315,39 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
 
     const mode = activeNode?.engineMode || worldState.mode;
 
+    const handleCanvasFailure = (err: string) => {
+        dispatch({ 
+            type: 'ADD_MISSION_LOG', 
+            payload: { 
+                agent: 'Sentinel', 
+                message: `GPU Alert: ${err}. Falling back to stable Voxel mode.`, 
+                type: 'ERROR' 
+            } 
+        });
+        
+        // Force Voxel Fallback: Generate generic voxels if custom code fails
+        dispatch({
+            type: 'SYNC_WORLD',
+            payload: {
+                ...worldState,
+                mode: 'VOXEL',
+                custom_canvas_code: undefined,
+                voxels: [
+                    { x: 0, y: 0, z: 0, color: '#3b82f6' },
+                    { x: 1, y: 0, z: 0, color: '#3b82f6' },
+                    { x: 0, y: 1, z: 0, color: '#3b82f6' }
+                ]
+            } as any
+        });
+    };
+
     if (worldState.custom_canvas_code) {
         return (
             <Html transform position={[0, 0, 0]}>
-                <UniversalCanvas customCode={worldState.custom_canvas_code} />
+                <UniversalCanvas 
+                    customCode={worldState.custom_canvas_code} 
+                    onFailure={handleCanvasFailure}
+                />
             </Html>
         );
     }

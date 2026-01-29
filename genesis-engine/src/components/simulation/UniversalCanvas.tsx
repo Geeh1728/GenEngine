@@ -8,7 +8,7 @@ import { verletStep } from '@/lib/physics/math';
  * UniversalCanvas: A high-performance 2D bridge for custom visualizations.
  * Supports both pre-defined types (XENOBOT) and dynamic JS tool synthesis.
  */
-export function UniversalCanvas({ type, customCode }: { type?: string, customCode?: string }) {
+export function UniversalCanvas({ type, customCode, onFailure }: { type?: string, customCode?: string, onFailure?: (err: string) => void }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const points = useRef<any[]>([]);
     const springs = useRef<any[]>([]);
@@ -16,7 +16,24 @@ export function UniversalCanvas({ type, customCode }: { type?: string, customCod
     useLayoutEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+        
+        // Shader Safety Gate: Detect WebGL support for custom shaders
+        const isWebGL = customCode?.includes('webgl') || customCode?.includes('gl_FragColor');
+        let ctx: any;
+        
+        try {
+            if (isWebGL) {
+                ctx = canvas.getContext('webgl2') || canvas.getContext('webgl');
+                if (!ctx) throw new Error("Local GPU cannot initialize WebGL context.");
+            } else {
+                ctx = canvas.getContext('2d');
+            }
+        } catch (err) {
+            console.error("[Safety Gate] GPU Context Failure:", err);
+            onFailure?.(String(err));
+            return;
+        }
+
         if (!ctx) return;
 
         let animationFrameId: number;
@@ -88,7 +105,15 @@ export function UniversalCanvas({ type, customCode }: { type?: string, customCod
                             ctx.fillRect(t.position.x, t.position.y, 20, 20);
                         });
                     }
-                    if (error) console.error("[Logic Bubble] Worker Error:", error);
+                    if (error) {
+                        console.error("[Logic Bubble] Worker Error:", error);
+                        onFailure?.(`Worker Logic Error: ${error}`);
+                    }
+                };
+
+                worker.onerror = (err) => {
+                    console.error("[Logic Bubble] Worker Crash:", err);
+                    onFailure?.("GPU Script crashed the logic bubble.");
                 };
 
                 const render = (time: number) => {
