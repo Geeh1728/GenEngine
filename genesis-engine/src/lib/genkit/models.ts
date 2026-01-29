@@ -10,5 +10,6 @@ export const MODELS = {
     BRAIN_REFLEX: 'gemma-3-4b',
     BRAIN_AUDIO: 'gemini-2.5-flash-native-audio-dialog',
     BRAIN_ROBOTICS: 'gemini-robotics-er-1.5-preview',
-    SWARM_REVIEWER: 'moonshotai/kimi-k2.5:free'
+    SWARM_REVIEWER: 'moonshotai/kimi-k2.5:free',
+    EMBEDDING_MODEL: 'text-embedding-004'
 };
