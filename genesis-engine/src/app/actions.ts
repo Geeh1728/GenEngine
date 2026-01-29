@@ -145,7 +145,7 @@ export async function processMultimodalIntent(params: {
             text: cleanText, // Use sanitized text
             isSabotageMode: Math.random() < 0.2,
             fileUri: params.fileUri,
-            isSaboteurReply: params.isSaboteurReply,
+            isSaboteurReply: params.isSaboteurReply ?? false,
             previousInteractionId: params.previousInteractionId
         });
 
