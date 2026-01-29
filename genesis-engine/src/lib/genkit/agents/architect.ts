@@ -76,7 +76,21 @@ export const architectFlow = ai.defineFlow(
                 prompt: userPrompt,
                 task: 'INGEST',
                 schema: SkillTreeSchema,
-                onLog: (msg, type) => blackboard.log('Architect', msg, type)
+                onLog: (msg, type) => blackboard.log('Architect', msg, type),
+                fallback: {
+                    goal: goal,
+                    nodes: [
+                        {
+                            id: 'foundation-1',
+                            label: 'Physical Foundations',
+                            description: `A baseline curriculum for ${goal} generated during system stabilization.`,
+                            type: 'CONCEPT',
+                            estimatedMinutes: 15,
+                            dependencies: []
+                        }
+                    ],
+                    recommendedPath: ['foundation-1']
+                }
             });
             
             if (!response.output) throw new Error("Architect failed to manifest tree.");

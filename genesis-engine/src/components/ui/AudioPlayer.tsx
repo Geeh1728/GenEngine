@@ -38,6 +38,14 @@ export default function AudioPlayer({ script }: { script: ScriptLine[] }) {
   useEffect(() => {
     if (isPlaying) {
       recognitionRef.current?.start();
+      
+      // Safety Timeout: Stop recognition after 10 seconds to preserve privacy/battery
+      const timer = setTimeout(() => {
+        console.log("[Barge-In] Safety timeout reached. Stopping recognition.");
+        recognitionRef.current?.stop();
+      }, 10000);
+      
+      return () => clearTimeout(timer);
     } else {
       recognitionRef.current?.stop();
     }
