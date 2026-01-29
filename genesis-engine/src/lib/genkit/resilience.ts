@@ -1,4 +1,4 @@
-import { ai, geminiFlash, geminiPro, OPENROUTER_FREE_MODELS } from './config';
+import { ai, geminiFlash, gemini3Flash, BRAIN_PRIMARY, BRAIN_WORKHORSE, OPENROUTER_FREE_MODELS } from './config';
 import { z } from 'genkit';
 import { incrementApiUsage, getApiUsage } from '../db/pglite';
 
@@ -18,37 +18,66 @@ interface ResilienceOptions<T extends z.ZodTypeAny> {
     previousInteractionId?: string;
 }
 
+/**
+ * THE PROMPT ADAPTER
+ * Objective: Adapt instructions for different model families (Gemma, Llama, DeepSeek).
+ */
+function preparePromptForModel(prompt: string, modelId: string): string {
+    const isGemmaOrLlama = modelId.toLowerCase().includes('gemma') || modelId.toLowerCase().includes('llama');
+    const isDeepSeek = modelId.toLowerCase().includes('deepseek');
+
+    if (isGemmaOrLlama) {
+        return `
+            <context>
+            You are a specialized agent in the Genesis Swarm.
+            </context>
+            <instruction>
+            ${prompt}
+            </instruction>
+            Final Response must be valid JSON only.
+        `;
+    }
+
+    if (isDeepSeek) {
+        return `${prompt}\n\nShow your step-by-step reasoning before providing the final JSON in a code block.`;
+    }
+
+    return prompt;
+}
+
 export async function executeApexLoop<T extends z.ZodTypeAny>(
     options: ResilienceOptions<T>
 ): Promise<{ output: z.infer<T> | null, interactionId?: string }> {
     const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId } = options;
 
     let attempts = 0;
-    let currentModel = model || geminiPro.name;
-    let currentPrompt: MessageData['content'] = Array.isArray(prompt) ? prompt : [{ text: prompt }];
+    let currentModel = model || BRAIN_PRIMARY.name;
     
-    // Check local quota before starting - Specifically for the 2000 RPD Gemini 3 model
+    // Check local quota before starting
     const usage = await getApiUsage();
-    if (usage > 1980 && currentModel.includes('gemini-3-flash')) {
-        console.warn("[Apex] Gemini 3 quota near exhaustion. Pre-emptively switching to Gemma-3.");
-        if (onLog) onLog('Gemini 3 limit near. Engaging high-quota Gemma fallback...', 'INFO');
-        currentModel = geminiFlash.name;
+    if (usage > 18 && currentModel.includes('gemini-3-flash')) {
+        console.warn("[Apex] Gemini 3 quota near exhaustion. Engaging high-quota Gemma fallback.");
+        if (onLog) onLog('Gemini 3 limit near (18/20). Engaging Gemma Workhorse (14.4K RPD)...', 'INFO');
+        currentModel = BRAIN_WORKHORSE.name;
     }
 
     while (attempts <= retryCount) {
         try {
             const modelName = typeof currentModel === 'string' ? currentModel : (currentModel as any).name;
             console.log(`[Apex] Attempt ${attempts + 1} using ${modelName}`);
-            if (onLog) onLog(`Routing to: ${modelName}...`, 'THINKING');
+            if (onLog) onLog(`Swarm routing to: ${modelName}...`, 'THINKING');
+
+            // Adapt prompt for the current model
+            const rawPrompt = Array.isArray(prompt) ? (prompt[0] as any).text : prompt;
+            const adaptedPrompt = preparePromptForModel(rawPrompt, modelName);
 
             const response = await ai.generate({
                 model: modelName,
-                prompt: currentPrompt,
+                prompt: adaptedPrompt,
                 system: system,
                 tools: tools,
                 config: {
                     ...config,
-                    // Pass interaction ID for stateful sessions
                     previous_interaction_id: previousInteractionId
                 },
                 output: {
@@ -57,12 +86,12 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
             });
 
             if (response.output) {
-                await incrementApiUsage();
-                if (onLog) onLog(`Success via ${modelName}.`, 'SUCCESS');
+                if (modelName.includes('googleai')) {
+                    await incrementApiUsage(modelName); 
+                }
+                if (onLog) onLog(`Neural Link established via ${modelName}.`, 'SUCCESS');
                 
-                // Extract interactionId if present
                 const interactionId = (response as any).metadata?.interaction_id;
-                
                 return { output: response.output, interactionId };
             } else {
                 throw new Error("No structured output generated.");
@@ -70,37 +99,30 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
 
         } catch (error: any) {
             const errorMessage = error.message || String(error);
-            console.error(`[Apex] Attempt ${attempts + 1} CRASHED:`, errorMessage);
-            if (onLog) onLog(`Attempt ${attempts + 1} Error: ${errorMessage.substring(0, 60)}`, 'ERROR');
+            console.error(`[Apex] Swarm Error (${attempts + 1}):`, errorMessage);
             
             attempts++;
             if (attempts > retryCount) break;
 
-            // Tiered Fallback Logic: Instant reroute to high-quota Gemma or OpenRouter
+            // Tiered Fallback Logic
             if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('limit')) {
                 if (currentModel.includes('gemini-3-flash')) {
-                    const fallbackModel = geminiFlash.name;
-                    if (onLog) onLog(`Gemini limit reached. Rerouting to high-quota Gemma-3...`, 'ERROR');
-                    currentModel = fallbackModel;
+                    if (onLog) onLog(`Primary Brain saturated. Rerouting to Gemma-3 Workhorse...`, 'ERROR');
+                    currentModel = BRAIN_WORKHORSE.name;
                     continue;
                 } else if (currentModel.includes('googleai')) {
                     const fallbackModel = (OPENROUTER_FREE_MODELS as any)[task] || OPENROUTER_FREE_MODELS.GENERAL;
-                    if (onLog) onLog(`Google limit reached. Rerouting ${task} to OpenRouter ${fallbackModel}...`, 'ERROR');
+                    if (onLog) onLog(`Google Swarm saturated. Engaging Open Source Specialist (${fallbackModel})...`, 'ERROR');
                     currentModel = fallbackModel;
                     continue;
                 }
             }
 
-            // Self-Correction for Schema Errors
-            if (onLog) onLog('Initiating autonomous self-correction...', 'THINKING');
-            currentPrompt = [
-                ...currentPrompt,
-                { text: `\n\nCRITICAL ERROR: Your previous response failed: "${errorMessage}". Please fix and match the requested schema exactly.` }
-            ];
+            if (onLog) onLog(`Self-correcting neural path...`, 'THINKING');
         }
     }
 
-    if (onLog) onLog('All routes exhausted. Using low-level fallback.', 'ERROR');
+    if (onLog) onLog('All swarm routes exhausted. Using low-level fallback.', 'ERROR');
     return { output: fallback || null, interactionId: previousInteractionId };
 }
 

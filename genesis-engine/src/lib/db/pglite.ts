@@ -37,8 +37,10 @@ export const getDB = async (): Promise<PGlite | null> => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS usage_stats (
-                date TEXT PRIMARY KEY,
-                request_count INTEGER DEFAULT 0
+                date TEXT,
+                model_id TEXT,
+                request_count INTEGER DEFAULT 0,
+                PRIMARY KEY (date, model_id)
             );
         `);
     console.log('🔋 Genesis Local DB: Online');
@@ -49,27 +51,27 @@ export const getDB = async (): Promise<PGlite | null> => {
 /**
  * Tracks API usage locally to manage tiered fallback thresholds.
  */
-export async function incrementApiUsage() {
+export async function incrementApiUsage(modelId: string = 'googleai/gemini-3-flash') {
   const db = await getDB();
   if (!db) return 0;
 
   const today = new Date().toISOString().split('T')[0];
   const result = await db.query(`
-    INSERT INTO usage_stats (date, request_count)
-    VALUES ($1, 1)
-    ON CONFLICT (date) DO UPDATE SET request_count = usage_stats.request_count + 1
+    INSERT INTO usage_stats (date, model_id, request_count)
+    VALUES ($1, $2, 1)
+    ON CONFLICT (date, model_id) DO UPDATE SET request_count = usage_stats.request_count + 1
     RETURNING request_count
-  `, [today]);
+  `, [today, modelId]);
   
   return (result.rows[0] as { request_count: number }).request_count;
 }
 
-export async function getApiUsage() {
+export async function getApiUsage(modelId: string = 'googleai/gemini-3-flash') {
   const db = await getDB();
   if (!db) return 0;
 
   const today = new Date().toISOString().split('T')[0];
-  const result = await db.query('SELECT request_count FROM usage_stats WHERE date = $1', [today]);
+  const result = await db.query('SELECT request_count FROM usage_stats WHERE date = $1 AND model_id = $2', [today, modelId]);
   return (result.rows[0] as { request_count: number })?.request_count || 0;
 }
 
