@@ -3,6 +3,7 @@ import { openAI } from 'genkitx-openai';
 import { genkit } from 'genkit';
 import fs from 'fs';
 import path from 'path';
+import { MODELS } from './models';
 
 // Manually load .env.local
 try {
@@ -56,18 +57,18 @@ export const ai = genkit({
 
 // --- TIER 1: THE ELITE COUNCIL (20 RPD) ---
 export const gemini3Flash = {
-    name: 'googleai/gemini-3-flash', 
+    name: MODELS.BRAIN_PRIMARY, 
     label: 'Gemini 3 Flash',
 };
 
 // --- TIER 2: THE NUCLEAR WORKHORSE (14,400 RPD!) ---
 export const geminiFlash = {
-    name: 'googleai/gemma-3-27b',
+    name: MODELS.BRAIN_WORKHORSE,
     label: 'Gemma 3 27b'
 };
 
 export const gemma3_4b = {
-    name: 'googleai/gemma-3-4b',
+    name: MODELS.BRAIN_REFLEX,
     label: 'Gemma 3 4b'
 };
 
@@ -78,7 +79,7 @@ export const BRAIN_REFLEX = gemma3_4b;
 
 // THE UNLIMITED CHANNEL (Native Audio) - 1M RPD / Unlimited
 export const geminiAudio = {
-    name: 'googleai/gemini-2.5-flash-native-audio-dialog', 
+    name: MODELS.BRAIN_AUDIO, 
     label: 'Gemini Audio'
 };
 
@@ -98,7 +99,7 @@ export const gemini15Flash = geminiFlash;
 export const gemini15Pro = gemini3Flash;
 
 // Constants
-export const ROBOTICS_MODEL_NAME = 'googleai/gemini-robotics-er-1.5-preview';
+export const ROBOTICS_MODEL_NAME = MODELS.BRAIN_ROBOTICS;
 export const ROBOTICS_FALLBACK_MODEL = OPENROUTER_FREE_MODELS.VISION;
 export const DEEPSEEK_LOGIC_MODEL = OPENROUTER_FREE_MODELS.MATH;
 export const KIMI_DEAN_MODEL = OPENROUTER_FREE_MODELS.DEAN;

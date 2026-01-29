@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { p2p } from '@/lib/multiplayer/P2PConnector';
 import { getApiUsage } from '@/lib/db/pglite';
-import { BRAIN_PRIMARY } from '@/lib/genkit/config';
+import { MODELS } from '@/lib/genkit/models';
 
 interface StatusFooterProps {
     overridesCount: number;
@@ -21,7 +21,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({ overridesCount, comp
         });
 
         // Fetch usage once or periodically
-        getApiUsage(BRAIN_PRIMARY.name).then(setTier1Usage);
+        getApiUsage(MODELS.BRAIN_PRIMARY).then(setTier1Usage);
         
         return () => { unsubscribe(); };
     }, []);

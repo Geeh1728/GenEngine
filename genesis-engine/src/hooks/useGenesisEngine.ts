@@ -298,10 +298,11 @@ export function useGenesisEngine() {
                     result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
                 }
             } else {
-                if (result.isBlocked) {
+                if ('isBlocked' in result && result.isBlocked) {
                     setActiveChallenge(result.message || result.nativeReply);
                 } else {
-                    throw new Error(result.error || 'Failed to verify logic');
+                    const errorMessage = 'error' in result ? result.error : 'Failed to verify logic';
+                    throw new Error(errorMessage || 'Failed to verify logic');
                 }
             }
         } catch (err) {
