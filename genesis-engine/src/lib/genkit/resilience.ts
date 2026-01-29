@@ -55,7 +55,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
     
     // Check local quota before starting
     const usage = await getApiUsage();
-    if (usage > 18 && (currentModel.includes('gemini-3-flash') || currentModel === 'gemini-3-flash')) {
+    if (usage > 18 && currentModel.includes('gemini-3-flash')) {
         console.warn("[Apex] Gemini 3 quota near exhaustion. Engaging high-quota Gemma fallback.");
         if (onLog) onLog('Gemini 3 limit near (18/20). Engaging Gemma Workhorse (14.4K RPD)...', 'INFO');
         currentModel = BRAIN_WORKHORSE.name;
@@ -108,7 +108,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
             if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('limit')) {
                 const isGoogleModel = currentModel.includes('gemini') || currentModel.includes('gemma');
                 
-                if (currentModel === 'gemini-3-flash') {
+                if (currentModel.includes('gemini-3-flash')) {
                     if (onLog) onLog(`Primary Brain saturated. Rerouting to Gemma-3 Workhorse...`, 'ERROR');
                     currentModel = BRAIN_WORKHORSE.name;
                     continue;
