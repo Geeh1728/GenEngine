@@ -5,9 +5,9 @@
  */
 
 export const MODELS = {
-    BRAIN_PRIMARY: 'googleai/gemini-3-flash',
-    BRAIN_WORKHORSE: 'googleai/gemma-3-27b',
-    BRAIN_REFLEX: 'googleai/gemma-3-4b',
-    BRAIN_AUDIO: 'googleai/gemini-2.5-flash-native-audio-dialog',
-    BRAIN_ROBOTICS: 'googleai/gemini-robotics-er-1.5-preview'
+    BRAIN_PRIMARY: 'gemini-3-flash',
+    BRAIN_WORKHORSE: 'gemma-3-27b',
+    BRAIN_REFLEX: 'gemma-3-4b',
+    BRAIN_AUDIO: 'gemini-2.5-flash-native-audio-dialog',
+    BRAIN_ROBOTICS: 'gemini-robotics-er-1.5-preview'
 };

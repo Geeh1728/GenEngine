@@ -32,7 +32,7 @@ export const OrchestratorOutputSchema = z.object({
     nativeReply: z.string().optional().describe('Reply in user\'s native language if audio was used'),
     worldState: WorldStateSchema.optional(),
     visionData: StructuralAnalysisSchema.optional(),
-    quest: QuestSchema.optional(),
+    quest: QuestSchema.nullable().optional(),
     interactionId: z.string().optional().describe('Unique ID for this interaction.'),
     logs: z.array(z.object({
         agent: z.string(),
@@ -208,7 +208,8 @@ export const orchestratorFlow = ai.defineFlow(
                 prompt: processedInput,
                 schema: QuestSchema,
                 system: `Design a mastery quest for this simulation.`,
-                task: 'CHAT'
+                task: 'CHAT',
+                fallback: null as any // Explicitly allow null for quest fallback
             });
             const quest = questRes.output;
 
@@ -221,7 +222,7 @@ export const orchestratorFlow = ai.defineFlow(
                 status: 'SUCCESS' as const,
                 worldState: worldState as any,
                 visionData,
-                quest: quest as any,
+                quest: quest || null,
                 interactionId,
                 nativeReply,
                 logs,

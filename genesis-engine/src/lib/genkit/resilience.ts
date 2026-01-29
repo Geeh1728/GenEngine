@@ -55,7 +55,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
     
     // Check local quota before starting
     const usage = await getApiUsage();
-    if (usage > 18 && currentModel.includes('gemini-3-flash')) {
+    if (usage > 18 && (currentModel.includes('gemini-3-flash') || currentModel === 'gemini-3-flash')) {
         console.warn("[Apex] Gemini 3 quota near exhaustion. Engaging high-quota Gemma fallback.");
         if (onLog) onLog('Gemini 3 limit near (18/20). Engaging Gemma Workhorse (14.4K RPD)...', 'INFO');
         currentModel = BRAIN_WORKHORSE.name;
@@ -86,7 +86,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
             });
 
             if (response.output) {
-                if (modelName.includes('googleai')) {
+                if (modelName.includes('gemini') || modelName.includes('gemma')) {
                     await incrementApiUsage(modelName); 
                 }
                 if (onLog) onLog(`Neural Link established via ${modelName}.`, 'SUCCESS');

@@ -39,7 +39,7 @@ export async function generateSimulationLogic(
     fileUri?: string,
     previousInteractionId?: string
 ): Promise<
-    | { success: true; worldState: WorldState; interactionId?: string; quest: Quest | undefined; isSabotaged: boolean; logs?: any[] }
+    | { success: true; worldState: WorldState; interactionId?: string; quest: Quest | null | undefined; isSabotaged: boolean; logs?: any[] }
     | { success: false; isBlocked: true; error: string; message: string; nativeReply: string; logs?: any[] }
     | { success: false; error: string; logs?: any[] }
 > {
@@ -129,7 +129,7 @@ export async function processMultimodalIntent(params: {
     isSaboteurReply?: boolean;
     previousInteractionId?: string;
 }): Promise<
-    | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | undefined; nativeReply: string; interactionId?: string; logs?: any[] }
+    | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | null | undefined; nativeReply: string; interactionId?: string; logs?: any[] }
     | { success: false; isBlocked: true; message: string; nativeReply: string; logs?: any[] }
     | { success: false; error: string; logs?: any[] }
 > {
