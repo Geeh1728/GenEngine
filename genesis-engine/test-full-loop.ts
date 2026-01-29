@@ -13,7 +13,8 @@ async function testFullLoop() {
         const result = await orchestratorFlow({
             text: testPrompt,
             mode: 'AUTO',
-            isSabotageMode: false
+            isSabotageMode: false,
+            isSaboteurReply: false
         });
 
         console.log("\n3. ORCHESTRATOR STATUS:", result.status);

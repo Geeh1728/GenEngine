@@ -72,6 +72,7 @@ export async function generateSimulationLogic(
                 text: fullPrompt,
                 mode: 'AUTO',
                 isSabotageMode: isSabotageMode,
+                isSaboteurReply: false,
                 fileUri,
                 previousInteractionId
             }

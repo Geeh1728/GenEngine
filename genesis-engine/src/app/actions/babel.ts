@@ -25,7 +25,8 @@ export async function translatePhysicsIntent(
             audioTranscript: transcript,
             text: `Target Language: ${targetLang}. Current State Context: ${JSON.stringify(currentWorldState)}`,
             mode: 'AUTO',
-            isSabotageMode: false
+            isSabotageMode: false,
+            isSaboteurReply: false
         });
 
         if (result.status === 'ERROR' || !result.worldState) {
