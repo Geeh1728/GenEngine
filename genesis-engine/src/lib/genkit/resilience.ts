@@ -106,11 +106,13 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
 
             // Tiered Fallback Logic
             if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('limit')) {
-                if (currentModel.includes('gemini-3-flash')) {
+                const isGoogleModel = currentModel.includes('gemini') || currentModel.includes('gemma');
+                
+                if (currentModel === 'gemini-3-flash') {
                     if (onLog) onLog(`Primary Brain saturated. Rerouting to Gemma-3 Workhorse...`, 'ERROR');
                     currentModel = BRAIN_WORKHORSE.name;
                     continue;
-                } else if (currentModel.includes('googleai')) {
+                } else if (isGoogleModel) {
                     const fallbackModel = (OPENROUTER_FREE_MODELS as any)[task] || OPENROUTER_FREE_MODELS.GENERAL;
                     if (onLog) onLog(`Google Swarm saturated. Engaging Open Source Specialist (${fallbackModel})...`, 'ERROR');
                     currentModel = fallbackModel;

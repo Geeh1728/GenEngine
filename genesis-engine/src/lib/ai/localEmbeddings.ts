@@ -21,9 +21,13 @@ export async function generateLocalEmbedding(text: string, onProgress?: (progres
             // Lazy load the transformers library
             const { pipeline, env } = await import('@xenova/transformers');
             
-            // Optimization for browser: use local cache
-            env.allowRemoteModels = true;
+            // Optimization for browser: use local cache and local WASM binaries
+            env.allowRemoteModels = true; 
             env.useBrowserCache = true;
+            
+            // SECURITY/PERFORMANCE: Set explicit WASM paths for Vercel/Next.js
+            // This prevents the 'Module not found' or 404s on .wasm files in production
+            env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
 
             console.log("[LocalEmbeddings] Loading model: all-MiniLM-L6-v2...");
             
