@@ -38,7 +38,6 @@ describe('Ingestion Flow', () => {
             },
         };
 
-        // @ts-expect-error - This is expected to fail validation
         const result = IngestionOutputSchema.safeParse(invalidData);
         expect(result.success).toBe(false);
     });

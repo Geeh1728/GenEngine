@@ -8,6 +8,7 @@ import { questAgent } from './questAgent';
 import { translatorAgent } from './translator';
 import { visionFlow } from './vision';
 import { researcherAgent } from './researcher';
+import { reviewerAgent } from './reviewer';
 
 import { WorldStateSchema, StructuralAnalysisSchema, StructuralAnalysis } from '../schemas';
 import { QuestSchema } from './questAgent';
@@ -137,7 +138,8 @@ export const orchestratorFlow = ai.defineFlow(
         logs.push({ agent: 'Researcher', message: 'Searching web for real-time grounding data...', type: 'THINKING' });
         const researchResult = await researcherAgent({
             topic: processedInput,
-            context: blackboardFragment
+            context: blackboardFragment,
+            depth: 1
         });
         
         if (researchResult.summary && researchResult.summary !== "Research phase failed or was inconclusive.") {
@@ -203,6 +205,44 @@ export const orchestratorFlow = ai.defineFlow(
 
             const worldState = agentRes.output;
             const interactionId = agentRes.interactionId;
+
+            // PHASE 4: Peer Review Swarm (Kimi K2.5)
+            if (worldState) {
+                logs.push({ agent: 'Aegis', message: 'Kimi K2.5 is validating DeepSeek\'s math...', type: 'THINKING' });
+                const review = await reviewerAgent({
+                    proposedState: JSON.stringify(worldState),
+                    originalPrompt: processedInput,
+                    agentName: primaryAgentName
+                });
+
+                if (review.status === 'REJECTED') {
+                    logs.push({ agent: 'Aegis', message: `Review REJECTED: ${review.feedback}. Self-correcting...`, type: 'ERROR' });
+                    // ONE-TIME SELF-CORRECTION
+                    const correctionRes = await executeApexLoop({
+                        prompt: `${processedInput}\n\nFEEDBACK FROM REVIEWER: ${review.feedback}. Fix the previous WorldState.`,
+                        schema: WorldStateSchema,
+                        system: `You are the ${primaryAgentName}. Fix your previous state based on the feedback.`,
+                        task: routingTask,
+                        previousInteractionId: interactionId
+                    });
+                    if (correctionRes.output) {
+                        blackboard.updateFromWorldState(correctionRes.output as any);
+                        logs.push({ agent: 'Aegis', message: 'Self-correction successful. Consensus reached.', type: 'SUCCESS' });
+                        return {
+                            status: 'SUCCESS' as const,
+                            worldState: correctionRes.output as any,
+                            visionData,
+                            quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT' })).output as any,
+                            interactionId: correctionRes.interactionId || interactionId,
+                            nativeReply,
+                            logs,
+                            nextState: 'PLAYING' as const
+                        };
+                    }
+                } else {
+                    logs.push({ agent: 'Aegis', message: 'Scientific consensus reached.', type: 'SUCCESS' });
+                }
+            }
 
             const questRes = await executeApexLoop({
                 prompt: processedInput,
