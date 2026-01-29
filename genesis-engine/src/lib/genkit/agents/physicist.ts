@@ -61,7 +61,9 @@ export const physicistFlow = ai.defineFlow(
                    - Write Python code in the 'python_code' field to show your work.
                 7. **RECURSIVE TOOL SYNTHESIS (The MacGyver Move):**
                    - If the existing Physics Engines (LAB, RAP, VOX) cannot accurately represent the user's concept (e.g., complex fractals, cellular automata, non-euclidean math, or specialized data viz), write a custom HTML5 Canvas JS script in the 'custom_canvas_code' field.
+                   - **SPATIAL SHADER PROTOCOL:** If the concept is highly visual or field-based (e.g., Magnetism, Wave interference, Fluid fields, Light refraction), you MUST write a WebGL Fragment Shader. 
                    - **Constraint:** The code MUST be a stringified arrow function that takes (ctx, time).
+                   - **GLSL Integration:** You may use the 'ctx' to initialize a WebGL context or draw procedurally.
                    - **Format:** "(ctx, time) => { ... }" 
                    - **Safety:** Use 'try-catch' internal to your script if performing complex math.
                    - **Visuals:** Use the 'ctx' to draw beautiful, educational, and high-performance visualizations.

@@ -15,6 +15,33 @@ export default function AudioPlayer({ script }: { script: ScriptLine[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Implement Native Barge-In
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+
+      recognitionRef.current.onresult = (event: any) => {
+        if (isPlaying) {
+          console.log("[Barge-In] User speech detected. Stopping AI...");
+          setIsPlaying(false);
+          synth?.cancel();
+        }
+      };
+    }
+  }, [isPlaying, synth]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      recognitionRef.current?.start();
+    } else {
+      recognitionRef.current?.stop();
+    }
+  }, [isPlaying]);
 
   const playLine = useCallback((index: number) => {
     if (!synth || index >= script.length) {

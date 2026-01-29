@@ -27,6 +27,7 @@ export const EntitySchema = z.object({
     texturePrompt: z.string().optional(),
     isStatic: z.boolean().optional(),
     analogyLabel: z.string().optional(),
+    truthSource: z.enum(['GROUNDED', 'CALCULATED', 'METAPHOR']).optional().describe('The origin of this entity logic: GROUNDED (Verified by source), CALCULATED (Python/Math), METAPHOR (AI Generative)'),
     citation: z.object({
         source: z.string(),
         snippet: z.string().optional(),

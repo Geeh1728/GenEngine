@@ -62,6 +62,18 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
         color: isSelected ? '#ffffff' : entity.color,
     });
 
+    // Neural Heatmap Colors
+    const getTruthColor = (source?: string) => {
+        switch (source) {
+            case 'GROUNDED': return '#22c55e'; // Green
+            case 'CALCULATED': return '#3b82f6'; // Blue
+            case 'METAPHOR': return '#eab308'; // Gold
+            default: return null;
+        }
+    };
+
+    const truthColor = getTruthColor(entity.truthSource);
+
     useEffect(() => {
         onRegister(entity.id, rbRef.current);
         return () => onRegister(entity.id, null);
@@ -126,7 +138,14 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
                 }}
             >
                 {geometry}
+                {truthColor && (
+                    <mesh position={[0, 0, 0]} scale={1.05}>
+                        {geometry}
+                        <meshBasicMaterial color={truthColor} transparent opacity={0.2} wireframe />
+                    </mesh>
+                )}
             </mesh>
+            {truthColor && <pointLight color={truthColor} intensity={0.5} distance={2} />}
             {collider}
 
             {/* ANALOGY LABEL */}
