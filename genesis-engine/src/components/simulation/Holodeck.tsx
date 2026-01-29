@@ -6,6 +6,7 @@ import { Physics } from '@react-three/rapier';
 import { OrbitControls, Environment, Sky, Float, ContactShadows, Html, AdaptiveDpr } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { UniversalRenderer } from './Renderer';
+import { SentinelManager } from './SentinelManager';
 import { z } from 'zod';
 import { bridgeScenario } from '@/lib/scenarios/bridge';
 import { LSystemTree } from './LSystemTree';
@@ -63,6 +64,7 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                 <color attach="background" args={['#020205']} />
 
                 <Suspense fallback={<Html><div className="text-white">Loading Holodeck...</div></Html>}>
+                    {!backgroundMode && <SentinelManager />}
                     {backgroundMode ? (
                         <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
                             <LSystemTree nodes={gardenNodes} />

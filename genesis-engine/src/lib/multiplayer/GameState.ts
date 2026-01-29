@@ -1,10 +1,11 @@
 import { WorldState, WorldStateSchema } from '@/lib/simulation/schema';
 import { SimulationFactory } from '@/lib/simulation/SimulationFactory';
-import { SkillNodeSchema } from '@/lib/genkit/schemas';
+import { SkillNodeSchema, StructuralHeatmapSchema } from '@/lib/genkit/schemas';
 import { Quest } from '@/lib/gamification/questEngine';
 import { z } from 'zod';
 
 type SkillNode = z.infer<typeof SkillNodeSchema>;
+type StructuralHeatmap = z.infer<typeof StructuralHeatmapSchema>;
 
 export interface PlayerState {
     id: string;
@@ -48,6 +49,7 @@ export interface GlobalGameState {
     missionLogs: MissionLog[];
     mode: 'IDLE' | 'PHYSICS' | 'VOXEL' | 'SCIENTIFIC' | 'ASSEMBLER';
     lastInteractionId: string | null;
+    structuralHeatmap: StructuralHeatmap | null;
 }
 
 export type GameAction =
@@ -74,7 +76,8 @@ export type GameAction =
     | { type: 'SET_FILE_URI'; payload: string | null }
     | { type: 'ADD_MISSION_LOG'; payload: Omit<MissionLog, 'id' | 'timestamp'> }
     | { type: 'CLEAR_MISSION_LOGS' }
-    | { type: 'SET_INTERACTION_ID'; payload: string | null };
+    | { type: 'SET_INTERACTION_ID'; payload: string | null }
+    | { type: 'SET_HEATMAP'; payload: StructuralHeatmap | null };
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
@@ -95,6 +98,7 @@ export const initialGameState: GlobalGameState = {
     missionLogs: [],
     mode: 'IDLE',
     lastInteractionId: null,
+    structuralHeatmap: null,
 };
 
 /**
@@ -159,6 +163,8 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return { ...state, activeChallenge: null };
         case 'SET_INTERACTION_ID':
             return { ...state, lastInteractionId: action.payload };
+        case 'SET_HEATMAP':
+            return { ...state, structuralHeatmap: action.payload };
         case 'SYNC_WORLD': {
             // DATA INTEGRITY CHECK: Validate incoming world state against schema
             const validation = WorldStateSchema.safeParse(action.payload);

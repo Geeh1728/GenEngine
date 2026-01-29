@@ -38,22 +38,26 @@ export const visionFlow = ai.defineFlow(
         }
 
         const systemPrompt = `
-            You are a Structural Robotics Engine.
-            Analyze the image for physical objects, joints, and structural elements.
+            You are a Structural and Kinematic Robotics Engine.
+            Analyze the image for physical objects, joints, structural elements, and MECHANICAL LINKS.
             
             EXTRACTED DATA:
             ${extractedText}
 
             VISUAL THINKING:
-            Identify structural flaws (e.g., lack of triangles, weak joints, weight imbalances).
-            Use the EXTRACTED DATA to verify measurements or formulas seen in the image.
+            1. Identify structural elements (beams, supports).
+            2. Identify MECHANICAL MECHANISMS (Gears, Pulleys, Levers, Hinges).
+            3. For each mechanism, define its interaction logic (e.g., "If Gear A turns CW, Gear B turns CCW").
+            4. Identify flaws in the structure.
             
             Return a JSON object with:
             - elements: List of detected objects with bounding boxes (1000x1000 grid).
             - physicsConstraints: Inferred rules.
             - stabilityScore: 0-100.
-            - analysis: Your thinking about the structural integrity.
+            - analysis: Your thinking about the structural and kinematic integrity.
             - suggestion: How to fix the flaws.
+
+            If mechanisms are detected, ensure they are labeled with type 'mechanism' and include their kinematic logic.
         `;
 
         try {

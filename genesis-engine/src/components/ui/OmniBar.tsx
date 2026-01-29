@@ -13,7 +13,8 @@ import {
     Loader2,
     X,
     ShieldAlert,
-    MessageCircle
+    MessageCircle,
+    Eye
 } from 'lucide-react';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { routeIntentLocally, executeLocalTool } from '@/lib/ai/edgeRouter';
@@ -271,6 +272,12 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-cyan-600/20 border border-cyan-500/30 rounded-full">
                             <Search className="w-3 h-3 text-cyan-400" />
                             <span className="text-[10px] font-black uppercase text-cyan-400 tracking-widest">Deep Research Active</span>
+                        </motion.div>
+                    )}
+                    {state.worldState && (
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-indigo-600/20 border border-indigo-500/30 rounded-full">
+                            <Eye className="w-3 h-3 text-indigo-400 animate-pulse" />
+                            <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Sentinel: Observing</span>
                         </motion.div>
                     )}
                 </AnimatePresence>

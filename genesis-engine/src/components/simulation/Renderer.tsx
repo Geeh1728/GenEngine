@@ -10,11 +10,38 @@ import { useTextureGen } from '@/lib/simulation/useTextureGen';
 import { LabBench } from './LabBench';
 import { VoxelRenderer } from './VoxelRenderer';
 import { UniversalCanvas } from './UniversalCanvas';
-import { SkillNodeSchema } from '@/lib/genkit/schemas';
+import { SkillNodeSchema, StructuralHeatmapSchema } from '@/lib/genkit/schemas';
 import { blackboard, BlackboardContext } from '@/lib/genkit/context';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { z } from 'zod';
 import * as THREE from 'three';
+
+const StructuralHeatmapRenderer = ({ heatmap }: { heatmap: z.infer<typeof StructuralHeatmapSchema> }) => {
+    return (
+        <group>
+            {heatmap.points.map((point, i) => (
+                <group key={i} position={[point.x, point.y, point.z]}>
+                    <mesh>
+                        <sphereGeometry args={[0.3, 16, 16]} />
+                        <meshBasicMaterial 
+                            color="#ef4444" 
+                            transparent 
+                            opacity={point.severity * 0.6} 
+                        />
+                    </mesh>
+                    <pointLight color="#ef4444" intensity={point.severity * 2} distance={3} />
+                    {point.reason && (
+                        <Html distanceFactor={10} position={[0, 0.5, 0]}>
+                            <div className="bg-red-500/90 text-white text-[8px] font-black p-1 rounded whitespace-nowrap uppercase tracking-tighter">
+                                {point.reason}
+                            </div>
+                        </Html>
+                    )}
+                </group>
+            ))}
+        </group>
+    );
+};
 
 type SkillNode = z.infer<typeof SkillNodeSchema>;
 
@@ -307,6 +334,7 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
 
     return (
         <group onPointerMissed={() => dispatch({ type: 'DESELECT_ENTITY' })}>
+            {state.structuralHeatmap && <StructuralHeatmapRenderer heatmap={state.structuralHeatmap} />}
             {worldState.sabotage_reveal && (
                 <Html position={[0, 5, 0]} distanceFactor={15}>
                     <motion.div

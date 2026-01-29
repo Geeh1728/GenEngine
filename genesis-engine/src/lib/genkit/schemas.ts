@@ -90,16 +90,41 @@ export const SkillTreeSchema = z.object({
     recommendedPath: z.array(z.string()).describe('Ordered list of Node IDs to follow'),
 });
 
+// --- AGENTIC VISION & SENTINEL SCHEMAS ---
+
+export const StructuralHeatmapSchema = z.object({
+    points: z.array(z.object({
+        x: z.number(),
+        y: z.number(),
+        z: z.number(),
+        severity: z.number().min(0).max(1), // 0 = Safe, 1 = Critical Failure Point
+        reason: z.string().optional()
+    })),
+    overallStability: z.number().min(0).max(100),
+    remediationAdvice: z.string().optional()
+});
+
+export const KinematicGraphSchema = z.object({
+    mechanisms: z.array(z.object({
+        type: z.enum(['gear', 'lever', 'pulley', 'pivot', 'linkage']),
+        points: z.array(z.object({ x: z.number(), y: z.number(), z: z.number() })),
+        parentEntityId: z.string().optional(),
+        interactionLogic: z.string().describe('JS logic for how this mechanism moves')
+    })),
+    constraints: z.array(z.string())
+});
+
 export const StructuralAnalysisSchema = z.object({
     elements: z.array(z.object({
         id: z.string(),
-        type: z.enum(['beam', 'joint', 'support', 'load']),
+        type: z.enum(['beam', 'joint', 'support', 'load', 'mechanism']),
         box_2d: z.array(z.number()).describe('[ymin, xmin, ymax, xmax]'),
         properties: z.object({
             material: z.string().optional(),
-            connectionType: z.string().optional(), // for joints
-            magnitude: z.number().optional(), // for loads
+            connectionType: z.string().optional(),
+            magnitude: z.number().optional(),
         }).optional(),
+        kinematics: KinematicGraphSchema.optional()
     })),
     physicsConstraints: z.array(z.string()).describe('Inferred physical rules (e.g., "Fixed support at base")'),
     stabilityScore: z.number().min(0).max(100).optional(),
@@ -111,3 +136,4 @@ export type SkillTree = z.infer<typeof SkillTreeSchema>;
 export type ComplexityLevel = z.infer<typeof ComplexityLevelSchema>;
 export type SkillNode = z.infer<typeof SkillNodeSchema>;
 export type StructuralAnalysis = z.infer<typeof StructuralAnalysisSchema>;
+export type StructuralHeatmap = z.infer<typeof StructuralHeatmapSchema>;

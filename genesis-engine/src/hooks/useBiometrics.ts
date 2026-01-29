@@ -54,18 +54,19 @@ export function useBiometrics() {
 
     // Sentinel Reactions
     useEffect(() => {
-        if (cognitiveLoad > 0.8) {
+        if (cognitiveLoad > 0.85) {
             dispatch({ 
                 type: 'ADD_MISSION_LOG', 
                 payload: { 
-                    agent: 'Mentor', 
-                    message: 'High cognitive load detected. Simplifying concept explanation...', 
+                    agent: 'Babel', 
+                    message: 'Student frustration detected. Preparing verbal hint in native tongue...', 
                     type: 'INFO' 
                 } 
             });
-            // Trigger Dungeon Master to simplify
-            // dispatch({ type: 'SET_CHALLENGE', payload: "I see this is complex. Let's look at this from a different angle." });
-        } else if (cognitiveLoad < 0.2) {
+            
+            // This would trigger the actual Babel Voice output
+            // window.dispatchEvent(new CustomEvent('babel-voice-hint', { detail: { message: "Don't forget about the center of mass." } }));
+        } else if (cognitiveLoad > 0.7) {
             dispatch({ 
                 type: 'ADD_MISSION_LOG', 
                 payload: { 
