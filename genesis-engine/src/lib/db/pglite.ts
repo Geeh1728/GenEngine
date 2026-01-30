@@ -42,11 +42,43 @@ export const getDB = async (): Promise<PGlite | null> => {
                 request_count INTEGER DEFAULT 0,
                 PRIMARY KEY (date, model_id)
             );
+            CREATE TABLE IF NOT EXISTS system_config (
+                model_alias TEXT PRIMARY KEY,
+                actual_model_string TEXT,
+                last_verified TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
     console.log('🔋 Genesis Local DB: Online');
   }
   return dbInstance;
 };
+
+/**
+ * Get a model string from the dynamic registry.
+ */
+export async function getRegisteredModel(alias: string, fallback: string): Promise<string> {
+  const db = await getDB();
+  if (!db) return fallback;
+
+  const result = await db.query('SELECT actual_model_string FROM system_config WHERE model_alias = $1', [alias]);
+  return (result.rows[0] as { actual_model_string: string })?.actual_model_string || fallback;
+}
+
+/**
+ * Update a model string in the dynamic registry.
+ */
+export async function updateRegisteredModel(alias: string, modelString: string) {
+  const db = await getDB();
+  if (!db) return;
+
+  await db.query(`
+    INSERT INTO system_config (model_alias, actual_model_string, last_verified)
+    VALUES ($1, $2, CURRENT_TIMESTAMP)
+    ON CONFLICT (model_alias) DO UPDATE SET actual_model_string = EXCLUDED.actual_model_string, last_verified = CURRENT_TIMESTAMP
+  `, [alias, modelString]);
+  
+  console.log(`🛠️ Sentinel: Updated ${alias} -> ${modelString}`);
+}
 
 /**
  * Tracks API usage locally to manage tiered fallback thresholds.

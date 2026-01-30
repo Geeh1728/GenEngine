@@ -1,6 +1,7 @@
 import { ai, geminiFlash, gemini3Flash, BRAIN_PRIMARY, BRAIN_WORKHORSE, OPENROUTER_FREE_MODELS } from './config';
 import { z } from 'genkit';
-import { incrementApiUsage, getApiUsage } from '../db/pglite';
+import { incrementApiUsage, getApiUsage, getRegisteredModel } from '../db/pglite';
+import { sentinelRepairAgent } from './agents/sentinel';
 
 import { MessageData } from 'genkit';
 
@@ -16,6 +17,7 @@ interface ResilienceOptions<T extends z.ZodTypeAny> {
     fallback?: z.infer<T>;
     onLog?: (message: string, type: 'INFO' | 'ERROR' | 'SUCCESS' | 'THINKING') => void;
     previousInteractionId?: string;
+    modelAlias?: string;
 }
 
 /**
@@ -48,10 +50,15 @@ function preparePromptForModel(prompt: string, modelId: string): string {
 export async function executeApexLoop<T extends z.ZodTypeAny>(
     options: ResilienceOptions<T>
 ): Promise<{ output: z.infer<T> | null, interactionId?: string }> {
-    const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId } = options;
+    const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId, modelAlias } = options;
 
     let attempts = 0;
     let currentModel = model || BRAIN_PRIMARY.name;
+
+    // STEP 0: Resolve Dynamic Model Registry (Self-Healing)
+    if (modelAlias) {
+        currentModel = await getRegisteredModel(modelAlias, currentModel);
+    }
     
     // Check local quota before starting
     const usage = await getApiUsage();
@@ -78,6 +85,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
                 tools: tools,
                 config: {
                     ...config,
+                    // Pass interaction ID for stateful sessions
                     previous_interaction_id: previousInteractionId
                 },
                 output: {
@@ -101,13 +109,31 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
             const errorMessage = error.message || String(error);
             console.error(`[Apex] Swarm Error (${attempts + 1}):`, errorMessage);
             
+            // SELF-HEALING TRIGGER
+            if (modelAlias && (errorMessage.includes('NOT_FOUND') || errorMessage.includes('404') || errorMessage.includes('deprecated'))) {
+                if (onLog) onLog('API Drift detected. Sentinel is patching the link...', 'ERROR');
+                try {
+                    const patch = await sentinelRepairAgent({ failedModelAlias: modelAlias, errorType: errorMessage });
+                    currentModel = patch.newModelString;
+                    continue; // Retry immediately with patched model
+                } catch (repairError) {
+                    console.error("[Sentinel] Repair failed:", repairError);
+                }
+            }
+
             attempts++;
             if (attempts > retryCount) break;
 
             // Tiered Fallback Logic
-            if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('limit')) {
+            if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('limit') || errorMessage.includes('NOT_FOUND')) {
                 const isGoogleModel = currentModel.includes('gemini') || currentModel.includes('gemma');
                 
+                if (currentModel.includes('gemma-3-27b') && errorMessage.includes('NOT_FOUND')) {
+                    if (onLog) onLog(`Gemma-3 identifier not recognized. Falling back to Gemini-3...`, 'ERROR');
+                    currentModel = gemini3Flash.name;
+                    continue;
+                }
+
                 if (currentModel.includes('gemini-3-flash')) {
                     if (onLog) onLog(`Primary Brain saturated. Rerouting to Gemma-3 Workhorse...`, 'ERROR');
                     currentModel = BRAIN_WORKHORSE.name;
