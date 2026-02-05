@@ -4,6 +4,7 @@ import { storeKnowledge } from '@/lib/db/pglite';
 import { z } from 'genkit';
 import { Question } from '@/components/mastery/MasteryChallenge';
 import { Quest, MASTER_QUESTS } from '@/lib/gamification/questEngine';
+import { blackboard } from '@/lib/genkit/context';
 
 type SkillTree = z.infer<typeof SkillTreeSchema>;
 type SkillNode = z.infer<typeof SkillNodeSchema>; // No longer unused
@@ -106,17 +107,58 @@ export function useGamification() {
         }));
     }, []);
 
-    const trackFailure = useCallback(() => {
+    const trackFailure = useCallback(async () => {
         const newCount = failureCount + 1;
         setFailureCount(newCount);
+        
         if (newCount >= 3) {
-            // Trigger a default master quest if none active
-            if (!currentQuestId && MASTER_QUESTS.length > 0) {
-                setActiveQuest(MASTER_QUESTS[0]);
+            console.log("[LingBot] Threshold reached (3 failures). Generating Adaptive Bridge Node...");
+            blackboard.log('Architect', 'High frustration detected. Building a conceptual bridge to simplify the physics...', 'THINKING');
+
+            try {
+                // 1. Trigger the 'Adaptive Bridge' Agent (Architect Specialist)
+                const response = await fetch('/api/mastery/bridge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        currentTopic: skillTree?.goal || 'Physics',
+                        failedNodeId: activeNode?.id,
+                        failureContext: state.worldState?.explanation
+                    }),
+                });
+
+                if (response.ok) {
+                    const bridgeNode = await response.json();
+                    
+                    // 2. MORPH THE SKILL TREE: Inject the bridge node
+                    if (skillTree) {
+                        const newNodes = [...skillTree.nodes, bridgeNode];
+                        const newPath = [...skillTree.recommendedPath];
+                        const activeIdx = newPath.indexOf(activeNode?.id || '');
+                        
+                        // Insert before the failed node
+                        if (activeIdx !== -1) {
+                            newPath.splice(activeIdx, 0, bridgeNode.id);
+                        } else {
+                            newPath.unshift(bridgeNode.id);
+                        }
+
+                        setSkillTree({
+                            ...skillTree,
+                            nodes: newNodes,
+                            recommendedPath: newPath
+                        });
+
+                        blackboard.log('Astra', `I've added a new step: "${bridgeNode.label}" to help you master this. Let's try it first!`, 'SUCCESS');
+                    }
+                }
+            } catch (e) {
+                console.warn("Adaptive bridge failed.");
             }
+            
             setFailureCount(0);
         }
-    }, [failureCount, currentQuestId, setActiveQuest]);
+    }, [failureCount, skillTree, activeNode, state.worldState]);
 
     return {
         skillTree,

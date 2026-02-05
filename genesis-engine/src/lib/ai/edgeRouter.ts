@@ -1,4 +1,5 @@
 import { blackboard } from '../genkit/context';
+import { routeIntentViaAI } from '@/app/actions/reflex';
 
 export type LocalTool = 
     | { type: 'UPDATE_PHYSICS', payload: { gravity?: { x: number, y: number, z: number }, timeScale?: number } }
@@ -7,8 +8,8 @@ export type LocalTool =
     | { type: 'RESTART', payload: Record<string, never> };
 
 /**
- * MODULE X: THE EDGE ROUTER (FunctionGemma Protocol)
- * Objective: Reduce latency by handling simple intents locally.
+ * MODULE X: THE EDGE ROUTER (Apex Swarm v8.0)
+ * Objective: Reduce latency by handling simple intents via Gemma 3n (Mobile Reflex).
  */
 export async function routeIntentLocally(input: string): Promise<LocalTool | null> {
     const text = input.toLowerCase();
@@ -19,7 +20,7 @@ export async function routeIntentLocally(input: string): Promise<LocalTool | nul
         return null;
     }
 
-    // Heuristic-based routing (Local FunctionGemma emulation)
+    // TIER 0: Regex Heuristic (Zero Latency)
     if (/\bgravity\b|\bweightless\b|\bheavy\b/i.test(text)) {
         const gravity = { x: 0, y: -9.81, z: 0 };
         if (/\bzero\b|\boff\b|\bweightless\b/i.test(text)) gravity.y = 0;
@@ -49,7 +50,22 @@ export async function routeIntentLocally(input: string): Promise<LocalTool | nul
         if (text.includes('lab')) return { type: 'NAVIGATE', payload: { screen: 'LAB' } };
     }
 
-    // Fallback: If intent is "Knowledge" or "Complex", return null to trigger Cloud Routing
+    // TIER 1: Gemma 3n Reflex (Mobile Edge Model) - Server Action
+    if (text.split(' ').length < 10 && !text.includes('why')) {
+        blackboard.log('EdgeRouter', '🤖 Gemma 3n is checking reflexes...', 'THINKING');
+        try {
+            const result = await routeIntentViaAI(input);
+
+            if (result.success && result.reflex && result.reflex.tool !== 'UNKNOWN') {
+                blackboard.log('EdgeRouter', `Gemma 3n Reflex Triggered: ${result.reflex.tool}`, 'SUCCESS');
+                return { type: result.reflex.tool as any, payload: result.reflex.payload };
+            }
+        } catch (e) {
+            console.warn("Gemma Reflex failed, falling back to cloud.", e);
+        }
+    }
+
+    // Fallback
     if (text.includes('why') || text.includes('how') || text.includes('explain') || text.includes('simulate')) {
         return null;
     }

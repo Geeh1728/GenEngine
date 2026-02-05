@@ -1,6 +1,7 @@
-import { ai, geminiFlash, BRAIN_REFLEX } from '../config';
+import { ai, LOGIC_WATERFALL } from '../config';
 import { z } from 'genkit';
 import { blackboard } from '../context';
+import { executeApexLoop } from '../resilience';
 
 export const ResearcherInputSchema = z.object({
     topic: z.string(),
@@ -10,7 +11,10 @@ export const ResearcherInputSchema = z.object({
 
 export const ResearcherOutputSchema = z.object({
     summary: z.string().describe('Summary of the research findings.'),
-    constants: z.record(z.string(), z.number()).optional().describe('Extracted raw physical values or constants.'),
+    constants: z.array(z.object({
+        name: z.string(),
+        value: z.number()
+    })).optional().describe('Extracted raw physical values or constants.'),
     citations: z.array(z.object({
         title: z.string(),
         url: z.string(),
@@ -33,42 +37,88 @@ async function runRecursiveSearch(topic: string, context: string | undefined, de
         ${blackboardFragment}
 
         INSTRUCTIONS:
-        1. Find specialized constants (e.g., soil density, orbital speed).
+        1. Find specialized constants (e.g., soil density, orbital speed, drum membrane tension).
         2. Extract RAW numerical values.
-        3. If the results are vague or missing specific numbers, provide 3 'followUpQueries' to narrow the search.
     `;
 
-    const response = await ai.generate({
-        model: geminiFlash.name,
-        system: systemPrompt,
-        prompt: `Research topic: "${topic}"\nContext: ${context || 'None'}`,
-        config: { googleSearchRetrieval: true },
-        output: { schema: ResearcherOutputSchema }
-    });
+    // STEP 1: Internal Knowledge Grounding (Using functioning GPT-4o mini)
+    let rawText = "";
+    let success = false;
+    
+    for (const modelName of LOGIC_WATERFALL) {
+        blackboard.log('Researcher', `Generating research via ${modelName}...`, 'THINKING');
+        try {
+            const response = await ai.generate({
+                model: modelName,
+                prompt: `Research topic: "${topic}"\nContext: ${context || 'None'}\nProvide a detailed summary including specific constants and citations.`,
+                system: systemPrompt
+            });
+            
+            if (response.text) {
+                rawText = response.text;
+                success = true;
+                break;
+            }
+        } catch (err) {
+            console.warn(`[Researcher] Research failed for ${modelName}:`, err);
+            continue;
+        }
+    }
 
-    const result = response.output;
-    if (!result) throw new Error("Researcher failed.");
-
-    // RECURSIVE STEP: If we have follow-up queries and haven't hit max depth
-    if (result.followUpQueries?.length && depth < 3) {
-        blackboard.log('Researcher', `Diving deeper into the web (Step ${depth+1}/3)...`, 'RESEARCH');
-        const deeperTopic = result.followUpQueries.join(' ');
-        const deeperResult = await runRecursiveSearch(deeperTopic, result.summary, depth + 1);
-        
+    if (!success) {
+        blackboard.log('Researcher', 'Grounding link unstable. Proceeding with local neural context.', 'ERROR');
         return {
-            summary: `${result.summary}\n\nDEEP RESEARCH ADDENDUM:\n${deeperResult.summary}`,
-            constants: { ...result.constants, ...deeperResult.constants },
-            citations: [...result.citations, ...deeperResult.citations]
+            summary: "Research phase failed or was inconclusive. Using local scientific context.",
+            citations: [],
+            followUpQueries: []
         };
     }
 
-    blackboard.log('Researcher', `Consensus reached with ${result.citations.length} sources.`, 'SUCCESS');
-    blackboard.update({
-        researchFindings: result.summary,
-        externalConstants: result.constants
+    // STEP 2: Structured Extraction
+    const extractionResult = await executeApexLoop({
+        prompt: `Extract structured scientific data from this research text:\n\n${rawText}`,
+        system: "You are a scientific data extractor. Format the findings as JSON matching the ResearcherOutputSchema.",
+        schema: ResearcherOutputSchema,
+        task: 'MATH'
     });
 
-    return result;
+    if (!extractionResult.output) {
+        return {
+            summary: rawText,
+            citations: [],
+            followUpQueries: []
+        };
+    }
+    const researchData = extractionResult.output;
+    researchData.summary = rawText; // Combine results
+
+    // RECURSIVE STEP: If we have follow-up queries and haven't hit max depth
+    if (researchData.followUpQueries?.length && depth < 3) {
+        blackboard.log('Researcher', `Diving deeper into the web (Step ${depth+1}/3)...`, 'RESEARCH');
+        const deeperTopic = researchData.followUpQueries.join(' ');
+        const deeperResult = await runRecursiveSearch(deeperTopic, researchData.summary, depth + 1);
+        
+        return {
+            summary: `${researchData.summary}\n\nDEEP RESEARCH ADDENDUM:\n${deeperResult.summary}`,
+            constants: [...(researchData.constants || []), ...(deeperResult.constants || [])],
+            citations: [...researchData.citations, ...deeperResult.citations]
+        };
+    }
+
+    blackboard.log('Researcher', `Consensus reached with ${researchData.citations.length} sources.`, 'SUCCESS');
+    
+    // Map array constants back to record for Blackboard/Engine compatibility if needed
+    const constantsMap: Record<string, number> = {};
+    researchData.constants?.forEach(c => {
+        constantsMap[c.name] = c.value;
+    });
+
+    blackboard.update({
+        researchFindings: researchData.summary,
+        externalConstants: constantsMap
+    });
+
+    return researchData;
 }
 
 export const researcherFlow = ai.defineFlow(

@@ -18,7 +18,7 @@ export interface LocalInterfaceState {
     pythonOutput: { stdout: string | null; result: number | string | Record<string, any> | null; error: string | null } | null;
     isExecutingPython: boolean;
     handleRunVerification: () => Promise<void>;
-    handleTeleport: (newEntities: Entity[]) => void;
+    handleTeleport: (newEntities: Entity[], newJoints?: any[]) => void;
     handleExport: () => void;
     handleSaboteurReply: (reply: string) => void;
 }
@@ -67,14 +67,15 @@ export function useLocalInterface(engine: ReturnType<typeof useGenesisEngine>): 
         setIsExecutingPython(false);
     };
 
-    const handleTeleport = (newEntities: Entity[]) => {
+    const handleTeleport = (newEntities: Entity[], newJoints: any[] = []) => {
         const current = engine.worldState;
         if (!current) return;
 
         // Explicit merge since setWorldState (syncWorldState) does not support functional updates
         engine.setWorldState({
             ...current,
-            entities: [...(current.entities || []), ...newEntities]
+            entities: [...(current.entities || []), ...newEntities],
+            joints: [...(current.joints || []), ...newJoints]
         });
     };
 

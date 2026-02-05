@@ -48,19 +48,21 @@ export const artistAgent = ai.defineFlow(
             fallback: {
                 scenario: "Neural Synthesis",
                 mode: "VOXEL",
+                domain: "ABSTRACT",
                 description: "Refining the physical representation of your concept.",
                 explanation: "The primary engine is stabilizing. Observe the initial structural draft.",
                 constraints: ["Static voxel grid", "Fixed position"],
                 successCondition: "The sculpture is rendered.",
                 entities: [{ 
                     id: "fallback-voxel", 
-                    type: "cube", 
+                    shape: "cube", 
                     position: { x: 0, y: 0, z: 0 }, 
-                    rotation: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0, w: 1 },
                     dimensions: { x: 2, y: 2, z: 2 },
-                    physics: { mass: 0, friction: 0.5, restitution: 0.5 },
-                    isStatic: true,
-                    color: "#a855f7",
+                    physics: { mass: 0, friction: 0.5, restitution: 0.5, isStatic: true },
+                    visual: {
+                        color: "#a855f7"
+                    },
                     name: "Resilience Voxel"
                 }]
             }

@@ -3,20 +3,18 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { Brain, Settings, List, X, Sparkles } from 'lucide-react';
+import { Brain, Settings, X, Book } from 'lucide-react';
 import { sfx } from '@/lib/sound/SoundManager';
 
 // Components
-import { WorldRulesList } from '@/components/ingestion/WorldRulesList';
 import { GodModePanel } from '@/components/intervention/GodModePanel';
 import { RealityDiff } from '@/components/simulation/RealityDiff';
 import RealityLens from '@/components/simulation/RealityLens';
 import { MindGarden } from '@/components/simulation/MindGarden';
-import SkillTree from '@/components/ui/SkillTree';
 import { OmniBar } from '@/components/ui/OmniBar';
+import { Librarian } from '@/components/ui/Librarian';
 import { SaboteurDialogue } from '@/components/ui/SaboteurDialogue';
 import { QuestOverlay } from '@/components/ui/QuestOverlay';
-import { MissionLog } from '@/components/ui/MissionLog';
 import { DynamicController } from '@/components/ui/DynamicController';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Holodeck } from '@/components/simulation/Holodeck';
@@ -32,6 +30,14 @@ import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 import { useLocalInterface } from '@/hooks/useLocalInterface';
 import { useBiometrics } from '@/hooks/useBiometrics';
 
+import { exobrain } from '@/lib/storage/exobrain';
+import { MasteryLogic, MasteryLevel } from '@/lib/gamification/mastery-logic';
+import { discovery } from '@/lib/p2p/DiscoveryLayer';
+import { TemporalHUD } from '@/components/ui/TemporalHUD';
+import { useTimeTurner, timeTurner } from '@/lib/store/TimeTurnerStore';
+import { swarmCompute } from '@/lib/p2p/SwarmCompute';
+import { shaderDreamer } from '@/lib/rendering/ShaderDreamer';
+
 const NeuralBackground = dynamic(() => import('@/components/ui/NeuralBackground').then(mod => mod.NeuralBackground), { ssr: false });
 
 interface GenesisShellProps {
@@ -45,18 +51,38 @@ interface GenesisShellProps {
  */
 export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
     useBiometrics();
+    
+    // Time-Turner State
+    const { historyLength, currentIndex, isPlaying } = useTimeTurner();
+
+    React.useEffect(() => {
+        // Load Exobrain
+        exobrain.load().then(profile => {
+            console.log("Exobrain Loaded:", profile);
+        });
+
+        // Start Sovereign Discovery
+        discovery.startListening((foundPeers) => {
+            if (foundPeers.length > 0) {
+                sfx.playPing(); // Subtle notification
+            }
+        });
+
+        // TITAN INITIALIZATION (v19.0)
+        swarmCompute.init();
+        shaderDreamer.init();
+    }, []);
 
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
-    const [isLogsOpen, setIsLogsOpen] = React.useState(false);
+    const [isLibrarianOpen, setIsLibrarianOpen] = React.useState(false);
 
     const {
-        isIngested, isProcessing, worldRules, error, godModeState,
+        worldRules, error, godModeState,
         worldState, setComplexity, isPaused, diagnostics, resetSimulation,
-        handleSimulationFailure, gardenState, skillTree, activeNode,
-        completedNodeIds, startSimulation, neuralEngineProgress, setError,
-        omniPrompt, setOmniPrompt, activeChallenge, selectedEntityId,
-        setActiveChallenge, toggleRule, handleConstantChange, isSabotaged, mode,
-        isVerifyingLogic
+        handleSimulationFailure, gardenState, startSimulation,
+        omniPrompt, setOmniPrompt, activeChallenge,
+        setActiveChallenge, toggleRule, handleConstantChange,
+        isVerifyingLogic, unlockedHUD, isProcessing
     } = engine;
 
     const {
@@ -66,13 +92,22 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
         handleTeleport, handleExport, handleSaboteurReply
     } = ui;
 
+    const handleInjectFormula = async (formula: string) => {
+        setIsLibrarianOpen(false);
+        setOmniPrompt(`Manifest this physics formula into reality: ${formula}`);
+        // We'll let the user press 'Enter' in OmniBar for now, or we could trigger submit.
+        // For v12.0 "Fellow Scholar" polish, we auto-trigger.
+        sfx.playSuccess();
+    };
+
     // A world is "active" if it has entities or a custom script
     const hasActiveContent = worldState && (worldState.entities?.length || worldState.custom_canvas_code);
+    const mode = worldState?.mode;
     const isActuallySimulating = hasActiveContent && mode !== 'IDLE' && mode !== null;
     const isPhysicsMode = mode === 'PHYSICS' || mode === 'VOXEL' || mode === 'SCIENTIFIC' || mode === 'ASSEMBLER';
 
     return (
-        <main className="fixed inset-0 w-screen h-screen overflow-hidden font-inter text-foreground bg-[#020205] flex flex-col">
+        <main className="fixed inset-0 w-screen h-screen overflow-hidden font-inter text-foreground flex flex-col">
             <NeuralBackground />
 
             {/* --- 1. THE CINEMATIC BACKGROUND --- */}
@@ -84,8 +119,19 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                         opacity: isActuallySimulating ? 1 : 0.3
                     }}
                     transition={{ duration: 1.5, ease: "easeInOut" }}
-                    className="w-full h-full"
+                    className="w-full h-full relative"
                 >
+                     {/* Reality Lens Scanline Overlay */}
+                    {isActuallySimulating && (
+                        <div 
+                            className="absolute inset-0 z-10 pointer-events-none opacity-20 mix-blend-overlay"
+                            style={{
+                                backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))',
+                                backgroundSize: '100% 2px, 3px 100%'
+                            }}
+                        />
+                    )}
+
                     <ErrorBoundary componentName="Holodeck">
                         <Holodeck
                             debug={false}
@@ -260,12 +306,12 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
             </div>
 
             {/* STATUS HUD */}
-            {isActuallySimulating && !isPhysicsMode && (
+            {isActuallySimulating && !isPhysicsMode && unlockedHUD && (
                 <StatusFooter overridesCount={godModeState.overrides.length} complexity={godModeState.complexity} />
             )}
 
             {/* FLOATING TRIGGERS */}
-            {isActuallySimulating && !isSettingsOpen && (
+            {isActuallySimulating && !isSettingsOpen && unlockedHUD && (
                 <button 
                     onClick={() => setIsSettingsOpen(true)}
                     className="fixed right-0 top-1/2 -translate-y-1/2 z-[3000] p-4 bg-black/40 backdrop-blur-xl border-l border-t border-b border-white/10 rounded-l-2xl text-blue-400 hover:text-white hover:bg-blue-600/20 transition-all active:scale-95 pointer-events-auto"
@@ -281,11 +327,39 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                 )}
                 {isRealityLensOpen && <RealityLens onTeleport={handleTeleport} onClose={() => setIsRealityLensOpen(false)} />}
                 {isGardenOpen && <MindGarden nodes={gardenState.nodes} onClose={() => setIsGardenOpen(false)} />}
+                {isLibrarianOpen && <Librarian rules={worldRules} onInjectFormula={handleInjectFormula} onClose={() => setIsLibrarianOpen(false)} />}
             </AnimatePresence>
+
+            {/* COUNCIL CONSTELLATION TRIGGERS (AGENT HUD) */}
+            <div className="fixed right-6 top-24 flex flex-col gap-4 z-[3000] pointer-events-none">
+                {isActuallySimulating && !isLibrarianOpen && unlockedHUD && (
+                    <button 
+                        onClick={() => setIsLibrarianOpen(true)}
+                        className="p-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-creative-violet hover:text-white hover:bg-creative-violet/20 transition-all active:scale-95 pointer-events-auto shadow-lg shadow-creative-violet/10 group"
+                    >
+                        <Book className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    </button>
+                )}
+            </div>
 
             <RealityDiff isOpen={!!diagnostics} hypothesis={diagnostics?.hypothesis || ''} outcome={diagnostics?.outcome || ''} sabotageReveal={diagnostics?.sabotageReveal} onReset={resetSimulation} />
             <DynamicController />
-            <QuestOverlay />
+            
+            {/* MODULE T: TIME-TURNER HUD */}
+            {isActuallySimulating && historyLength > 60 && unlockedHUD && (
+                <TemporalHUD 
+                    historyLength={historyLength}
+                    currentIndex={currentIndex}
+                    isPlaying={isPlaying}
+                    onScrub={(i) => {
+                        timeTurner.setCurrentIndex(i);
+                        if (isPlaying) timeTurner.togglePlayback(); // Auto-pause on scrub
+                    }}
+                    onTogglePlayback={() => timeTurner.togglePlayback()}
+                />
+            )}
+
+            {unlockedHUD && <QuestOverlay />}
             <PerformanceMonitor />
         </main>
     );

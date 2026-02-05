@@ -3,6 +3,7 @@ import { SimulationFactory } from '@/lib/simulation/SimulationFactory';
 import { SkillNodeSchema, StructuralHeatmapSchema } from '@/lib/genkit/schemas';
 import { Quest } from '@/lib/gamification/questEngine';
 import { z } from 'zod';
+import { sentinel } from '@/lib/simulation/sentinel';
 
 type SkillNode = z.infer<typeof SkillNodeSchema>;
 type StructuralHeatmap = z.infer<typeof StructuralHeatmapSchema>;
@@ -50,6 +51,7 @@ export interface GlobalGameState {
     mode: 'IDLE' | 'PHYSICS' | 'VOXEL' | 'SCIENTIFIC' | 'ASSEMBLER';
     lastInteractionId: string | null;
     structuralHeatmap: StructuralHeatmap | null;
+    unlockedHUD: boolean;
 }
 
 export type GameAction =
@@ -77,7 +79,8 @@ export type GameAction =
     | { type: 'ADD_MISSION_LOG'; payload: Omit<MissionLog, 'id' | 'timestamp'> }
     | { type: 'CLEAR_MISSION_LOGS' }
     | { type: 'SET_INTERACTION_ID'; payload: string | null }
-    | { type: 'SET_HEATMAP'; payload: StructuralHeatmap | null };
+    | { type: 'SET_HEATMAP'; payload: StructuralHeatmap | null }
+    | { type: 'UNLOCK_HUD' };
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
@@ -99,6 +102,7 @@ export const initialGameState: GlobalGameState = {
     mode: 'IDLE',
     lastInteractionId: null,
     structuralHeatmap: null,
+    unlockedHUD: false,
 };
 
 /**
@@ -106,6 +110,8 @@ export const initialGameState: GlobalGameState = {
  */
 export function gameReducer(state: GlobalGameState, action: GameAction): GlobalGameState {
     switch (action.type) {
+        case 'UNLOCK_HUD':
+            return { ...state, unlockedHUD: true };
         case 'ADD_MISSION_LOG':
             return {
                 ...state,
@@ -172,12 +178,17 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
                 console.error("[GameState] Data Integrity Failure:", validation.error);
                 return state; // Reject corrupt data
             }
+
+            // UNBREAKABLE SENTINEL: Apply collision process stabilization
+            const stableWorld = sentinel.stabilize(validation.data as WorldState);
+
             return {
                 ...state,
-                worldState: validation.data as WorldState,
-                mode: (validation.data.mode as any) || 'PHYSICS',
+                worldState: stableWorld,
+                mode: (stableWorld.mode as any) || 'PHYSICS',
                 lastInteractionId: action.payload.interactionId || state.lastInteractionId,
                 lastUpdated: Date.now(),
+                unlockedHUD: true, // Auto-unlock on first manifestation
             };
         }
         case 'SET_INTERACTION_STATE':

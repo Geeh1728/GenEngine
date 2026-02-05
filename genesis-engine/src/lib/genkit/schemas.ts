@@ -1,5 +1,7 @@
 import { z } from 'genkit';
-import { NodeData, EntitySchema, WorldStateSchema as BaseWorldStateSchema } from '../simulation/schema';
+import { NodeData, EntitySchema, WorldStateSchema } from '../simulation/schema';
+
+export { WorldStateSchema, EntitySchema } from '../simulation/schema';
 
 export const ComplexityLevelSchema = z.enum(['fundamental', 'standard', 'expert']);
 
@@ -34,35 +36,13 @@ export const SimulationCardSchema = z.object({
     actions: z.array(z.string()).describe('Available interactive handles for the user'),
 });
 
-// Schema for the physical "Reality" of a specific topic (The Prometheus Protocol)
-export const WorldStateSchema = z.object({
-    scenario: z.string().describe('The name of the generated scenario'),
-    mode: z.enum(['IDLE', 'PHYSICS', 'METAPHOR', 'SCIENTIFIC', 'VOXEL', 'ASSEMBLER']).describe('The simulation engine to use.'),
-    entities: z.array(EntitySchema).optional(),
-    voxels: z.array(z.object({
-        x: z.number(),
-        y: z.number(),
-        z: z.number(),
-        color: z.string(),
-    })).optional(),
-    environment: z.object({
-        gravity: z.object({ x: z.number(), y: z.number(), z: z.number() }),
-        timeScale: z.number().default(1),
-    }).optional(),
-    constraints: z.array(z.string()).describe('Rules for the Saboteur to check'),
-    successCondition: z.string().describe('What defines winning the simulation'),
-    description: z.string().optional(),
-    explanation: z.string().optional(),
-    python_code: z.string().optional().describe('Python code to execute for mathematical verification or plotting.'),
-    custom_canvas_code: z.string().optional().describe('Dynamic HTML5 Canvas JS code for custom math visualizations.'),
-    sabotage_reveal: z.string().optional(),
-    societalImpact: z.string().optional(),
-});
-
 // Schema for the global God Mode / Intervention state
 export const GodModeStateSchema = z.object({
     complexity: ComplexityLevelSchema,
-    constants: z.record(z.string(), z.number()).describe('Dynamically mapped constants from the WorldState'),
+    constants: z.array(z.object({
+        name: z.string(),
+        value: z.number()
+    })).describe('Dynamically mapped constants from the WorldState'),
     overrides: z.array(z.string()).describe('IDs of World Rules that are currently disabled'),
 });
 
@@ -124,12 +104,31 @@ export const StructuralAnalysisSchema = z.object({
             connectionType: z.string().optional(),
             magnitude: z.number().optional(),
         }).optional(),
+        neuralPhysics: z.object({
+            elasticity_range: z.array(z.number()).describe('[min, max]'),
+            fracture_point: z.number(),
+            thermal_conductivity: z.number(),
+        }).optional().describe('Predicted physical probability distribution from MLLM-P3'),
         kinematics: KinematicGraphSchema.optional()
     })),
+    joints: z.array(z.object({
+        parent_id: z.string(),
+        child_id: z.string(),
+        connection_type: z.enum(['fixed', 'revolute', 'spherical']),
+        anchor_point: z.object({
+            x: z.number(),
+            y: z.number(),
+            z: z.number()
+        })
+    })).optional().describe('Inferred connections between objects'),
     physicsConstraints: z.array(z.string()).describe('Inferred physical rules (e.g., "Fixed support at base")'),
     stabilityScore: z.number().min(0).max(100).optional(),
     analysis: z.string().optional().describe('Mental model of the structure.'),
     suggestion: z.string().optional().describe('Advice for the user.'),
+});
+
+export const SummaryOutputSchema = z.object({
+    summary: z.string().describe('The generated summary of the text chunk')
 });
 
 export type SkillTree = z.infer<typeof SkillTreeSchema>;

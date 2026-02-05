@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { p2p } from '@/lib/multiplayer/P2PConnector';
 import { getApiUsage } from '@/lib/db/pglite';
-import { MODELS } from '@/lib/genkit/models';
+import { MODELS, LEGACY_MODELS } from '@/lib/genkit/models';
 
 interface StatusFooterProps {
     overridesCount: number;
@@ -17,13 +17,13 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({ overridesCount, comp
 
     useEffect(() => {
         // Subscribe to P2P peer changes and store unsubscribe function
-        const unsubscribe = p2p.onPeerChange((count) => {
+        const unsubscribe = p2p.onPeerChange((count: number) => {
             setPeerCount(count);
         });
 
         // Periodic Quota Sync
         const updateQuotas = async () => {
-            const t1 = await getApiUsage(MODELS.BRAIN_PRIMARY);
+            const t1 = await getApiUsage(LEGACY_MODELS.BRAIN_PRIMARY);
             const emb = await getApiUsage(MODELS.EMBEDDING_MODEL);
             setTier1Usage(t1);
             setEmbeddingUsage(emb);

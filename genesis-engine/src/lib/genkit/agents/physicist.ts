@@ -1,8 +1,9 @@
-import { ai, gemini3Flash, geminiFlash, DEEPSEEK_LOGIC_MODEL } from '../config';
+import { ai, gemini3Flash, geminiFlash, DEEPSEEK_LOGIC_MODEL, OPENROUTER_FREE_MODELS } from '../config';
 import { WorldStateSchema } from '../../simulation/schema';
 import { z } from 'genkit';
 import { generateWithResilience, executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
+import { cleanModelOutput } from '../../utils/ai-sanitizer';
 
 export const PhysicistInputSchema = z.object({
     userTopic: z.string().optional().describe('User input for general query'),
@@ -12,12 +13,13 @@ export const PhysicistInputSchema = z.object({
     requireDeepLogic: z.boolean().optional().default(false),
     fileUri: z.string().optional().describe('Gemini File API URI for grounding.'),
     recursive_self_correction: z.string().optional().describe('Error message from a failed previous execution to self-correct.'),
+    isDynamicCheck: z.boolean().optional().default(false).describe('If true, performs a stability check via LiquidAI'),
 });
 
 /**
  * Module B: The Kinetic Core (Physicist)
  * Objective: Translate Natural Language into Rapier Physics Parameters.
- * 100% Potential: Routes to DeepSeek-R1 for complex math derivation.
+ * v8.0 Apex Swarm: Integrated LiquidAI for Dynamic Stability Analysis.
  */
 export const physicistFlow = ai.defineFlow(
     {
@@ -26,8 +28,26 @@ export const physicistFlow = ai.defineFlow(
         outputSchema: WorldStateSchema,
     },
     async (input) => {
-        const { userTopic, nodeContext, context, isSabotageMode, requireDeepLogic, fileUri, recursive_self_correction } = input;
+        const { userTopic, nodeContext, context, isSabotageMode, requireDeepLogic, fileUri, recursive_self_correction, isDynamicCheck } = input;
         const topic = nodeContext || userTopic || "Physics Sandbox";
+
+        // LiquidAI Dynamic Check: Predict failure points under change
+        if (isDynamicCheck) {
+            blackboard.log('Physicist', '💧 LiquidAI is calculating system stability and dynamic change vectors...', 'THINKING');
+            try {
+                const stabilityResult = await ai.generate({
+                    model: OPENROUTER_FREE_MODELS.DYNAMIC,
+                    prompt: `Analyze the dynamic stability of this physics scenario: "${topic}". If variables like RPM or mass double, where is the most likely failure point?`,
+                    output: { format: 'json' }
+                });
+                if (stabilityResult.text) {
+                    const cleanLog = cleanModelOutput(stabilityResult.text);
+                    blackboard.log('Physicist', `Stability Analysis: ${cleanLog.substring(0, 100)}...`, 'SUCCESS');
+                }
+            } catch (e) {
+                console.warn("LiquidAI dynamic check failed.", e);
+            }
+        }
 
         // Logic Routing: If it's complex math, use DeepSeek-R1
         const isComplexMath = requireDeepLogic || 
@@ -125,7 +145,8 @@ export const physicistFlow = ai.defineFlow(
                         },
                         ...(fileUri ? [{ media: { url: fileUri, contentType: 'application/pdf' } }] : [])
                     ],
-                    model: geminiFlash.name,
+                    task: 'PHYSICS',
+                    model: undefined, // Let the waterfall decide
                     schema: WorldStateSchema,
                     retryCount: 1,
                     config: {
@@ -134,19 +155,21 @@ export const physicistFlow = ai.defineFlow(
                     fallback: attempt === 3 ? {
                         scenario: "Fallback Physics Sandbox",
                         mode: "PHYSICS",
+                        domain: "SCIENCE",
                         description: "A default physics environment provided after multiple autonomous failures.",
                         explanation: "The AI encountered multiple errors while architecting your reality. Here is a baseline simulation.",
                         constraints: ["Gravity is active"],
                         successCondition: "The cube interacts with the floor.",
                                                                         entities: [{ 
                                                                             id: "fallback-cube", 
-                                                                            type: "cube", 
+                                                                            shape: "cube", 
                                                                             position: { x: 0, y: 0.5, z: 0 }, 
-                                                                            rotation: { x: 0, y: 0, z: 0 },
+                                                                            rotation: { x: 0, y: 0, z: 0, w: 1 },
                                                                             dimensions: { x: 1, y: 1, z: 1 },
-                                                                            physics: { mass: 0, friction: 0.5, restitution: 0.5 },
-                                                                            isStatic: true,
-                                                                            color: "#3b82f6",
+                                                                            physics: { mass: 0, friction: 0.5, restitution: 0.5, isStatic: true },
+                                                                            visual: {
+                                                                                color: "#3b82f6",
+                                                                            },
                                                                             name: "Resilience Cube"
                                                                         }],                        environment: {
                             gravity: { x: 0, y: -9.81, z: 0 },

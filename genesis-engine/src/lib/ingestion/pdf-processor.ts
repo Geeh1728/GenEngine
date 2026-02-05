@@ -1,12 +1,12 @@
 // Robust PDF Processor for Serverless Environments
-import * as pdfParse from 'pdf-parse';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfParse = require('pdf-parse');
 
 export async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
     try {
         // 1. Try pdf-parse (Stable in Node.js)
         const buffer = Buffer.from(arrayBuffer);
-        // @ts-expect-error - pdf-parse types can be inconsistent between ESM/CJS
-        const data = await (pdfParse.default || pdfParse)(buffer);
+        const data = await pdfParse(buffer);
         return data.text;
     } catch (error) {
         console.error("Primary PDF Parse Failed:", error);

@@ -5,15 +5,21 @@
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let stepFunc: any = null;
+let isSimulationInitialized = false;
 
 self.onmessage = (e) => {
     const { type, code, entities, time } = e.data;
 
     if (type === 'INIT') {
+        if (isSimulationInitialized) {
+            self.postMessage({ type: 'ERROR', error: 'Logic Bubble already initialized. Reset worker to change logic.' });
+            return;
+        }
         try {
             // Compile the AI's math function
             // The AI provides a function: (entities, time) => { ... return entities; }
             stepFunc = new Function('entities', 'time', code);
+            isSimulationInitialized = true;
             self.postMessage({ type: 'READY' });
         } catch (err) {
             self.postMessage({ type: 'ERROR', error: (err as Error).message });

@@ -1,38 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020205;
+  --background-start: #020617;
+  --background-end: #000000;
   --foreground: #f0f0f5;
   
-  /* Cyber-Zen Design Tokens */
-  --accent-blue: #3b82f6;
-  --accent-purple: #8b5cf6;
-  --accent-emerald: #10b981;
+  /* Aether-Logic Palette */
+  --logic-cyan: #06B6D4;
+  --creative-violet: #8B5CF6;
+  --stability-emerald: #10B981;
   
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: 16px;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: 24px;
   
   --neural-pulse: 3s ease-in-out infinite alternate pulse;
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-background-start: var(--background-start);
+  --color-background-end: var(--background-end);
   --color-foreground: var(--foreground);
-  --color-accent-blue: var(--accent-blue);
-  --color-accent-purple: var(--accent-purple);
-  --color-accent-emerald: var(--accent-emerald);
+  --color-logic-cyan: var(--logic-cyan);
+  --color-creative-violet: var(--creative-violet);
+  --color-stability-emerald: var(--stability-emerald);
   
   --font-inter: "Inter", sans-serif;
+  --font-jetbrains: "JetBrains Mono", monospace;
   --font-outfit: "Outfit", sans-serif;
 }
 
 @layer base {
   body {
-    background: var(--background);
+    background: radial-gradient(circle at center, var(--background-start), var(--background-end));
     color: var(--foreground);
-    @apply font-inter selection:bg-accent-blue/30 selection:text-white;
+    @apply font-inter selection:bg-logic-cyan/30 selection:text-white;
     overflow-x: hidden;
+    min-height: 100vh;
   }
 }
 
@@ -40,13 +44,17 @@
   .glass-card {
     @apply bg-white/3 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl transition-all duration-300;
   }
+
+  .neural-glass {
+    @apply bg-white/5 border border-white/10 backdrop-blur-3xl rounded-3xl shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] transition-all duration-500 hover:shadow-[0_0_60px_-12px_rgba(59,130,246,0.5)];
+  }
   
   .glass-input {
-    @apply bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:border-accent-blue/50 focus:bg-white/10 outline-none transition-all;
+    @apply bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:border-logic-cyan/50 focus:bg-white/10 outline-none transition-all;
   }
   
   .btn-primary {
-    @apply bg-accent-blue hover:bg-accent-blue/90 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-accent-blue/20 transition-all hover:scale-105 active:scale-95;
+    @apply bg-logic-cyan hover:bg-logic-cyan/90 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-logic-cyan/20 transition-all hover:scale-105 active:scale-95;
   }
 }
 
@@ -57,7 +65,7 @@
 }
 
 .neural-glow {
-  background: radial-gradient(circle at center, var(--accent-blue) 0%, transparent 70%);
+  background: radial-gradient(circle at center, var(--logic-cyan) 0%, transparent 70%);
   filter: blur(80px);
   pointer-events: none;
 }

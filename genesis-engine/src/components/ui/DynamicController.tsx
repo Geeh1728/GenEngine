@@ -5,6 +5,27 @@ import { motion } from 'framer-motion';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { Activity, Gauge, Zap } from 'lucide-react';
 
+const VoltageBar = () => {
+    const height1 = useMemo(() => `${Math.random() * 100}%`, []);
+    const height2 = useMemo(() => `${Math.random() * 100}%`, []);
+    return (
+        <motion.div 
+            animate={{ height: [height1, height2] }}
+            transition={{ duration: 0.2, repeat: Infinity }}
+            className="w-2 bg-yellow-500 rounded-t-sm"
+        />
+    );
+};
+
+const VelocityReading = () => {
+    const val = useMemo(() => Math.floor(Math.random() * 7000 + 27000).toLocaleString(), []);
+    return (
+        <div className="text-4xl font-black text-white tabular-nums">
+            {val}<span className="text-xs ml-1 opacity-50">km/h</span>
+        </div>
+    );
+};
+
 /**
  * THE GENERATIVE UI (Module Stitch)
  * Objective: AI-generated HUD components based on simulation context.
@@ -49,12 +70,7 @@ export const DynamicController: React.FC = () => {
                     </div>
                     <div className="flex gap-1 h-8 items-end">
                         {Array.from({ length: 12 }).map((_, i) => (
-                            <motion.div 
-                                key={i}
-                                animate={{ height: [`${Math.random() * 100}%`, `${Math.random() * 100}%`] }}
-                                transition={{ duration: 0.2, repeat: Infinity }}
-                                className="w-2 bg-yellow-500 rounded-t-sm"
-                            />
+                            <VoltageBar key={i} />
                         ))}
                     </div>
                     <p className="text-[8px] text-yellow-200/60 font-mono">STITCH: VOLT_STREAMS_v2.1 ACTIVE</p>
@@ -84,9 +100,7 @@ export const DynamicController: React.FC = () => {
                             </motion.div>
                         </div>
                     ) : (
-                        <div className="text-4xl font-black text-white tabular-nums">
-                            {Math.floor(Math.random() * 7000 + 27000).toLocaleString()}<span className="text-xs ml-1 opacity-50">km/h</span>
-                        </div>
+                        <VelocityReading />
                     )}
                     <p className={`text-[8px] font-mono ${isPlanetary ? 'text-indigo-200/60' : 'text-blue-200/60'}`}>
                         STITCH: {isPlanetary ? 'GRAVITY_FLOATER_v1.2' : 'TELEMENTRY_HOOK_v4.5'} ACTIVE

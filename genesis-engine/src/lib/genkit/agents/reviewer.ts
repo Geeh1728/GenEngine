@@ -12,7 +12,10 @@ export const ReviewerInputSchema = z.object({
 export const ReviewerOutputSchema = z.object({
     status: z.enum(['APPROVED', 'REJECTED']),
     feedback: z.string().describe('Specific feedback for correction if rejected'),
-    corrections: z.record(z.string(), z.any()).optional().describe('Specific field corrections')
+    corrections: z.array(z.object({
+        field: z.string(),
+        suggestedValue: z.any()
+    })).optional().describe('Specific field corrections')
 });
 
 /**
@@ -27,7 +30,7 @@ export const reviewerAgent = ai.defineFlow(
     },
     async (input) => {
         const result = await executeApexLoop({
-            model: MODELS.SWARM_REVIEWER,
+            task: 'INGEST',
             prompt: `
                 Review this simulation proposal from ${input.agentName}.
                 
@@ -49,7 +52,6 @@ export const reviewerAgent = ai.defineFlow(
                 If it looks good, return status: 'APPROVED'.
             `,
             schema: ReviewerOutputSchema,
-            task: 'INGEST',
             fallback: {
                 status: 'APPROVED',
                 feedback: 'System stabilization active. Simulation approved via safety fallback.'

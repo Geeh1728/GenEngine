@@ -3,33 +3,41 @@ import { openAI } from 'genkitx-openai';
 import { genkit } from 'genkit';
 import fs from 'fs';
 import path from 'path';
-import { MODELS } from './models';
+import { MODELS, LEGACY_MODELS, LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL } from './models';
 
-// Manually load .env.local
-try {
-    const paths = [
-        path.resolve(process.cwd(), '.env.local'),
-        path.resolve(process.cwd(), 'genesis-engine', '.env.local')
-    ];
+export { LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL };
 
-    for (const envPath of paths) {
-        if (fs.existsSync(envPath)) {
-            console.log(`Loading .env.local from: ${envPath}`);
-            const envConfig = fs.readFileSync(envPath, 'utf-8').replace(/^\uFEFF/, '');
-            envConfig.split(/\r?\n/).forEach(line => {
-                const match = line.match(/^([^=]+)=(.*)$/);
-                if (match) {
-                    const key = match[1].trim();
-                    const value = match[2].trim().replace(/^['"](.*)['"]$/, '$1'); // Strip quotes
-                    if (key && value) {
-                        process.env[key] = value;
+/**
+ * ENVIRONMENT LOADER (Iron Shield)
+ * Only attempts manual loading in development.
+ * Vercel/Production relies on Dashboard-injected variables.
+ */
+if (process.env.NODE_ENV === 'development') {
+    try {
+        const paths = [
+            path.resolve(process.cwd(), '.env.local'),
+            path.resolve(process.cwd(), 'genesis-engine', '.env.local')
+        ];
+
+        for (const envPath of paths) {
+            if (fs.existsSync(envPath)) {
+                console.log(`[Development] Loading .env.local from: ${envPath}`);
+                const envConfig = fs.readFileSync(envPath, 'utf-8').replace(/^\uFEFF/, '');
+                envConfig.split(/\r?\n/).forEach(line => {
+                    const match = line.match(/^([^=]+)=(.*)$/);
+                    if (match) {
+                        const key = match[1].trim();
+                        const value = match[2].trim().replace(/^['"](.*)['"]$/, '$1'); // Strip quotes
+                        if (key && value) {
+                            process.env[key] = value;
+                        }
                     }
-                }
-            }); break; // Stop after finding the first one
+                }); break; // Stop after finding the first one
+            }
         }
+    } catch (error) {
+        console.error('[Development] Failed to load .env.local manually:', error);
     }
-} catch (error) {
-    console.error('Failed to load .env.local manually:', error);
 }
 
 // 1. Force-load the key from ANY possible name (Resilience)
@@ -57,18 +65,18 @@ export const ai = genkit({
 
 // --- TIER 1: THE ELITE COUNCIL (20 RPD) ---
 export const gemini3Flash = {
-    name: MODELS.BRAIN_PRIMARY, 
+    name: LEGACY_MODELS.BRAIN_PRIMARY,
     label: 'Gemini 3 Flash',
 };
 
 // --- TIER 2: THE NUCLEAR WORKHORSE (14,400 RPD!) ---
 export const geminiFlash = {
-    name: MODELS.BRAIN_WORKHORSE,
+    name: LEGACY_MODELS.BRAIN_WORKHORSE,
     label: 'Gemma 3 27b'
 };
 
 export const gemma3_4b = {
-    name: MODELS.BRAIN_REFLEX,
+    name: LEGACY_MODELS.BRAIN_REFLEX,
     label: 'Gemma 3 4b'
 };
 
@@ -79,18 +87,23 @@ export const BRAIN_REFLEX = gemma3_4b;
 
 // THE UNLIMITED CHANNEL (Native Audio) - 1M RPD / Unlimited
 export const geminiAudio = {
-    name: MODELS.BRAIN_AUDIO, 
+    name: MODELS.BRAIN_AUDIO,
     label: 'Gemini Audio'
 };
 
 // --- TIER 3: OPENROUTER FREE SPECIALISTS ---
 export const OPENROUTER_FREE_MODELS = {
-    MATH: 'openai/deepseek/deepseek-r1:free',
-    VISION: 'openai/qwen/qwen-2.5-vl-72b-instruct:free',
-    DEAN: 'openai/moonshotai/kimi-k2.5:free',
+    MATH: LOGIC_WATERFALL[0],
+    VISION: VISION_WATERFALL[0],
+    VISION_PRO: VISION_WATERFALL[0],
+    DEAN: CONTEXT_WATERFALL[1],
+    LIBRARIAN: CONTEXT_WATERFALL[1],
+    DYNAMIC: PHYSICS_WATERFALL[0],
+    REFLEX: REFLEX_WATERFALL[0],
     GENERAL: 'openai/meta-llama/llama-3.3-70b-instruct:free',
     CHAT: 'openai/mistralai/mistral-7b-instruct:free',
-    CODE: 'openai/qwen/qwen-2.5-coder-32b-instruct:free'
+    CODE: 'openai/qwen/qwen-2.5-coder-32b-instruct:free',
+    EMBED: MODELS.MISTRAL_EMBED
 };
 
 // Legacy Compatibility
@@ -99,7 +112,7 @@ export const gemini15Flash = geminiFlash;
 export const gemini15Pro = gemini3Flash;
 
 // Constants
-export const ROBOTICS_MODEL_NAME = MODELS.BRAIN_ROBOTICS;
+export const ROBOTICS_MODEL_NAME = LEGACY_MODELS.BRAIN_ROBOTICS;
 export const ROBOTICS_FALLBACK_MODEL = OPENROUTER_FREE_MODELS.VISION;
 export const DEEPSEEK_LOGIC_MODEL = OPENROUTER_FREE_MODELS.MATH;
-export const KIMI_DEAN_MODEL = MODELS.SWARM_REVIEWER; // Use Kimi for heavy logic review
+export const KIMI_DEAN_MODEL = LEGACY_MODELS.SWARM_REVIEWER; // Use Kimi for heavy logic review

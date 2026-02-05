@@ -6,9 +6,11 @@ The "Genesis Engine" is intended to be a premium, immersive simulation platform.
 ## Interaction Patterns
 - **Simulation Cards**: Interactive UI components that represent simulation rules extracted from PDFs.
 - **Generative UI**: Components should be rendered dynamically based on AI model output (Genkit Generative UI).
-- **Verification**: Every user action must be verified against the source PDF using Model Armor to maintain simulation integrity.
+- **Acoustic Feedback**: Every interaction (Trigger, Impact, Tension) produces physics-accurate procedural audio, synchronized across the Ghost Mesh.
+- **Instrument Auto-Complete**: The OmniBar provides visual hints (🎸, 🥁, 🎷, 🎹) when users attempt to manifest musical instruments via the Universal Forge.
+- **Verification**: Every user action is verified against the source PDF or scientific first principles to maintain simulation integrity.
 
 ## Visual Identity
-- **Theme**: Dark mode by default with vibrant accents.
-- **Glassmorphism**: Subtle glass effects on cards and overlays.
-- **Typography**: Inter (Body), Outfit (Headings).
+- **Theme**: "Cyber-Zen" — Dark mode by default with vibrant accents (Logic Cyan, Creative Violet, Stability Emerald).
+- **Glassmorphism**: High-performance backdrop blurs on cards and overlays.
+- **Typography**: Inter (Body), Outfit (Headings), JetBrains Mono (Logic/Code).

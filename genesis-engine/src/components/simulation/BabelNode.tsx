@@ -1,107 +1,80 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Volume2, Globe, Loader2 } from 'lucide-react';
-import { translatePhysicsIntent, BabelOutput } from '@/app/actions/babel';
+import React, { useEffect, useRef } from 'react';
 import { WorldState } from '@/lib/simulation/schema';
+import { useLiveAudio } from '@/hooks/useLiveAudio';
+import { useAstraCompanion } from '@/hooks/useAstraCompanion';
+import { AstraOrb } from '../audio/AstraOrb';
+import { ExternalLink } from 'lucide-react';
 
 interface BabelNodeProps {
     worldState: WorldState;
     onPhysicsUpdate: (delta: Partial<WorldState>) => void;
-    targetLang?: string;
 }
 
 export const BabelNode: React.FC<BabelNodeProps> = ({
     worldState,
-    onPhysicsUpdate,
-    targetLang = 'English'
+    onPhysicsUpdate
 }) => {
-    const [isListening, setIsListening] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [transcript, setTranscript] = useState('');
-    const [lastResponse, setLastResponse] = useState<BabelOutput | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recognitionRef = useRef<any>(null);
-    const transcriptRef = useRef('');
+    const containerRef = useRef<HTMLDivElement>(null);
+    const { isCompanionActive, toggleCompanion } = useAstraCompanion();
+    const {
+        status,
+        volume,
+        isSpeaking,
+        start,
+        stop,
+        interrupt,
+        speakLocal
+    } = useLiveAudio({
+        onPhysicsUpdate,
+        initialWorldState: worldState
+    });
 
-    // Update transcript ref whenever state changes
+
+    // Keyboard Shortcut (Spacebar to Toggle Astra Link)
     useEffect(() => {
-        transcriptRef.current = transcript;
-    }, [transcript]);
-
-    const speak = useRef((text: string) => {
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'en-US'; 
-            window.speechSynthesis.speak(utterance);
-        }
-    }).current;
-
-    const handleProcessSpeech = useRef(async (text: string) => {
-        setIsProcessing(true);
-        try {
-            const result = await translatePhysicsIntent(text, worldState, targetLang);
-            if (result.success) {
-                const babelResult = result as unknown as BabelOutput;
-                setLastResponse(babelResult);
-
-                // 1. Apply Physics Update
-                if (Object.keys(babelResult.physicsDelta).length > 0) {
-                    onPhysicsUpdate(babelResult.physicsDelta);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space' && !e.repeat) {
+                if (status === 'connected' && isSpeaking) {
+                    interrupt(); // Interrupt Astra if she's talking
+                } else if (status === 'idle' || status === 'disconnected') {
+                    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                        speakLocal("Sovereign Mode active. Cloud link offline, but I am still here.");
+                        return;
+                    }
+                    e.preventDefault();
+                    start();
                 }
-
-                // 2. Speak Commentary
-                speak(babelResult.translatedCommentary);
             }
-        } catch (error) {
-            console.error("Babel processing error:", error);
-        } finally {
-            setIsProcessing(false);
-        }
-    }).current;
+        };
 
-    // Initialize Speech Recognition
-    useEffect(() => {
-        if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = true;
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [status, isSpeaking, start, interrupt, speakLocal]);
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            recognitionRef.current.onresult = (event: any) => {
-                const current = event.resultIndex;
-                const transcriptText = event.results[current][0].transcript;
-                setTranscript(transcriptText);
-            };
-
-            recognitionRef.current.onend = () => {
-                setIsListening(false);
-                if (transcriptRef.current) {
-                    handleProcessSpeech(transcriptRef.current);
-                }
-            };
-        }
-    }, [handleProcessSpeech]);
-
-    const startListening = () => {
-        if (recognitionRef.current) {
-            setTranscript('');
-            setIsListening(true);
-            recognitionRef.current.start();
-        } else {
-            alert('Speech Recognition not supported in this browser.');
-        }
-    };
-
-    const stopListening = () => {
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-        }
-    };
-
-    // Headless Component: No visible UI, just logic hook
-    return null;
+    return (
+        <div ref={containerRef} className="fixed bottom-24 right-8 z-[100] flex flex-col items-center gap-2 pointer-events-none">
+            <div className="pointer-events-auto flex flex-col items-center gap-2">
+                {!isCompanionActive && (
+                    <button 
+                        onClick={() => toggleCompanion(containerRef)}
+                        className="p-1 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 text-gray-500 hover:text-indigo-400 transition-all mb-1"
+                        title="Astra Companion (PiP)"
+                    >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                    </button>
+                )}
+                <AstraOrb volume={volume} isSpeaking={isSpeaking} status={status as any} />
+            </div>
+            
+            {status === 'connected' && (
+                <span className="text-[8px] font-black text-blue-400/40 uppercase tracking-[0.4em] animate-pulse">
+                    Live Link Active
+                </span>
+            )}
+        </div>
+    );
 };

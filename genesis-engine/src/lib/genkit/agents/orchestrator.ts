@@ -1,19 +1,84 @@
-import { ai, gemini3Flash, geminiFlash, OPENROUTER_FREE_MODELS, DEEPSEEK_LOGIC_MODEL, KIMI_DEAN_MODEL } from '../config';
+import { ai, OPENROUTER_FREE_MODELS } from '../config';
 import { z } from 'genkit';
 import { criticAgent } from './critic';
 import { physicistAgent } from './physicist';
 import { artistAgent } from './artist';
-import { questAgent } from './questAgent';
 
 import { translatorAgent } from './translator';
 import { visionFlow } from './vision';
 import { researcherAgent } from './researcher';
 import { reviewerAgent } from './reviewer';
+import { librarianAgent } from './librarian';
 
 import { WorldStateSchema, StructuralAnalysisSchema, StructuralAnalysis } from '../schemas';
+import { normalizeEntities } from '../../simulation/normalizer';
 import { QuestSchema } from './questAgent';
 import { blackboard } from '../context';
 import { executeApexLoop } from '../resilience';
+import { hiveBus } from '../event-bus';
+
+const TaskManifestSchema = z.object({
+    subTasks: z.array(z.object({
+        agentType: z.enum(['OBJECT_DESIGNER', 'PHYSICS_ENGINEER', 'SHADER_ARTIST']),
+        instruction: z.string()
+    })).describe('Decomposed tasks for worker bees')
+});
+
+const WorkerOutputSchema = z.object({
+    entities: z.array(z.any()).optional(),
+    shaderCode: z.string().optional(),
+    constraints: z.array(z.string()).optional()
+});
+
+/**
+ * HIVE ORCHESTRATOR (v13.0 GOLD)
+ * Objective: Massive parallel execution via Gemma 3 1B workers.
+ */
+export async function executeHiveSwarm(generalGoal: string, context: string) {
+    console.log("[Hive] General is issuing Work Orders...");
+    
+    // 1. THE GENERAL (DeepSeek/Gemini 3 Planning)
+    const plan = await executeApexLoop({
+        task: 'MATH',
+        prompt: `ACT AS GENERAL: Decompose this learning simulation goal into a parallel TaskManifest.
+        GOAL: "${generalGoal}"
+        CONTEXT: ${context}
+        Return JSON.`,
+        schema: TaskManifestSchema
+    });
+
+    if (!plan.output) return null;
+
+    // 2. THE WORKERS (Parallel Gemma 3 1B)
+    const workerPromises = plan.output.subTasks.map(task => {
+        hiveBus.registerWorker();
+        return executeApexLoop({
+            task: 'REFLEX', // High RPD fallback models
+            prompt: `WORKER BEE: Execute sub-task "${task.agentType}". Instruction: ${task.instruction}.
+            Return JSON matching WorkerOutputSchema. Focus ONLY on your instruction.`,
+            schema: WorkerOutputSchema
+        }).finally(() => hiveBus.releaseWorker());
+    });
+
+    const results = await Promise.all(workerPromises);
+    
+    // 3. ASSEMBLY
+    const aggregated = {
+        entities: [] as any[],
+        shaderCode: "",
+        constraints: [] as string[]
+    };
+
+    results.forEach(res => {
+        if (res.output) {
+            if (res.output.entities) aggregated.entities.push(...res.output.entities);
+            if (res.output.shaderCode) aggregated.shaderCode += "\n" + res.output.shaderCode;
+            if (res.output.constraints) aggregated.constraints.push(...res.output.constraints);
+        }
+    });
+
+    return aggregated;
+}
 
 export const OrchestratorInputSchema = z.object({
     text: z.string().optional(),
@@ -79,7 +144,7 @@ export const orchestratorFlow = ai.defineFlow(
         let visionData: StructuralAnalysis | undefined = undefined;
 
         // Add Blackboard fragment to prompt
-        const blackboardFragment = blackboard.getSystemPromptFragment();
+        let blackboardFragment = blackboard.getSystemPromptFragment();
 
         // PHASE 0: Multimodal Pre-processing
 
@@ -93,7 +158,7 @@ export const orchestratorFlow = ai.defineFlow(
         // 0.2 ROUTE A: The Eye (Vision/Image)
         if (image) {
             logs.push({ agent: 'Vision', message: '🔍 Qwen is analyzing the diagram...', type: 'THINKING' });
-            const visionResult = await visionFlow({ 
+            const visionResult = await visionFlow({
                 imageBase64: image,
                 model: OPENROUTER_FREE_MODELS.VISION // Force-routing to specialized vision
             });
@@ -106,10 +171,13 @@ export const orchestratorFlow = ai.defineFlow(
 
         if (audioTranscript) {
             logs.push({ agent: 'Babel', message: 'Translating audio intent...', type: 'THINKING' });
-            const translation = await translatorAgent({ userAudioTranscript: audioTranscript });
+            const translation = await translatorAgent({
+                userAudioTranscript: audioTranscript,
+                contentType: 'text/plain' // Transcript is text
+            });
             processedInput = translation.englishIntent;
             nativeReply = translation.nativeReply;
-            logs.push({ agent: 'Babel', message: `Translated intent: "${processedInput.substring(0, 50)}..."`, type: 'SUCCESS' });
+            logs.push({ agent: 'Babel', message: `Translated intent: "${processedInput.substring(0, 50)}"...`, type: 'SUCCESS' });
         }
 
         if (!processedInput) {
@@ -134,18 +202,64 @@ export const orchestratorFlow = ai.defineFlow(
         }
         logs.push({ agent: 'Aegis', message: 'Concept verified safe for simulation.', type: 'SUCCESS' });
 
-        // PHASE 1.5: The Researcher (Autonomous Grounding)
+        // PHASE 1.5: The Researcher & Oracle (Autonomous Grounding)
+        const urlMatch = processedInput.match(/https?:\/\/[^\s]+/);
+        if (urlMatch) {
+            const detectedUrl = urlMatch[0];
+            logs.push({ agent: 'Oracle', message: `🔗 Direct Link detected: ${detectedUrl}. Grounding simulation logic...`, type: 'THINKING' });
+            
+            try {
+                const oracleResult = await librarianAgent({
+                    userQuery: processedInput,
+                    url: detectedUrl,
+                    isGrounding: true
+                });
+
+                if (oracleResult.constants || oracleResult.formulas) {
+                    const constantsSummary = oracleResult.constants ? Object.entries(oracleResult.constants).map(([k, v]) => `${k}=${v}`).join(', ') : '';
+                    logs.push({ 
+                        agent: 'Astra', 
+                        message: `🔗 Web-Source verified. I've updated the world's physics constants: ${constantsSummary}`, 
+                        type: 'SUCCESS' 
+                    });
+                    
+                    // Inject into context
+                    blackboardFragment += `\n\nWEB-GROUNDED DATA:\n${JSON.stringify(oracleResult)}`;
+                }
+            } catch (err) {
+                console.warn("[Oracle] Link grounding failed:", err);
+                logs.push({ 
+                    agent: 'Oracle', 
+                    message: "⚠️ I can't reach that link directly. Use the Reality Lens to take a screenshot of the page, and I'll analyze it visually.", 
+                    type: 'ERROR' 
+                });
+            }
+        }
+
         logs.push({ agent: 'Researcher', message: 'Searching web for real-time grounding data...', type: 'THINKING' });
         const researchResult = await researcherAgent({
             topic: processedInput,
             context: blackboardFragment,
             depth: 1
         });
-        
+
         if (researchResult.summary && researchResult.summary !== "Research phase failed or was inconclusive.") {
             logs.push({ agent: 'Researcher', message: `Found grounding data: ${researchResult.summary.substring(0, 100)}...`, type: 'RESEARCH' });
         } else {
             logs.push({ agent: 'Researcher', message: 'No additional grounding data found. Using local context.', type: 'INFO' });
+        }
+
+        // HIERARCHICAL SWARM TRIGGER (v13.0 GOLD)
+        const isComplexTask = processedInput.length > 100 || processedInput.toLowerCase().includes('build') || processedInput.toLowerCase().includes('create');
+        let hiveContext = "";
+
+        if (isComplexTask && !isSaboteurReply) {
+            logs.push({ agent: 'General', message: 'Task complexity high. Spawning worker swarm...', type: 'THINKING' });
+            const swarmData = await executeHiveSwarm(processedInput, blackboardFragment);
+            if (swarmData) {
+                hiveContext = `WORKER BEE DRAFTS: \nEntities: ${JSON.stringify(swarmData.entities)}\nShader: ${swarmData.shaderCode}\nConstraints: ${swarmData.constraints.join(', ')}`;
+                logs.push({ agent: 'Hive', message: `Workers aggregated ${swarmData.entities.length} entities and logic.`, type: 'SUCCESS' });
+            }
         }
 
         // PHASE 2: Determine Routing (TRIANGLE OF POWER)
@@ -153,48 +267,90 @@ export const orchestratorFlow = ai.defineFlow(
         let primaryAgent: any = physicistAgent;
         let primaryAgentName = 'Physicist';
         let routingTask: any = 'GENERAL';
+        let domain: 'SCIENCE' | 'HISTORY' | 'MUSIC' | 'TRADE' | 'ABSTRACT' = 'SCIENCE';
 
         if (mode === 'VOXEL' || /sculpture|abstract|art/i.test(processedInput)) {
             primaryAgent = artistAgent;
             primaryAgentName = 'Artist';
             routingTask = 'CODE';
+            domain = 'ABSTRACT';
+        } else if (/history|revolution|era|century|war|politics/i.test(processedInput)) {
+            primaryAgentName = 'Historian';
+            routingTask = 'INGEST';
+            domain = 'HISTORY';
+        } else if (/music|jazz|rhythm|melody|harmony|chord|piano|guitar|drum|sax|trumpet|flute|instrument/i.test(processedInput)) {
+            primaryAgentName = 'Composer';
+            routingTask = 'PHYSICS';
+            domain = 'MUSIC';
         } else if (/calculate|derive|solve|physics|force|gravity/i.test(processedInput)) {
             // ROUTE B: The Brain (Math/Physics)
             logs.push({ agent: 'Brain', message: '📐 DeepSeek is solving the differential equation...', type: 'RESEARCH' });
             routingTask = 'MATH';
+            domain = 'SCIENCE';
         } else if (params.fileUri || processedInput.length > 500) {
             // ROUTE C: The Dean (Heavy Context)
             logs.push({ agent: 'Dean', message: '📖 Kimi is mapping the textbook context...', type: 'RESEARCH' });
             routingTask = 'INGEST';
+            domain = 'SCIENCE';
         }
 
         // PHASE 3: Parallel Execution via APEX LOOP
         logs.push({ agent: 'Conductor', message: `Synthesizing neural outputs via Gemini 3 Flash...`, type: 'THINKING' });
         try {
             const agentRes = await executeApexLoop({
-                prompt: processedInput,
+                prompt: `${processedInput}\n\n${hiveContext}`,
                 schema: WorldStateSchema,
-                system: `You are the ${primaryAgentName} member of the Council. Construct the WorldState. Context: ${blackboardFragment}`,
+                system: `You are the ${primaryAgentName} member of the Council. Construct the WorldState. 
+                DOMAIN: ${domain}
+                
+                ${domain === 'MUSIC' ? `
+                MUSIC COMPILER PROTOCOL (v20.7):
+                1. Map chords/rhythms to 'Causal Dependencies'. 
+                2. If dissonance or rhythmic drift is detected, set 'isUnstable: true' and high 'stress' values.
+                3. Implement 'Logic Magnets': Add 'point_force' markers for tactile guidance (e.g., chord shapes, timing pulses).
+                4. ASSEMBLY: Use the 4 Primitives (Trigger, Tension, Impact, Valve).
+                5. ASTRA PERFORMANCE: Adapt focus based on instrument (Guitar = Shapes, Drums = Timing, Sax = Fluid paths).
+                ` : ''}
+
+                ${domain !== 'SCIENCE' && domain !== 'MUSIC' ? `
+                UNIVERSAL COMPILER INSTRUCTIONS (v20.0):
+                1. Map non-physical concepts to 'Spatial Entities'.
+                2. Assign 'Semantic Mass' (0-1000) based on importance.
+                3. Map 'Causal Dependencies' to Rapier.js Joints (Fixed = Alliance, Spring = Tension, Revolute = Turning Point).
+                4. Use the X-axis for chronological time and Y-axis for intensity.
+                ` : ''}
+
+                ${hiveContext ? 'Use the WORKER BEE DRAFTS as a starting point, but ensure scientific coherence.' : ''}
+                Context: ${blackboardFragment}`,
                 task: routingTask,
                 previousInteractionId: previousInteractionId,
                 onLog: (msg, type) => logs.push({ agent: 'Apex', message: msg, type }),
+                enableStreaming: true,
+                onStreamingUpdate: (streamingState) => {
+                    blackboard.updateStreaming(
+                        streamingState.progress,
+                        streamingState.entitiesReady.map(e => `${e.name || e.id} at [${e.position.x.toFixed(1)}, ${e.position.y.toFixed(1)}]`)
+                    );
+                },
                 fallback: {
                     scenario: "Neural Stabilization Mode",
                     mode: "PHYSICS",
+                    domain: "SCIENCE",
                     description: "The primary intelligence link is stabilizing. Observe the baseline grid.",
                     explanation: "Model connectivity lost. Engaging low-level physical stabilization to maintain reality feed.",
                     constraints: ["Gravity is active"],
                     successCondition: "Observe the obelisk",
                     entities: [{
                         id: "sentinel-obelisk",
-                        type: "box",
+                        shape: "box",
                         position: { x: 0, y: 4, z: 0 },
-                        rotation: { x: 0, y: 45, z: 0 },
+                        rotation: { x: 0, y: 0, z: 0, w: 1 },
                         dimensions: { x: 0.5, y: 8, z: 0.5 },
-                        physics: { mass: 0, friction: 0.5, restitution: 0.5 },
-                        color: "#3b82f6",
-                        name: "Quantum Obelisk",
-                        isStatic: true
+                        physics: { mass: 0, friction: 0.5, restitution: 0.5, isStatic: true },
+                        visual: {
+                            color: "#3b82f6",
+                        },
+                        name: "Quantum Obelisk"
                     }],
                     environment: {
                         gravity: { x: 0, y: -9.81, z: 0 },
@@ -206,11 +362,79 @@ export const orchestratorFlow = ai.defineFlow(
             const worldState = agentRes.output;
             const interactionId = agentRes.interactionId;
 
-            // PHASE 4: Peer Review Swarm (Kimi K2.5)
+            // NORMALIZATION INTERCEPTOR (The Rosetta Protocol)
+            if (worldState && worldState.entities) {
+                // Ensure all entities conform to IUniversalEntity standard before returning
+                worldState.entities = normalizeEntities(worldState.entities) as any;
+            }
+
+            // PHASE 4: Self-Healing Sandbox (Verification Loop)
             if (worldState) {
+                let stableState = worldState;
+                let isStable = true;
+                let failureReason = "";
+                
+                // 1. PHYSICAL STABILITY HEURISTICS
+                const entities = stableState.entities || [];
+                
+                // Check A: Massive Unanchored Entities
+                const criticalMass = entities.filter(e => e.physics.mass > 500 && !e.physics.isStatic);
+                if (criticalMass.length > 0) {
+                    isStable = false;
+                    failureReason = `Massive unanchored entities (${criticalMass[0].id}) detected. Risk of kinetic explosion.`;
+                }
+
+                // Check B: Excessive Overlap (Potential Interpenetration)
+                for (let i = 0; i < entities.length; i++) {
+                    for (let j = i + 1; j < entities.length; j++) {
+                        const a = entities[i];
+                        const b = entities[j];
+                        if (a.physics.isStatic && b.physics.isStatic) continue;
+
+                        const dist = Math.sqrt(
+                            Math.pow(a.position.x - b.position.x, 2) + 
+                            Math.pow(a.position.y - b.position.y, 2)
+                        );
+                        const combinedRadius = (Math.max(a.dimensions?.x || 1, a.dimensions?.y || 1) + Math.max(b.dimensions?.x || 1, b.dimensions?.y || 1)) / 2;
+                        
+                        if (dist < combinedRadius * 0.5) { // Significant overlap
+                            isStable = false;
+                            failureReason = `Critical overlap detected between ${a.id} and ${b.id}. Risk of spawn-time force spike.`;
+                            break;
+                        }
+                    }
+                    if (!isStable) break;
+                }
+
+                if (!isStable) {
+                    logs.push({ agent: 'Sentinel', message: `⚠️ Stability Alert: ${failureReason} Initiating repair loop...`, type: 'ERROR' });
+                    
+                    for (let repairAttempt = 1; repairAttempt <= 3; repairAttempt++) {
+                        logs.push({ agent: 'Operator', message: `Self-healing Attempt ${repairAttempt}/3...`, type: 'THINKING' });
+                        
+                        const repairRes = await executeApexLoop({
+                            prompt: `${processedInput}\n\nSTABILITY FAILURE: ${failureReason}. 
+                            FIX: Adjust positions to avoid overlap, increase linearDamping, or normalize mass.`,
+                            schema: WorldStateSchema,
+                            system: `You are the Lead Stability Engineer. Repair the simulation to be physically stable.`,
+                            task: routingTask,
+                            previousInteractionId: interactionId
+                        });
+
+                        if (repairRes.output) {
+                            stableState = repairRes.output;
+                            // Re-verify (simplified for attempt loop)
+                            if (stableState.entities?.every(e => e.physics.mass <= 500)) {
+                                logs.push({ agent: 'Operator', message: 'Simulation stabilized. Scaling parameters for safety.', type: 'SUCCESS' });
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 logs.push({ agent: 'Aegis', message: 'Kimi K2.5 is validating DeepSeek\'s math...', type: 'THINKING' });
                 const review = await reviewerAgent({
-                    proposedState: JSON.stringify(worldState),
+                    proposedState: JSON.stringify(stableState),
                     originalPrompt: processedInput,
                     agentName: primaryAgentName
                 });
@@ -226,11 +450,16 @@ export const orchestratorFlow = ai.defineFlow(
                         previousInteractionId: interactionId
                     });
                     if (correctionRes.output) {
-                        blackboard.updateFromWorldState(correctionRes.output as any);
+                        const correctedState = correctionRes.output;
+                        if (correctedState && correctedState.entities) {
+                            correctedState.entities = normalizeEntities(correctedState.entities) as any;
+                        }
+
+                        blackboard.updateFromWorldState(correctedState as any);
                         logs.push({ agent: 'Aegis', message: 'Self-correction successful. Consensus reached.', type: 'SUCCESS' });
                         return {
                             status: 'SUCCESS' as const,
-                            worldState: correctionRes.output as any,
+                            worldState: correctedState as any,
                             visionData,
                             quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT' })).output as any,
                             interactionId: correctionRes.interactionId || interactionId,

@@ -16,47 +16,44 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ }) => {
     const [worldState] = useState<WorldState | undefined>(() => ({
         scenario: 'Gravity Test',
         mode: 'PHYSICS',
+        domain: 'SCIENCE',
         explanation: 'A simple demonstration of gravity acting on a sphere.',
         constraints: [],
         successCondition: 'Objects settle on floor',
         entities: [
             {
                 id: 'ball-1',
-                type: 'sphere',
+                shape: 'sphere',
                 name: 'Test Ball',
                 physics: {
                     mass: 1,
                     friction: 0.5,
                     restitution: 0.7,
+                    isStatic: false
                 },
                 position: { x: 0, y: 5, z: 0 },
-                rotation: { x: 0, y: 0, z: 0 },
+                rotation: { x: 0, y: 0, z: 0, w: 1 },
                 dimensions: { x: 1, y: 1, z: 1 },
-                color: 'hotpink',
-                isStatic: false
+                visual: {
+                    color: 'hotpink',
+                }
             },
             {
                 id: 'floor',
-                type: 'plane',
+                shape: 'plane',
                 name: 'Floor',
                 physics: {
                     mass: 0,
                     friction: 0.5,
                     restitution: 0.2,
+                    isStatic: true
                 },
                 position: { x: 0, y: 0, z: 0 },
-                rotation: { x: 0, y: 0, z: 0 },
+                rotation: { x: 0, y: 0, z: 0, w: 1 },
                 dimensions: { x: 50, y: 1, z: 50 },
-                color: '#222',
-                isStatic: true
-            }
-        ],
-        forces: [
-            {
-                id: 'gravity',
-                type: 'gravity',
-                vector: { x: 0, y: -9.81, z: 0 },
-                magnitude: 9.81
+                visual: {
+                    color: '#222',
+                }
             }
         ],
         description: 'Initial Unity Test State'

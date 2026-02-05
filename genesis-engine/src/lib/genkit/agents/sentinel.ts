@@ -23,7 +23,7 @@ export const sentinelAgent = ai.defineFlow(
     },
     async (input) => {
         const result = await executeApexLoop({
-            model: BRAIN_PRIMARY.name,
+            task: 'VISION',
             prompt: [
                 { text: `Observe this simulation construction. Scene Data: ${input.sceneState}` },
                 { media: { url: input.canvasSnapshot, contentType: 'image/jpeg' } }
@@ -39,8 +39,7 @@ export const sentinelAgent = ai.defineFlow(
                 4. Provide a 'severity' (0-1) for each point.
                 5. Provide one sentence of 'remediationAdvice' to help the student improve the build.
             `,
-            schema: StructuralHeatmapSchema,
-            task: 'VISION'
+            schema: StructuralHeatmapSchema
         });
 
         if (!result.output) throw new Error('Sentinel failed to process visual stream.');
@@ -72,7 +71,7 @@ export const sentinelRepairAgent = ai.defineFlow(
         blackboard.log('Sentinel', `Detecting API Drift for ${input.failedModelAlias}...`, 'THINKING');
 
         const result = await executeApexLoop({
-            model: MODELS.BRAIN_WORKHORSE, 
+            task: 'INGEST', 
             prompt: `
                 The Genesis Engine encountered an error: "${input.errorType}" while calling ${input.failedModelAlias}.
                 Use Google Search to find the latest valid model identifier for Google Gemini in 2026.
@@ -82,8 +81,7 @@ export const sentinelRepairAgent = ai.defineFlow(
             `,
             system: "You are the Genesis Sentinel. Your mission is to fix broken API links by finding the latest model names.",
             config: { googleSearchRetrieval: true },
-            schema: SentinelRepairOutputSchema,
-            task: 'INGEST'
+            schema: SentinelRepairOutputSchema
         });
 
         if (result.output) {

@@ -3,21 +3,23 @@ import { WorldState } from '../simulation/schema';
 export const bridgeScenario: WorldState = {
     scenario: "The Prometheus Singularity",
     mode: "PHYSICS",
+    domain: "SCIENCE",
     description: "A high-fidelity gravitational playground featuring a central Singularity and orbiting monoliths.",
     explanation: "This simulation demonstrates the Genesis Engine's ability to handle complex orbital mechanics, custom shaders, and interactive structural anomalies.",
     entities: [
         // The Singularity (Event Horizon)
         {
             id: 'singularity',
-            type: 'sphere',
+            shape: 'sphere',
             name: 'Singularity Core',
             position: { x: 0, y: 5, z: 0 },
-            rotation: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0, w: 1 },
             dimensions: { x: 2, y: 2, z: 2 },
-            physics: { mass: 1000, friction: 0.1, restitution: 0.9 },
-            isStatic: true,
-            color: '#000000',
-            texturePrompt: 'black hole event horizon with glowing cyan edges'
+            physics: { mass: 1000, friction: 0.1, restitution: 0.9, isStatic: true },
+            visual: {
+                color: '#000000',
+                texture: 'black hole event horizon with glowing cyan edges'
+            }
         },
         // The Orbiting Ring (Monoliths)
         ...Array.from({ length: 8 }).map((_, i) => {
@@ -25,50 +27,53 @@ export const bridgeScenario: WorldState = {
             const radius = 8;
             return {
                 id: `monolith-${i}`,
-                type: 'cube' as const,
+                shape: 'cube' as const,
                 name: 'Neural Monolith',
                 position: { 
                     x: Math.cos(angle) * radius, 
                     y: 5 + Math.sin(angle * 2) * 2, 
                     z: Math.sin(angle) * radius 
                 },
-                rotation: { x: angle, y: angle, z: 0 },
+                rotation: { x: angle, y: angle, z: 0, w: 1 },
                 dimensions: { x: 0.5, y: 3, z: 1 },
-                physics: { mass: 5, friction: 0.5, restitution: 0.5 },
-                isStatic: false,
-                color: i % 2 === 0 ? '#3b82f6' : '#8b5cf6',
-                texturePrompt: 'brushed obsidian with bioluminescent blue circuitry'
+                physics: { mass: 5, friction: 0.5, restitution: 0.5, isStatic: false },
+                visual: {
+                    color: i % 2 === 0 ? '#3b82f6' : '#8b5cf6',
+                    texture: 'brushed obsidian with bioluminescent blue circuitry'
+                }
             };
         }),
         // Floating Satellites
         ...Array.from({ length: 12 }).map((_, i) => ({
             id: `satellite-${i}`,
-            type: 'sphere' as const,
+            shape: 'sphere' as const,
             name: 'Data Spore',
             position: { 
                 x: (Math.random() - 0.5) * 20, 
                 y: 10 + Math.random() * 5, 
                 z: (Math.random() - 0.5) * 20 
             },
-            rotation: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0, w: 1 },
             dimensions: { x: 0.3, y: 0.3, z: 0.3 },
-            physics: { mass: 0.5, friction: 0.1, restitution: 0.8 },
-            isStatic: false,
-            color: '#06b6d4',
+            physics: { mass: 0.5, friction: 0.1, restitution: 0.8, isStatic: false },
+            visual: {
+                color: '#06b6d4',
+            },
             analogyLabel: 'Data Packet'
         })),
         // The Foundation
         {
             id: 'ground',
-            type: 'plane',
+            shape: 'plane',
             name: 'Genesis Platform',
             position: { x: 0, y: -0.5, z: 0 },
-            rotation: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0, w: 1 },
             dimensions: { x: 50, y: 1, z: 50 },
-            physics: { mass: 0, friction: 0.9, restitution: 0.3 },
-            isStatic: true,
-            color: '#020205',
-            texturePrompt: 'cyberpunk dark metal floor with hexagonal grid'
+            physics: { mass: 0, friction: 0.9, restitution: 0.3, isStatic: true },
+            visual: {
+                color: '#020205',
+                texture: 'cyberpunk dark metal floor with hexagonal grid'
+            }
         }
     ],
     constraints: [

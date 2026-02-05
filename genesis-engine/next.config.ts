@@ -1,32 +1,46 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 1. Standalone Output for optimized Vercel deployment
+  // 1. Standalone Output
   output: 'standalone',
 
-  // 2. Disable Strict Mode to prevent double-render bugs in 3D
+  // 1.5 Security Headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+        ],
+      },
+    ];
+  },
+
+  // 2. Disable Strict Mode
   reactStrictMode: false,
 
-  // 3. Experimental Features
+  // 3. Security: Obfuscation
+  poweredByHeader: false, // Hide Next.js branding
+
+  // 4. Experimental
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
     },
   },
 
-  // 4. External Packages
+  // 5. External Packages
   serverExternalPackages: ["@xenova/transformers", "sharp", "pdf-parse"],
 
-  // 5. Critical Webpack Config for Transformers.js / Genkit / PDF.js
+  // 6. Webpack Config
   webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       "sharp$": false,
       "onnxruntime-node$": false,
-      "canvas": false, // for pdfjs-dist
+      "canvas": false,
     };
-
-    // Optimization for bundle size
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -35,19 +49,17 @@ const nextConfig: NextConfig = {
         crypto: false,
       };
     }
-
     return config;
   },
 
-  // 6. Image Optimization for Reality Lens
+  // 7. Image Optimization
   images: {
-    // SECURITY: Restricted to prevent SSRF. 
     remotePatterns: [
       { protocol: "https", hostname: "*.googleusercontent.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "raw.githubusercontent.com" },
     ],
-    unoptimized: true, // Fallback for local/arbitrary user data
+    unoptimized: true,
   },
 };
 

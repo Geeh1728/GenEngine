@@ -5,36 +5,43 @@ import { Canvas } from '@react-three/fiber';
 import { Physics, RigidBody, RigidBodyProps } from '@react-three/rapier';
 import { OrbitControls, PerspectiveCamera, Stars } from '@react-three/drei';
 import { WorldState, Entity } from '@/lib/simulation/schema';
+import * as THREE from 'three';
 // import { useTextureGen } from '@/lib/simulation/useTextureGen';
 
-const EntityMaterial = ({ color, type }: { color?: string, type: string, texturePrompt?: string }) => {
+const EntityMaterial = ({ color, shape }: { color?: string, shape: string, texturePrompt?: string }) => {
     // texturePrompt logic can be re-enabled when useTextureGen is fully implemented
     // const material = useTextureGen({
     //     prompt: texturePrompt,
     //     color,
-    //     fallbackColor: type === 'plane' ? '#444' : '#fff'
+    //     fallbackColor: shape === 'plane' ? '#444' : '#fff'
     // });
     // return <primitive object={material} attach="material" />;
-    return <meshStandardMaterial color={color || (type === 'plane' ? '#444' : '#fff')} />;
+    return <meshStandardMaterial color={color || (shape === 'plane' ? '#444' : '#fff')} />;
 };
 
 const PhysicsEntity = ({ entity }: { entity: Entity }) => {
-    const { type, position, rotation, dimensions = { x: 1, y: 1, z: 1 }, physics, isStatic, id } = entity;
-    const { mass, friction, restitution } = physics;
+    const { shape, position, rotation, dimensions = { x: 1, y: 1, z: 1 }, physics, id, isRemote } = entity;
+    const { mass, friction, restitution, isStatic } = physics;
 
-    const rigidBodyType: RigidBodyProps['type'] = isStatic ? 'fixed' : 'dynamic';
+    const rigidBodyType: RigidBodyProps['type'] = isRemote ? 'kinematicPosition' : (isStatic ? 'fixed' : 'dynamic');
 
     // Specific adjustments for plane/floor to ensure it acts as ground
     let finalPos = [position.x, position.y, position.z] as [number, number, number];
 
-    if (type === 'plane') {
+    if (shape === 'plane') {
         // If plane, usually we want a large fixed ground. 
         // Adjust for thickness if using box so surface is at y
         finalPos = [position.x, position.y - 0.5, position.z];
     }
 
+    // Rotation Logic: Prioritize Quaternion
+    const quaternionProps = rotation && rotation.w !== undefined
+        ? { quaternion: new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w) }
+        : { rotation: rotation ? [rotation.x, rotation.y, rotation.z] as [number, number, number] : [0, 0, 0] as [number, number, number] };
+
+
     const renderGeometry = () => {
-        switch (type) {
+        switch (shape) {
             case 'box':
             case 'cube':
                 return <boxGeometry args={[dimensions.x, dimensions.y, dimensions.z]} />;
@@ -55,15 +62,15 @@ const PhysicsEntity = ({ entity }: { entity: Entity }) => {
             key={id}
             type={rigidBodyType}
             position={finalPos}
-            rotation={rotation ? [rotation.x, rotation.y, rotation.z] : [0, 0, 0]}
+            {...quaternionProps}
             mass={mass}
             friction={friction}
             restitution={restitution}
-            colliders={type === 'plane' ? 'cuboid' : 'hull'}
+            colliders={shape === 'plane' ? 'cuboid' : 'hull'}
         >
             <mesh castShadow receiveShadow>
                 {renderGeometry()}
-                <EntityMaterial color={entity.color} type={type} texturePrompt={entity.texturePrompt} />
+                <EntityMaterial color={entity.visual.color} shape={shape} texturePrompt={entity.visual.texture} />
             </mesh>
         </RigidBody>
     );

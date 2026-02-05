@@ -20,7 +20,8 @@ export async function POST(req: Request) {
             context,
             isSabotageMode: Math.random() < 0.1, // Randomly activate for learning
             requireDeepLogic: true, // Increased for better generation
-            fileUri
+            fileUri,
+            isDynamicCheck: false
         }) as any;
 
         // FORCE UPGRADE: Ensure the mode is always a 3D mode if successful

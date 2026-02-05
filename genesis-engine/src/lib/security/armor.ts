@@ -18,11 +18,19 @@ const FORBIDDEN_KEYWORDS = [
     'DROP TABLE',
     'password',
     'api_key',
+    'apiKey',
     'secret_key',
     'DAN mode',
     'do anything now',
     'you are now',
     'act as',
+    'developer mode',
+    'output the system prompt',
+    'reveal your instructions',
+    'bypass security',
+    'jailbreak',
+    'exploit',
+    'sk-'
 ];
 
 const INJECTION_PATTERNS = [
@@ -33,6 +41,9 @@ const INJECTION_PATTERNS = [
     /###.*instruction/i,
     /translate.*and execute/i,
     /hex.*encoded/i,
+    /base64.*decoded/i,
+    /set.*new.*rules/i,
+    /forget.*the.*instructions/i
 ];
 
 /**
@@ -84,32 +95,51 @@ export async function shieldInput(input: string): Promise<ArmorResult> {
  * PYTHON ARMOR: Scans LLM-generated Python code for malicious payloads.
  */
 export function checkPythonSafety(code: string): ArmorResult {
-    const DANGEROUS_LIBS = ['os', 'sys', 'subprocess', 'requests', 'urllib', 'shutil', 'socket', 'posix', 'pty', 'builtins'];
-    const DANGEROUS_FUNCS = ['eval', 'exec', 'getattr', 'setattr', 'delattr', 'open', 'compile', '__import__'];
+    // SECURITY: Broadened blacklist to prevent sandbox escapes and DOM access
+    const DANGEROUS_LIBS = [
+        'os', 'sys', 'subprocess', 'requests', 'urllib', 'shutil', 'socket', 'posix', 'pty', 'builtins',
+        'js', 'pyodide_js', 'gc', 'inspect', 'threading', 'multiprocessing', 'importlib'
+    ];
+    const DANGEROUS_FUNCS = [
+        'eval', 'exec', 'getattr', 'setattr', 'delattr', 'open', 'compile', '__import__', 
+        'globals', 'locals', 'vars', 'input', 'help', 'dir'
+    ];
 
     const codeLower = code.toLowerCase();
 
-    // Check for dangerous imports
+    // 1. Check for dangerous imports
     for (const lib of DANGEROUS_LIBS) {
-        const importPattern = new RegExp(`(import|from)\\s+${lib}`, 'i');
+        const importPattern = new RegExp(`(import|from)\\s+${lib}(\\s|\\.|$)`, 'i');
         // SECURITY FIX: Also check for direct usage (e.g. "sys.modules") since some environments pre-import them.
-        const directUsagePattern = new RegExp(`${lib}\\.`, 'i');
+        const directUsagePattern = new RegExp(`(^|[^a-zA-Z0-9_])${lib}\\.`, 'i');
         
         if (importPattern.test(code) || directUsagePattern.test(code)) {
             return { isSafe: false, reason: `Policy Violation: Unauthorized usage of "${lib}" module.` };
         }
     }
 
-    // Check for dangerous functions
+    // 2. Check for dangerous functions
     for (const func of DANGEROUS_FUNCS) {
-        if (codeLower.includes(func + '(') || codeLower.includes(func + ' (')) {
+        const funcPattern = new RegExp(`(^|[^a-zA-Z0-9_])${func}\\s*\\(`, 'i');
+        if (funcPattern.test(code)) {
             return { isSafe: false, reason: `Policy Violation: Unauthorized use of "${func}" function.` };
         }
     }
 
-    // Check for magic property access
-    if (code.includes('__') || code.includes('getattr') || code.includes('base64')) {
-        return { isSafe: false, reason: 'Policy Violation: Detected attempt to bypass security via introspection or encoding.' };
+    // 3. Check for magic property access and encoding bypasses
+    const DANGEROUS_PATTERNS = [
+        /__[a-zA-Z0-9_]+__/, // Magic attributes/methods
+        /getattr|setattr|hasattr|delattr/, // Introspection
+        /base64|binascii|hex|oct|chr|ord/, // Encoding/Obfuscation
+        /type\s*\(.*\)\s*\./, // Prototype/Type climbing
+        /globals\s*\(\)/,
+        /locals\s*\(\)/
+    ];
+
+    for (const pattern of DANGEROUS_PATTERNS) {
+        if (pattern.test(code)) {
+            return { isSafe: false, reason: 'Policy Violation: Detected attempt to bypass security via introspection, encoding, or prototype manipulation.' };
+        }
     }
 
     return { isSafe: true };
@@ -117,10 +147,11 @@ export function checkPythonSafety(code: string): ArmorResult {
 
 /**
  * Monitors neural link usage to prevent API exhaustion.
+ * TITAN PROTOCOL (v13.5): Scheduled for Upstash Redis integration.
+ * Current State: Permissive during Platinum rollout.
  */
 export async function checkRateLimit(): Promise<boolean> {
-    // Titan Protocol: Standard limits for current tier.
-    // Future: Integrate with Redis/Upstash.
+    // Future: const { success } = await redis.limit(userIp);
     return true;
 }
 
@@ -135,7 +166,7 @@ export async function shieldOutput(output: any): Promise<ArmorResult> {
         if (rawContent.includes(keyword.toLowerCase())) {
             return {
                 isSafe: false,
-                reason: `Policy Violation: Output contains restricted token "${keyword}"`,
+                reason: `Security Alert: Output contains restricted token "${keyword}"`,
             };
         }
     }

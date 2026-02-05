@@ -6,9 +6,12 @@ import { Camera, Zap, Box, Trash2, X, ChevronRight, Ruler, ArrowUp, Info, Compas
 import Image from 'next/image';
 import { analyzeReality, analyzeStructuralIntegrity } from '@/app/actions/vision';
 import { parseBoundingBoxes2D } from '@/lib/gemini/spatialParser';
-import { Entity } from '@/lib/simulation/schema';
+import { Entity, Joint } from '@/lib/simulation/schema';
+import { gestureEngine } from '@/lib/vision/gesture-engine';
+import { OmniCircle } from '../ui/OmniCircle';
 
 interface DetectedObject {
+    id?: string;
     box_2d: number[];
     label: string;
     estimatedMass?: number;
@@ -17,6 +20,7 @@ interface DetectedObject {
 }
 
 interface StructuralElement {
+    id: string;
     box_2d: number[];
     type: string;
     properties?: {
@@ -27,10 +31,16 @@ interface StructuralElement {
 
 interface StructuralData {
     elements: StructuralElement[];
+    joints?: {
+        parent_id: string;
+        child_id: string;
+        connection_type: 'fixed' | 'revolute' | 'spherical';
+        anchor_point: { x: number; y: number; z: number };
+    }[];
 }
 
 interface RealityLensProps {
-    onTeleport: (newEntities: Entity[]) => void;
+    onTeleport: (newEntities: Entity[], newJoints?: Joint[]) => void;
     onClose: () => void;
 }
 
@@ -39,16 +49,33 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
     const [analyzing, setAnalyzing] = useState(false);
     const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
     const [selectedObjects, setSelectedObjects] = useState<Set<number>>(new Set());
-    
+
     // --- STRUCTURAL ANALYSIS STATE ---
     const [structuralAnalysis, setStructuralAnalysis] = useState<{
         weakPoints: { x: number, y: number, reason: string }[],
         suggestions: string[],
         analysis: string
     } | null>(null);
+    const [detectedJoints, setDetectedJoints] = useState<StructuralData['joints']>([]);
     const [analyzingStructure, setAnalyzingStructure] = useState(false);
+    const [isManifesting, setIsManifesting] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [isJediMode, setIsJediMode] = useState(false);
+
+    // Initialize Gesture Engine
+    useEffect(() => {
+        if (isJediMode) {
+            gestureEngine.init();
+            
+            const startCamera = async () => {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                if (videoRef.current) videoRef.current.srcObject = stream;
+            };
+            startCamera();
+        }
+    }, [isJediMode]);
 
     const handleStructuralAnalysis = async () => {
         if (!image) return;
@@ -65,6 +92,13 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
         }
     };
 
+    const handleOmniSelection = (coords: { x: number, y: number, width: number, height: number }) => {
+        console.log("[OmniCircle] Isolating coordinates for Hive Swarm:", coords);
+        // In v13.5, we would crop the image here.
+        // For now, we trigger a targeted scan.
+        handleScan();
+    };
+
     // --- MEASUREMENT STATE ---
     const [mode, setMode] = useState<'SCAN' | 'SURVEY' | 'RULER'>('SCAN');
     const [tilt, setTilt] = useState(0);
@@ -73,7 +107,7 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
     const [topAngle, setTopAngle] = useState<number | null>(null);
     const [calculatedHeight, setCalculatedHeight] = useState<number | null>(null);
     const [referenceType, setReferenceType] = useState<'A4' | 'R10' | 'CARD'>('A4');
-    
+
     const referenceWidths = { 'A4': 210, 'R10': 140, 'CARD': 85.6 }; // mm
 
     // Track Device Tilt
@@ -121,19 +155,23 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
             const result = await analyzeReality(image);
             if (result.success && result.data) {
                 const data = result.data as unknown as StructuralData | DetectedObject[];
-                
+
                 if ('elements' in data && Array.isArray(data.elements)) {
-                     const objects = data.elements.map((el) => {
+                    const objects = data.elements.map((el) => {
                         const width = Math.abs(el.box_2d[3] - el.box_2d[1]);
                         return {
+                            id: el.id,
                             box_2d: el.box_2d,
                             label: el.type,
                             material: el.properties?.material,
                             estimatedMass: el.properties?.magnitude,
                             pixelWidth: width
                         };
-                     });
+                    });
                     setDetectedObjects(objects);
+                    if ('joints' in data) {
+                        setDetectedJoints(data.joints);
+                    }
                 } else if (Array.isArray(data)) {
                     setDetectedObjects(data);
                 }
@@ -158,9 +196,9 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
 
         let scaleFactor = 1;
         if (mode === 'RULER') {
-            const refObj = detectedObjects.find(obj => 
-                obj.label.toLowerCase().includes('paper') || 
-                obj.label.toLowerCase().includes('note') || 
+            const refObj = detectedObjects.find(obj =>
+                obj.label.toLowerCase().includes('paper') ||
+                obj.label.toLowerCase().includes('note') ||
                 obj.label.toLowerCase().includes('card')
             );
             if (refObj && refObj.pixelWidth) {
@@ -174,7 +212,7 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
 
             return {
                 id: `reality-${Date.now()}-${index}`,
-                type: box.label.toLowerCase().includes("ball") || box.label.toLowerCase().includes("sphere") ? "sphere" : "box",
+                shape: box.label.toLowerCase().includes("ball") || box.label.toLowerCase().includes("sphere") ? "sphere" : "box",
                 name: box.label,
                 position: {
                     x: (box.x + box.width / 2 - 0.5) * 20,
@@ -190,15 +228,41 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                     mass: rawObj?.estimatedMass || 1,
                     friction: 0.5,
                     restitution: 0.2,
+                    isStatic: false
                 },
-                color: `hsl(${Math.random() * 360}, 70%, 50%)`,
-                isStatic: false,
-                rotation: { x: 0, y: 0, z: 0 },
+                visual: {
+                    color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+                },
+                rotation: { x: 0, y: 0, z: 0, w: 1 },
             };
         });
 
-        onTeleport(newEntities);
-        onClose();
+        // 2. Map Joints
+        const newJoints: Joint[] = (detectedJoints || [])
+            .filter(j =>
+                newEntities.some(e => e.id.includes(j.parent_id)) &&
+                newEntities.some(e => e.id.includes(j.child_id))
+            )
+            .map((j, index) => {
+                const parent = newEntities.find(e => e.id.includes(j.parent_id));
+                const child = newEntities.find(e => e.id.includes(j.child_id));
+
+                return {
+                    id: `joint-${Date.now()}-${index}`,
+                    type: j.connection_type as any,
+                    bodyA: parent?.id || j.parent_id,
+                    bodyB: child?.id || j.child_id,
+                    anchorA: j.anchor_point,
+                    anchorB: { x: 0, y: 0, z: 0 } // Assume relative to child center for now
+                };
+            });
+
+        onTeleport(newEntities, newJoints);
+        
+        setIsManifesting(true);
+        setTimeout(() => {
+            onClose();
+        }, 800);
     };
 
     return (
@@ -208,6 +272,24 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-lg p-4"
         >
+            <AnimatePresence>
+                {isManifesting && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-[100] bg-white flex items-center justify-center"
+                    >
+                        <motion.div
+                            initial={{ scale: 0, opacity: 1 }}
+                            animate={{ scale: 20, opacity: 0 }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                            className="w-10 h-10 bg-blue-400 rounded-full blur-xl"
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <div className="relative w-full max-w-4xl bg-gray-900/50 rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="p-6 flex items-center justify-between border-b border-white/10 bg-white/5">
@@ -221,6 +303,7 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                                 <button onClick={() => setMode('SCAN')} className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all ${mode === 'SCAN' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:text-white'}`}>Scan</button>
                                 <button onClick={() => setMode('SURVEY')} className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all ${mode === 'SURVEY' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:text-white'}`}>Surveyor</button>
                                 <button onClick={() => setMode('RULER')} className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all ${mode === 'RULER' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-gray-400 hover:text-white'}`}>Ruler</button>
+                                <button onClick={() => setIsJediMode(!isJediMode)} className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all ${isJediMode ? 'bg-purple-500 text-white' : 'bg-white/5 text-gray-400 hover:text-white'}`}>Jedi (Beta)</button>
                             </div>
                         </div>
                     </div>
@@ -234,7 +317,7 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                     {mode === 'SURVEY' ? (
                         <div className="text-center space-y-8 w-full max-w-md p-6">
                             <div className="relative w-48 h-48 mx-auto border-4 border-white/10 rounded-full flex items-center justify-center bg-black/20 shadow-inner">
-                                <motion.div 
+                                <motion.div
                                     animate={{ rotate: -tilt }}
                                     className="w-full h-0.5 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.8)]"
                                 />
@@ -251,22 +334,22 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                                         <span>Distance to Object</span>
                                         <span className="text-white">{distance}m</span>
                                     </div>
-                                    <input 
-                                        type="range" min="1" max="20" step="0.5" value={distance} 
+                                    <input
+                                        type="range" min="1" max="20" step="0.5" value={distance}
                                         onChange={(e) => setDistance(parseFloat(e.target.value))}
                                         className="w-full accent-indigo-500 h-1.5 bg-indigo-950 rounded-lg appearance-none cursor-pointer"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <button 
+                                    <button
                                         onClick={() => captureAngle('BASE')}
                                         className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${baseAngle !== null ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-white/10 text-white hover:bg-white/5'}`}
                                     >
                                         <span className="text-xs font-bold uppercase">Capture Base</span>
                                         {baseAngle !== null && <span className="text-lg font-mono font-black">{Math.round(baseAngle)}°</span>}
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => captureAngle('TOP')}
                                         className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${topAngle !== null ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-white/10 text-white hover:bg-white/5'}`}
                                     >
@@ -305,6 +388,15 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                         </div>
                     ) : (
                         <div className="relative w-full max-w-full inline-block group">
+                            {isJediMode && (
+                                <video 
+                                    ref={videoRef} 
+                                    autoPlay 
+                                    playsInline 
+                                    className="absolute inset-0 w-full h-full object-cover rounded-xl opacity-40 z-10 pointer-events-none grayscale"
+                                />
+                            )}
+                            <OmniCircle onSelection={handleOmniSelection} />
                             <Image src={image} alt="Reality" width={1000} height={1000} className="w-full h-auto rounded-xl shadow-lg border border-white/10" unoptimized />
                             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
                                 {analyzing || analyzingStructure ? (
@@ -321,12 +413,12 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                                         {/* Structural Weak Points (normalized 0-100) */}
                                         {structuralAnalysis?.weakPoints.map((pt, i) => (
                                             <g key={`weak-${i}`}>
-                                                <motion.circle 
+                                                <motion.circle
                                                     initial={{ r: 0, opacity: 0 }}
                                                     animate={{ r: [2, 4, 2], opacity: [0.6, 1, 0.6] }}
                                                     transition={{ repeat: Infinity, duration: 2 }}
-                                                    cx={pt.x} 
-                                                    cy={pt.y} 
+                                                    cx={pt.x}
+                                                    cy={pt.y}
                                                     className="fill-red-500/30 stroke-red-500 stroke-[0.5]"
                                                 />
                                                 <foreignObject x={pt.x} y={pt.y} width="20" height="10">
@@ -343,7 +435,7 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                             {/* Suggestions Overlay */}
                             <AnimatePresence>
                                 {structuralAnalysis && (
-                                    <motion.div 
+                                    <motion.div
                                         initial={{ opacity: 0, x: 20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         className="absolute top-4 right-4 w-64 bg-black/80 backdrop-blur-md border border-red-500/20 rounded-2xl p-4 pointer-events-auto"
@@ -381,8 +473,8 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                             </button>
                         )}
                         {image && (
-                            <button 
-                                onClick={handleStructuralAnalysis} 
+                            <button
+                                onClick={handleStructuralAnalysis}
                                 disabled={analyzingStructure}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${structuralAnalysis ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20'}`}
                             >
@@ -393,8 +485,8 @@ export default function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                         {mode === 'RULER' && (
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-black/30 rounded-xl border border-white/10">
                                 <span className="text-[10px] text-gray-500 font-bold uppercase">Reference:</span>
-                                <select 
-                                    value={referenceType} 
+                                <select
+                                    value={referenceType}
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     onChange={(e) => setReferenceType(e.target.value as any)}
                                     className="bg-transparent text-white text-[10px] font-bold outline-none cursor-pointer"

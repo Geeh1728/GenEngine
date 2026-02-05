@@ -1,23 +1,32 @@
-import { ai, geminiFlash, gemini3Flash, BRAIN_PRIMARY, BRAIN_WORKHORSE, OPENROUTER_FREE_MODELS } from './config';
+import { ai, OPENROUTER_FREE_MODELS } from './config';
 import { z } from 'genkit';
 import { incrementApiUsage, getApiUsage, getRegisteredModel } from '../db/pglite';
 import { sentinelRepairAgent } from './agents/sentinel';
+import { LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL } from './models';
+import { cleanModelOutput } from '../utils/ai-sanitizer';
+import { checkNanoCapabilities, localReflexQuery } from '../ai/local-nano';
 
-import { MessageData } from 'genkit';
+import { MessageData, GenerateOptions } from 'genkit';
+import { StreamingRealityParser, StreamingCallback } from './streamingReality';
+
+type TaskType = 'MATH' | 'VISION' | 'INGEST' | 'GENERAL' | 'CHAT' | 'CODE' | 'PHYSICS' | 'REFLEX';
 
 interface ResilienceOptions<T extends z.ZodTypeAny> {
     prompt: string | MessageData['content'];
     schema: T;
     system?: string;
     model?: string;
-    task?: 'MATH' | 'VISION' | 'INGEST' | 'GENERAL' | 'CHAT' | 'CODE';
-    tools?: any[];
-    config?: any;
+    task?: TaskType;
+    tools?: GenerateOptions['tools'];
+    config?: Record<string, unknown>;
     retryCount?: number;
     fallback?: z.infer<T>;
     onLog?: (message: string, type: 'INFO' | 'ERROR' | 'SUCCESS' | 'THINKING') => void;
     previousInteractionId?: string;
     modelAlias?: string;
+    // NEW: Streaming Reality Support
+    enableStreaming?: boolean;
+    onStreamingUpdate?: StreamingCallback;
 }
 
 /**
@@ -47,106 +56,160 @@ function preparePromptForModel(prompt: string, modelId: string): string {
     return prompt;
 }
 
+/**
+ * PLATINUM WATERFALL RESOLVER
+ * Objective: Determine the optimal model list based on task and RPD limits.
+ */
+async function getWaterfallForTask(task: TaskType): Promise<string[]> {
+    let waterfall: string[];
+    switch (task) {
+        case 'MATH': waterfall = LOGIC_WATERFALL; break;
+        case 'VISION': waterfall = VISION_WATERFALL; break;
+        case 'PHYSICS': waterfall = PHYSICS_WATERFALL; break;
+        case 'INGEST':
+        case 'CHAT': waterfall = CONTEXT_WATERFALL; break;
+        case 'REFLEX': waterfall = REFLEX_WATERFALL; break;
+        default: waterfall = LOGIC_WATERFALL;
+    }
+
+    // SMART-SWITCH: Filter out models near 20 RPD limit
+    const validatedWaterfall: string[] = [];
+    for (const model of waterfall) {
+        if (model.includes('gemini-3') || model.includes('gemini-2.5') || model.includes('robotics-er')) {
+            const usage = await getApiUsage(model);
+            if (usage < 18) {
+                validatedWaterfall.push(model);
+            } else {
+                console.warn(`[Waterfall] Skipping ${model} (Limit Reached: ${usage}/20)`);
+            }
+        } else {
+            validatedWaterfall.push(model);
+        }
+    }
+
+    return validatedWaterfall.length > 0 ? validatedWaterfall : waterfall;
+}
+
 export async function executeApexLoop<T extends z.ZodTypeAny>(
     options: ResilienceOptions<T>
 ): Promise<{ output: z.infer<T> | null, interactionId?: string }> {
-    const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId, modelAlias } = options;
+    const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId, modelAlias, enableStreaming, onStreamingUpdate } = options;
 
+    let waterfall = model ? [model] : await getWaterfallForTask(task);
+    let currentWaterfallIdx = 0;
     let attempts = 0;
-    let currentModel = model || BRAIN_PRIMARY.name;
 
-    // STEP 0: Resolve Dynamic Model Registry (Self-Healing)
-    if (modelAlias) {
-        currentModel = await getRegisteredModel(modelAlias, currentModel);
-    }
-    
-    // Check local quota before starting
-    const usage = await getApiUsage();
-    if (usage > 18 && currentModel.includes('gemini-3-flash')) {
-        console.warn("[Apex] Gemini 3 quota near exhaustion. Engaging high-quota Gemma fallback.");
-        if (onLog) onLog('Gemini 3 limit near (18/20). Engaging Gemma Workhorse (14.4K RPD)...', 'INFO');
-        currentModel = BRAIN_WORKHORSE.name;
-    }
+    while (attempts <= retryCount && currentWaterfallIdx < waterfall.length) {
+        // TIER 0: Built-in AI (Gemini Nano) Check
+        if (attempts === 0 && currentWaterfallIdx === 0 && !enableStreaming && !tools && await checkNanoCapabilities()) {
+            console.log("[Apex] Tier 0: Trying local Gemini Nano...");
+            const rawPrompt = Array.isArray(prompt)
+                ? (prompt[0] as { text: string }).text
+                : (typeof prompt === 'string' ? prompt : '');
+            
+            const localResult = await localReflexQuery(rawPrompt, system);
+            if (localResult.success && localResult.text) {
+                console.log("[Apex] Tier 0 Success: Local Nano handled the task.");
+                try {
+                    const parsed = schema.parse(JSON.parse(cleanModelOutput(localResult.text)));
+                    return { output: parsed, interactionId: 'local-nano-' + Date.now() };
+                } catch (e) {
+                    console.warn("[Apex] Tier 0 Parse failed, falling back to Swarm.");
+                }
+            }
+        }
 
-    while (attempts <= retryCount) {
+        const modelName = waterfall[currentWaterfallIdx];
         try {
-            const modelName = typeof currentModel === 'string' ? currentModel : (currentModel as any).name;
             console.log(`[Apex] Attempt ${attempts + 1} using ${modelName}`);
             if (onLog) onLog(`Swarm routing to: ${modelName}...`, 'THINKING');
 
-            // Adapt prompt for the current model
-            const rawPrompt = Array.isArray(prompt) ? (prompt[0] as any).text : prompt;
+            const rawPrompt = Array.isArray(prompt)
+                ? (prompt[0] as { text: string }).text
+                : (typeof prompt === 'string' ? prompt : '');
+
             const adaptedPrompt = preparePromptForModel(rawPrompt, modelName);
 
-            const response = await ai.generate({
-                model: modelName,
-                prompt: adaptedPrompt,
-                system: system,
-                tools: tools,
-                config: {
-                    ...config,
-                    // Pass interaction ID for stateful sessions
-                    previous_interaction_id: previousInteractionId
-                },
-                output: {
-                    schema: schema,
-                },
-            });
+            let result: any;
 
-            if (response.output) {
-                if (modelName.includes('gemini') || modelName.includes('gemma')) {
-                    await incrementApiUsage(modelName); 
+            if (enableStreaming && onStreamingUpdate) {
+                if (onLog) onLog('Streaming Reality engaged...', 'THINKING');
+                const streamParser = new StreamingRealityParser(onStreamingUpdate);
+
+                const { response, stream } = await ai.generateStream({
+                    model: modelName,
+                    prompt: adaptedPrompt,
+                    system: system,
+                    tools: tools,
+                    config: { ...config, previous_interaction_id: previousInteractionId },
+                    output: { schema: schema },
+                });
+
+                for await (const chunk of stream) {
+                    if (chunk.text) streamParser.feed(chunk.text);
                 }
+
+                streamParser.complete();
+                const finalResponse = await response;
+                result = finalResponse;
+            } else {
+                result = await ai.generate({
+                    model: modelName,
+                    prompt: adaptedPrompt,
+                    system: system,
+                    tools: tools,
+                    config: { ...config, previous_interaction_id: previousInteractionId },
+                    output: { schema: schema },
+                });
+            }
+
+            if (result.output) {
+                // TRACK USAGE for smart-switch
+                await incrementApiUsage(modelName);
+                
                 if (onLog) onLog(`Neural Link established via ${modelName}.`, 'SUCCESS');
                 
-                const interactionId = (response as any).metadata?.interaction_id;
-                return { output: response.output, interactionId };
+                let finalOutput = result.output;
+                // SANITIZATION for DeepSeek
+                if (modelName.includes('deepseek')) {
+                    if (result.text) {
+                        const cleaned = cleanModelOutput(result.text);
+                        try {
+                            finalOutput = schema.parse(JSON.parse(cleaned));
+                        } catch (e) {
+                            console.warn("[Apex] DeepSeek manual parse failed, using original output.");
+                        }
+                    }
+                }
+
+                const interactionId = (result as { metadata?: { interaction_id?: string } }).metadata?.interaction_id;
+                return { output: finalOutput, interactionId };
             } else {
                 throw new Error("No structured output generated.");
             }
 
-        } catch (error: any) {
-            const errorMessage = error.message || String(error);
-            console.error(`[Apex] Swarm Error (${attempts + 1}):`, errorMessage);
-            
-            // SELF-HEALING TRIGGER
-            if (modelAlias && (errorMessage.includes('NOT_FOUND') || errorMessage.includes('404') || errorMessage.includes('deprecated'))) {
-                if (onLog) onLog('API Drift detected. Sentinel is patching the link...', 'ERROR');
-                try {
-                    const patch = await sentinelRepairAgent({ failedModelAlias: modelAlias, errorType: errorMessage });
-                    currentModel = patch.newModelString;
-                    continue; // Retry immediately with patched model
-                } catch (repairError) {
-                    console.error("[Sentinel] Repair failed:", repairError);
-                }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`[Apex] Swarm Error (${modelName}):`, errorMessage);
+
+            // PIVOT Logic: If 429 or 503, immediately move to next model in waterfall
+            if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('503') || errorMessage.includes('limit')) {
+                if (onLog) onLog(`⚠️ Node Throttled (${modelName}). Pivoting to next available specialist...`, 'ERROR');
+                currentWaterfallIdx++;
+                attempts = 0; // Reset attempts for the next model
+                continue; // Immediate retry with next model
             }
 
+            // Standard Retry
             attempts++;
-            if (attempts > retryCount) break;
-
-            // Tiered Fallback Logic
-            if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('limit') || errorMessage.includes('NOT_FOUND')) {
-                const isGoogleModel = currentModel.includes('gemini') || currentModel.includes('gemma');
-                
-                if (currentModel.includes('gemma-3-27b') && errorMessage.includes('NOT_FOUND')) {
-                    if (onLog) onLog(`Gemma-3 identifier not recognized. Falling back to Gemini-3...`, 'ERROR');
-                    currentModel = gemini3Flash.name;
-                    continue;
-                }
-
-                if (currentModel.includes('gemini-3-flash')) {
-                    if (onLog) onLog(`Primary Brain saturated. Rerouting to Gemma-3 Workhorse...`, 'ERROR');
-                    currentModel = BRAIN_WORKHORSE.name;
-                    continue;
-                } else if (isGoogleModel) {
-                    const fallbackModel = (OPENROUTER_FREE_MODELS as any)[task] || OPENROUTER_FREE_MODELS.GENERAL;
-                    if (onLog) onLog(`Google Swarm saturated. Engaging Open Source Specialist (${fallbackModel})...`, 'ERROR');
-                    currentModel = fallbackModel;
-                    continue;
-                }
+            if (attempts > retryCount) {
+                currentWaterfallIdx++;
+                attempts = 0; // Reset attempts for the next model in waterfall
             }
 
-            if (onLog) onLog(`Self-correcting neural path...`, 'THINKING');
+            if (onLog && currentWaterfallIdx < waterfall.length) {
+                onLog(`Self-correcting neural path...`, 'THINKING');
+            }
         }
     }
 

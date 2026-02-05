@@ -6,9 +6,10 @@ import { MODELS } from '@/lib/genkit/models';
 
 /**
  * THE PROTECTED HYBRID EMBEDDING SWITCH (v7.5)
- * Objective: Use high-quality Google embeddings for complex queries,
- * but aggressively protect the 1K RPD limit by forcing local mode
- * for small notes and high-volume background tasks.
+ * Objective: Tiered Retrieval with Mistral-Embed fallback.
+ * 1. Primary: Google text-embedding-004.
+ * 2. Specialist: Mistral-Embed (Math/Physics).
+ * 3. Fallback: Local Transformers.js.
  */
 
 export async function getEmbedding(text: string, onProgress?: (progress: number) => void): Promise<number[] | null> {
@@ -23,26 +24,37 @@ export async function getEmbedding(text: string, onProgress?: (progress: number)
     // 2. PROTECTED LOGIC: Tiered Arbitrage
     const charCount = text.length;
     const usage = await getApiUsage(MODELS.EMBEDDING_MODEL);
+    
+    // Check for Math Specialist trigger
+    const hasMathSymbols = /[+\-=/*^√πθΩΣΔλ]/.test(text);
 
     // Rule A: Small notes/Diary entries go local (R0 cost)
-    if (charCount < 500) {
+    if (charCount < 500 && !hasMathSymbols) {
         console.log("[Embeddings] Small chunk (<500 chars). Arbitraging to local model.");
         return generateLocalEmbedding(text, onProgress);
     }
 
-    // Rule B: Quota Protection (90% Threshold)
-    if (usage > 900) {
-        console.warn("[Embeddings] 1K RPD Quota Warning (900+ used). Forcing local mode for safety.");
-        return generateLocalEmbedding(text, onProgress);
-    }
-
     try {
-        console.log(`[Embeddings] Online (${usage}/1000). Calling Cloud Embedding...`);
+        // Strategy: If math is detected, go straight to Mistral (Tier 2)
+        // If quota is near, switch to Mistral (Tier 2)
+        let preferredModel = MODELS.EMBEDDING_MODEL;
+        let isMathReroute = false;
+
+        if (hasMathSymbols) {
+            console.log("[Embeddings] Math symbols detected. Specialist Reroute: Mistral-Embed.");
+            preferredModel = MODELS.MISTRAL_EMBED;
+            isMathReroute = true;
+        } else if (usage > 850) {
+            console.warn("[Embeddings] Google Quota Near Limit. Switching to Mistral Specialist...");
+            preferredModel = MODELS.MISTRAL_EMBED;
+        }
+
+        console.log(`[Embeddings] Calling Cloud Embedding (${preferredModel})...`);
         
         const response = await fetch('/api/embeddings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify({ text, model: preferredModel }),
         });
 
         if (!response.ok) {
@@ -51,8 +63,10 @@ export async function getEmbedding(text: string, onProgress?: (progress: number)
 
         const data = await response.json();
         
-        // Log cloud usage
-        await incrementApiUsage(MODELS.EMBEDDING_MODEL);
+        // Log cloud usage only for Google
+        if (preferredModel === MODELS.EMBEDDING_MODEL) {
+            await incrementApiUsage(MODELS.EMBEDDING_MODEL);
+        }
         
         return data.embedding;
     } catch (error) {

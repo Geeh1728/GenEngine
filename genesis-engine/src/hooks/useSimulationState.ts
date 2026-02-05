@@ -1,6 +1,9 @@
-import { useReducer, useCallback, useEffect } from 'react';
+'use client';
+
+import { useCallback, useEffect } from 'react';
 import { WorldState } from '@/lib/simulation/schema';
-import { gameReducer, initialGameState, GameAction } from '@/lib/multiplayer/GameState';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
+import { GameAction } from '@/lib/multiplayer/GameState';
 import { usePersistence } from './utils/usePersistence';
 import { blackboard } from '@/lib/genkit/context';
 import { ComplexityLevel, WorldRuleSchema } from '@/lib/genkit/schemas';
@@ -9,12 +12,11 @@ import { z } from 'genkit';
 type WorldRule = z.infer<typeof WorldRuleSchema>;
 
 /**
- * useSimulationState: Manages the core physics/logic state of the world.
- * Decoupled from UI and Gamification.
+ * useSimulationState: Centralized Physics/Logic Interface.
+ * Refactored (v13.0 GOLD): Consumes the unified Reducer Context.
  */
 export function useSimulationState() {
-    // --- KINETIC CORE: REDUCER STATE ---
-    const [gameState, dispatch] = useReducer(gameReducer, initialGameState);
+    const { state: gameState, dispatch } = useGenesisStore();
     const { worldState, selectedEntityId } = gameState;
 
     // --- IMMERSION: PERSISTENCE LAYER ---
@@ -31,18 +33,17 @@ export function useSimulationState() {
 
     // --- ACTIONS ---
 
-    // Direct Dispatch Bridge
     const syncWorldState = useCallback((newState: WorldState | null) => {
         if (!newState) {
             dispatch({ type: 'RESET_SIMULATION' });
         } else {
             dispatch({ type: 'SYNC_WORLD', payload: newState });
         }
-    }, []);
+    }, [dispatch]);
 
     const dispatchAction = useCallback((action: GameAction) => {
         dispatch(action);
-    }, []);
+    }, [dispatch]);
 
     const fetchWorldState = useCallback(async (
         topic: string,
@@ -68,11 +69,11 @@ export function useSimulationState() {
             console.error('Failed to fetch world state', err);
             throw err;
         }
-    }, []);
+    }, [dispatch]);
 
     const resetSimulation = useCallback(() => {
         dispatch({ type: 'RESET_SIMULATION' });
-    }, []);
+    }, [dispatch]);
 
     return {
         gameState,

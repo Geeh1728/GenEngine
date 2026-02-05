@@ -1,6 +1,7 @@
 import { WorldState } from '../simulation/schema';
 
 export interface BlackboardContext {
+    currentWorldState?: WorldState;
     currentPhysics: {
         gravity: { x: number; y: number; z: number };
         timeScale: number;
@@ -21,9 +22,15 @@ export interface BlackboardContext {
     missionLogs: Array<{
         agent: string;
         message: string;
-        type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING';
+        type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' | 'MANIFEST' | 'SYMBOLIC';
         timestamp: number;
     }>;
+    streamingProgress: number; // 0-100
+    manifestedEntities: string[]; // List of IDs/names already manifested in logs
+    swarmTelemetry?: {
+        peerId: string;
+        power: number;
+    };
 }
 
 class Blackboard {
@@ -44,9 +51,11 @@ class Blackboard {
         activeNodes: [],
         complexity: 'standard',
         missionLogs: [],
+        streamingProgress: 0,
+        manifestedEntities: [],
     };
 
-    private constructor() {}
+    private constructor() { }
 
     public static getInstance(): Blackboard {
         if (!Blackboard.instance) {
@@ -55,7 +64,8 @@ class Blackboard {
         return Blackboard.instance;
     }
 
-    public log(agent: string, message: string, type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' = 'INFO') {
+    public log(agent: string, message: string, type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' | 'MANIFEST' | 'SYMBOLIC' = 'INFO') {
+        console.log(`[Blackboard][${type}] ${agent}: ${message}`);
         this.context.missionLogs.push({
             agent,
             message,
@@ -66,6 +76,22 @@ class Blackboard {
         if (this.context.missionLogs.length > 100) {
             this.context.missionLogs.shift();
         }
+        this.notify();
+    }
+
+    public updateStreaming(progress: number, entities: string[]) {
+        console.log(`[Blackboard][STREAM] Progress: ${progress.toFixed(1)}% | Entities: ${entities.length}`);
+        this.context.streamingProgress = progress;
+
+        // Find new entities to log
+        const newEntities = entities.filter(id => !this.context.manifestedEntities.includes(id));
+        if (newEntities.length > 0) {
+            newEntities.forEach(id => {
+                this.log('Manifest', `✨ Manifested: ${id}`, 'MANIFEST');
+            });
+            this.context.manifestedEntities = [...this.context.manifestedEntities, ...newEntities];
+        }
+
         this.notify();
     }
 
@@ -84,6 +110,7 @@ class Blackboard {
     }
 
     public updateFromWorldState(worldState: WorldState) {
+        this.context.currentWorldState = worldState;
         if (worldState.environment) {
             this.context.currentPhysics = {
                 gravity: worldState.environment.gravity,

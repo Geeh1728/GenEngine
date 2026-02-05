@@ -34,15 +34,22 @@ export function useSentinel() {
             // 3. Consult the Visual Sentinel
             const result = await analyzeStructuralIntegrity(snapshot, sceneState);
 
-            if (result.success) {
-                dispatch({ type: 'SET_HEATMAP', payload: result.heatmap });
+            if (result.success && result.data) {
+                // Map visualCortex output to heatmap schema
+                const heatmap = {
+                    points: result.data.weakPoints.map(p => ({ x: p.x, y: p.y, z: 0, severity: 0.8, reason: p.reason })),
+                    overallStability: 50, // MOCK
+                    remediationAdvice: result.data.suggestions[0]
+                };
+
+                dispatch({ type: 'SET_HEATMAP', payload: heatmap });
                 
-                if (result.heatmap.overallStability < 40) {
+                if (heatmap.overallStability < 40) {
                     dispatch({ 
                         type: 'ADD_MISSION_LOG', 
                         payload: { 
                             agent: 'Sentinel', 
-                            message: `Warning: Structural integrity critical (${result.heatmap.overallStability}%). Check heatmap for failure points.`, 
+                            message: `Warning: Structural integrity critical (${heatmap.overallStability}%). Check heatmap for failure points.`, 
                             type: 'ERROR' 
                         } 
                     });

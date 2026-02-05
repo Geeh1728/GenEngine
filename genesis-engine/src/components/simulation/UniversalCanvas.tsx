@@ -91,7 +91,7 @@ export function UniversalCanvas({ type, customCode, onFailure }: { type?: string
         else if (customCode) {
             try {
                 // Initialize the Logic Bubble Worker
-                const worker = new Worker(new URL('@/lib/simulation/simulation.worker.ts', import.meta.url));
+                const worker = new Worker(new URL('../../lib/simulation/simulation.worker.ts', import.meta.url));
                 
                 worker.postMessage({ type: 'INIT', code: customCode });
 

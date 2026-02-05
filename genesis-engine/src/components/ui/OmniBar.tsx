@@ -14,13 +14,17 @@ import {
     X,
     ShieldAlert,
     MessageCircle,
-    Eye
+    Eye,
+    Share2
 } from 'lucide-react';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { routeIntentLocally, executeLocalTool } from '@/lib/ai/edgeRouter';
 import { generateSimulationLogic, getEmbedding } from '@/app/actions';
 import { queryKnowledge } from '@/lib/db/pglite';
 import { sfx } from '@/lib/sound/SoundManager';
+import { useWormhole } from '@/hooks/useWormhole';
+import { speculator } from '@/lib/ai/speculator';
+import { MasteryLogic } from '@/lib/gamification/mastery-logic';
 
 interface OmniBarProps {
     onCameraClick: () => void;
@@ -48,9 +52,12 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
     const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { generateWormholeURL } = useWormhole();
 
     const isYouTube = /youtube\.com|youtu\.be/.test(prompt);
+    const isURL = /https?:\/\/[^\s]+/.test(prompt) && !isYouTube;
     const isThinking = isProcessing; // Simplified logic without interactionState
+    const showInstrumentHints = prompt.toLowerCase().startsWith('learn');
 
     // Track Online Status
     useEffect(() => {
@@ -69,6 +76,13 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';
             textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+        }
+
+        // MODULE N: NEURAL SPECULATION
+        if (prompt.length > 10) {
+            MasteryLogic.isFeatureAuthorized('HIVE').then(isAuth => {
+                if (isAuth) speculator.speculativeProcess(prompt);
+            });
         }
     }, [prompt]);
 
@@ -116,6 +130,10 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         dispatch({ type: 'SET_ERROR', payload: null });
 
         try {
+            // MODULE N: Consume Speculative Result
+            const isHiveAuth = await MasteryLogic.isFeatureAuthorized('HIVE');
+            const cachedResult = isHiveAuth ? await speculator.consumeSpeculation(prompt) : null;
+
             // 3. Context Retrieval (RAG)
             const embResult = await getEmbedding(prompt);
             let contextText = "";
@@ -125,13 +143,20 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
             }
 
             // 4. Orchestrator Flow via Server Action
-            const currentState = worldState; 
+            const currentState = worldState;
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error("Neural Link Timeout")), 45000)
             );
 
+            // If we have a cached result from the swarm bees, we use it to boost the Orchestrator
             const result: any = await Promise.race([
-                generateSimulationLogic(prompt, contextText, currentState, fileUri || undefined, state.lastInteractionId || undefined),
+                generateSimulationLogic(
+                    prompt,
+                    contextText + (cachedResult ? `\nPRE-GENERATED ASSETS: ${JSON.stringify(cachedResult)}` : ""),
+                    currentState,
+                    fileUri || undefined,
+                    state.lastInteractionId || undefined
+                ),
                 timeoutPromise
             ]);
 
@@ -140,7 +165,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                 dispatch({ type: 'SYNC_WORLD', payload: { ...result.worldState, interactionId: result.interactionId } });
                 dispatch({ type: 'SET_SABOTAGED', payload: result.isSabotaged || false });
                 dispatch({ type: 'SET_HYPOTHESIS', payload: prompt });
-                
+
                 if (result.logs) {
                     result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
                 }
@@ -165,13 +190,14 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         } catch (err) {
             console.error('[OmniBar] Error:', err);
             const msg = err instanceof Error ? err.message : 'Unknown error';
-            
+
             // FAILOVER: Trigger Resilience Voxel Mode on API failure
-            dispatch({ 
-                type: 'SYNC_WORLD', 
+            dispatch({
+                type: 'SYNC_WORLD',
                 payload: {
                     scenario: "Resilience Voxel Grid",
                     mode: "VOXEL",
+                    domain: "SCIENCE",
                     voxels: [
                         { x: 0, y: 0, z: 0, color: '#3b82f6' },
                         { x: 1, y: 0, z: 0, color: '#3b82f6' },
@@ -213,13 +239,29 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
 
     const handleWhatsAppShare = () => {
         if (!worldState) return;
-        // Use a persistent room ID for the session if possible, or generate a new one
-        const roomId = Math.random().toString(36).substring(7);
+        // SECURITY: Use cryptographically secure UUID for room IDs
+        const roomId = crypto.randomUUID();
         const url = `${window.location.origin}${window.location.pathname}?s=${roomId}`;
         const text = `I built a "${worldState.scenario}" in Genesis. Can you beat it? Check it out here: ${url}`;
         const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
         window.open(waUrl, '_blank');
         sfx.playSuccess();
+    };
+
+    const handleWormholeShare = async () => {
+        const url = await generateWormholeURL();
+        if (url) {
+            navigator.clipboard.writeText(url);
+            dispatch({
+                type: 'ADD_MISSION_LOG',
+                payload: {
+                    agent: 'Astra',
+                    message: "🌌 Wormhole Stabilized. Share link copied.",
+                    type: 'SUCCESS'
+                }
+            });
+            sfx.playSuccess();
+        }
     };
 
     return (
@@ -249,13 +291,13 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
             <div className="absolute -top-10 left-4 md:left-8 flex flex-wrap gap-2 md:gap-3">
                 <AnimatePresence>
                     {!isOnline && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-amber-600 rounded-full shadow-[0_0_20px_rgba(217,119,6,0.4)] border border-amber-400/50">
+                        <motion.div key="offline-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-amber-600 rounded-full shadow-[0_0_20px_rgba(217,119,6,0.4)] border border-amber-400/50">
                             <ShieldAlert className="w-3 h-3 text-white animate-pulse" />
                             <span className="text-[10px] font-black uppercase text-white tracking-widest">Genesis: Offline Mode</span>
                         </motion.div>
                     )}
                     {isThinking && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-blue-600 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+                        <motion.div key="thinking-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-blue-600 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.4)]">
                             <Brain className="w-3 h-3 text-white animate-pulse" />
                             <span className="text-[10px] font-black uppercase text-white tracking-widest">
                                 {isLongRunning ? "Architecting Complex Reality..." : "Thinking..."}
@@ -263,21 +305,33 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                         </motion.div>
                     )}
                     {isSabotaged && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+                        <motion.div key="sabotage-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-full shadow-[0_0_20_rgba(220,38,38,0.4)]">
                             <ShieldAlert className="w-3 h-3 text-white animate-bounce" />
                             <span className="text-[10px] font-black uppercase text-white tracking-widest">Anomaly Detected</span>
                         </motion.div>
                     )}
                     {isOnline && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-cyan-600/20 border border-cyan-500/30 rounded-full">
+                        <motion.div key="research-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-cyan-600/20 border border-cyan-500/30 rounded-full">
                             <Search className="w-3 h-3 text-cyan-400" />
                             <span className="text-[10px] font-black uppercase text-cyan-400 tracking-widest">Deep Research Active</span>
                         </motion.div>
                     )}
+                    {isURL && (
+                        <motion.div key="oracle-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full">
+                            <Share2 className="w-3 h-3 text-purple-400" />
+                            <span className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Oracle Link Active</span>
+                        </motion.div>
+                    )}
                     {state.worldState && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-indigo-600/20 border border-indigo-500/30 rounded-full">
+                        <motion.div key="sentinel-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-indigo-600/20 border border-indigo-500/30 rounded-full">
                             <Eye className="w-3 h-3 text-indigo-400 animate-pulse" />
                             <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Sentinel: Observing</span>
+                        </motion.div>
+                    )}
+                    {showInstrumentHints && (
+                        <motion.div key="instrument-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-emerald-600/20 border border-emerald-500/30 rounded-full">
+                            <Mic className="w-3 h-3 text-emerald-400" />
+                            <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Instrument Forge: 🎸 🥁 🎷 🎹</span>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -287,10 +341,11 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                 layout
                 animate={{
                     borderColor: status === 'error' ? 'rgba(239, 68, 68, 0.5)' :
-                        isThinking ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: isThinking ? '0 0 30px rgba(59, 130, 246, 0.2)' : '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                        isThinking ? 'rgba(6, 182, 212, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                    boxShadow: isThinking ? '0 0 30px rgba(6, 182, 212, 0.3)' : '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)'
                 }}
-                className="relative bg-black/40 backdrop-blur-3xl rounded-[24px] md:rounded-[32px] border border-white/10 overflow-hidden p-2 md:p-2 transition-all duration-500"
+                className="relative backdrop-blur-xl rounded-full border border-white/10 overflow-hidden p-2 md:p-2 transition-all duration-500"
             >
                 <div className="flex flex-col md:flex-row items-stretch md:items-end gap-2 md:gap-2 px-1 md:px-2">
                     {/* Mobile: Top Action Bar / Desktop: Left Tools */}
@@ -298,23 +353,23 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                         <div className="flex items-center gap-1">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="p-2 md:p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl md:rounded-2xl transition-all"
+                                className="p-2 md:p-3 text-logic-cyan/70 hover:text-logic-cyan hover:bg-white/5 rounded-full transition-all"
                             >
                                 <Paperclip className="w-4 h-4 md:w-5 md:h-5" />
                             </button>
                             <button
                                 onClick={() => onCameraClick()}
-                                className="p-2 md:p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl md:rounded-2xl transition-all"
+                                className="p-2 md:p-3 text-logic-cyan/70 hover:text-logic-cyan hover:bg-white/5 rounded-full transition-all"
                             >
                                 <Camera className="w-4 h-4 md:w-5 md:h-5" />
                             </button>
                         </div>
-                        
+
                         {/* Mobile Right Actions */}
                         <div className="md:hidden flex items-center gap-1">
-                             <button
+                            <button
                                 onClick={() => setIsListening(!isListening)}
-                                className={`p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                                className={`p-2 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                             >
                                 <Mic className="w-4 h-4" />
                             </button>
@@ -322,7 +377,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                                 onClick={() => handleSubmit()}
                                 disabled={(!prompt.trim() && !selectedFile) || isThinking}
                                 className={`
-                                    p-2 rounded-xl transition-all
+                                    p-2 rounded-full transition-all
                                     ${(!prompt.trim() && !selectedFile) ? 'text-gray-700 bg-white/5' : 'bg-white text-black'}
                                 `}
                             >
@@ -345,20 +400,29 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={isThinking ? "Consulting the Council..." : "Ask Genesis..."}
+                        placeholder={isThinking ? "Consulting the Council..." : "Manifest Intent..."}
                         disabled={isThinking}
-                        className="flex-1 w-full bg-transparent border-none outline-none text-white placeholder:text-gray-500 text-sm md:text-base font-medium py-2 md:py-3 px-2 resize-none max-h-32 md:max-h-48 scrollbar-none font-mono"
+                        className="flex-1 w-full bg-transparent border-none outline-none text-white placeholder:text-white/30 text-sm md:text-base font-medium py-2 md:py-3 px-2 resize-none max-h-32 md:max-h-48 scrollbar-none font-inter tracking-tight"
                     />
 
                     <div className="hidden md:flex items-center gap-2 pb-1 pr-1">
                         {worldState && (
-                            <button
-                                onClick={handleWhatsAppShare}
-                                className="p-3 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/5 rounded-2xl transition-all"
-                                title="Share to WhatsApp"
-                            >
-                                <MessageCircle className="w-5 h-5" />
-                            </button>
+                            <>
+                                <button
+                                    onClick={handleWormholeShare}
+                                    className="p-3 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-400/5 rounded-2xl transition-all"
+                                    title="Stabilize Wormhole (Copy Link)"
+                                >
+                                    <Share2 className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={handleWhatsAppShare}
+                                    className="p-3 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/5 rounded-2xl transition-all"
+                                    title="Share to WhatsApp"
+                                >
+                                    <MessageCircle className="w-5 h-5" />
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={() => setIsListening(!isListening)}

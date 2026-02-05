@@ -15,10 +15,20 @@ export const getDB = async (): Promise<PGlite | null> => {
   }
 
   if (!dbInstance) {
-    // Initialize PGlite with IndexedDB persistence
-    dbInstance = await PGlite.create('idb://genesis-db', {
-      extensions: { vector },
-    });
+    // Initialize PGlite with OPFS persistence (Module D - Titan Disk)
+    // Falls back to IndexedDB if OPFS is not supported or restricted
+    try {
+      dbInstance = await PGlite.create('opfs://genesis-db', {
+        extensions: { vector },
+      });
+      console.log('🔋 Genesis Local DB: Online (OPFS High-Speed)');
+    } catch (e) {
+      console.warn('[TitanDisk] OPFS restricted, falling back to IndexedDB.');
+      dbInstance = await PGlite.create('idb://genesis-db', {
+        extensions: { vector },
+      });
+      console.log('🔋 Genesis Local DB: Online (IndexedDB Fallback)');
+    }
 
     // Initialize schema (run once)
     // 768 dimensions matches text-embedding-004 output
@@ -41,6 +51,12 @@ export const getDB = async (): Promise<PGlite | null> => {
                 model_id TEXT,
                 request_count INTEGER DEFAULT 0,
                 PRIMARY KEY (date, model_id)
+            );
+            CREATE TABLE IF NOT EXISTS visual_echoes (
+                id SERIAL PRIMARY KEY,
+                embedding vector(768),
+                metadata JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS system_config (
                 model_alias TEXT PRIMARY KEY,
@@ -105,6 +121,43 @@ export async function getApiUsage(modelId: string = 'googleai/gemini-3-flash') {
   const today = new Date().toISOString().split('T')[0];
   const result = await db.query('SELECT request_count FROM usage_stats WHERE date = $1 AND model_id = $2', [today, modelId]);
   return (result.rows[0] as { request_count: number })?.request_count || 0;
+}
+
+/**
+ * MODULE V: VISUAL ECHO (Temporal Memory)
+ */
+export async function storeVisualEcho(embedding: number[], metadata: any) {
+  const db = await getDB();
+  if (!db) return;
+
+  const vectorStr = `[${embedding.join(',')}]`;
+  await db.query(`
+    INSERT INTO visual_echoes (embedding, metadata)
+    VALUES ($1, $2)
+  `, [vectorStr, JSON.stringify(metadata)]);
+}
+
+export async function queryVisualEchoes(queryVector: number[], limit = 1) {
+  const db = await getDB();
+  if (!db) return [];
+
+  const vectorStr = `[${queryVector.join(',')}]`;
+  const result = await db.query(`
+    SELECT metadata, 1 - (embedding <=> $1) as similarity
+    FROM visual_echoes
+    ORDER BY similarity DESC
+    LIMIT $2
+  `, [vectorStr, limit]);
+
+  return result.rows;
+}
+
+export async function purgeOldEchoes() {
+  const db = await getDB();
+  if (!db) return;
+
+  // Purge echoes older than 10 minutes
+  await db.query("DELETE FROM visual_echoes WHERE created_at < NOW() - INTERVAL '10 minutes'");
 }
 
 /**

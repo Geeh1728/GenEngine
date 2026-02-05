@@ -4,17 +4,22 @@ import React, { useRef, useState, useEffect } from 'react';
 import { RigidBody, CuboidCollider, BallCollider, RapierRigidBody, useFixedJoint, useSphericalJoint, useRevoluteJoint, usePrismaticJoint, CollisionEnterPayload } from '@react-three/rapier';
 import { Html } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Info, Search } from 'lucide-react';
-import { Entity, Joint, WorldState } from '@/lib/simulation/schema';
+import { BookOpen, Search } from 'lucide-react';
+import { Entity, Joint } from '@/lib/simulation/schema';
 import { useTextureGen } from '@/lib/simulation/useTextureGen';
 import { LabBench } from './LabBench';
 import { VoxelRenderer } from './VoxelRenderer';
 import { UniversalCanvas } from './UniversalCanvas';
-import { SkillNodeSchema, StructuralHeatmapSchema } from '@/lib/genkit/schemas';
+import { DynamicShaderMaterial } from './DynamicShaderMaterial';
+import { StructuralHeatmapSchema } from '@/lib/genkit/schemas';
 import { blackboard, BlackboardContext } from '@/lib/genkit/context';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
+import { ECSRenderer } from './ECSRenderer';
+import { syncFromWorldState } from '@/lib/ecs/systems';
 import { z } from 'zod';
-import * as THREE from 'three';
+
+// ECS Performance Threshold: Switch to ECS when entity count exceeds this
+const ECS_THRESHOLD = 50;
 
 const StructuralHeatmapRenderer = ({ heatmap }: { heatmap: z.infer<typeof StructuralHeatmapSchema> }) => {
     return (
@@ -23,10 +28,10 @@ const StructuralHeatmapRenderer = ({ heatmap }: { heatmap: z.infer<typeof Struct
                 <group key={i} position={[point.x, point.y, point.z]}>
                     <mesh>
                         <sphereGeometry args={[0.3, 16, 16]} />
-                        <meshBasicMaterial 
-                            color="#ef4444" 
-                            transparent 
-                            opacity={point.severity * 0.6} 
+                        <meshBasicMaterial
+                            color="#ef4444"
+                            transparent
+                            opacity={point.severity * 0.6}
                         />
                     </mesh>
                     <pointLight color="#ef4444" intensity={point.severity * 2} distance={3} />
@@ -43,8 +48,6 @@ const StructuralHeatmapRenderer = ({ heatmap }: { heatmap: z.infer<typeof Struct
     );
 };
 
-type SkillNode = z.infer<typeof SkillNodeSchema>;
-
 interface EntityRendererProps {
     entity: Entity;
     onRegister: (id: string, ref: RapierRigidBody | null) => void;
@@ -52,15 +55,30 @@ interface EntityRendererProps {
     onSelect?: (id: string) => void;
     blackboardContext?: BlackboardContext;
     isSelected?: boolean;
+    domain?: 'SCIENCE' | 'HISTORY' | 'MUSIC' | 'TRADE' | 'ABSTRACT';
 }
 
-const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onCollision, onSelect, blackboardContext, isSelected }) => {
+const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onCollision, onSelect, blackboardContext, isSelected, domain = 'SCIENCE' }) => {
     const rbRef = useRef<RapierRigidBody>(null);
     const [showCitation, setShowCitation] = useState(false);
+    const [shaderTime, setShaderTime] = useState(0);
     const material = useTextureGen({
-        prompt: entity.texturePrompt,
-        color: isSelected ? '#ffffff' : entity.color,
+        prompt: entity.visual.texture,
+        color: isSelected ? '#ffffff' : entity.visual.color,
     });
+
+    // Animate shader time for dynamic effects
+    useEffect(() => {
+        if (!entity.shaderCode) return;
+        let animationId: number;
+        const startTime = performance.now();
+        const animate = () => {
+            setShaderTime((performance.now() - startTime) / 1000);
+            animationId = requestAnimationFrame(animate);
+        };
+        animationId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationId);
+    }, [entity.shaderCode]);
 
     // Neural Heatmap Colors
     const getTruthColor = (source?: string) => {
@@ -82,7 +100,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
     // Memoize Geometries for Performance
     const { geometry, collider } = React.useMemo(() => {
         const dims = entity.dimensions || { x: 1, y: 1, z: 1 };
-        if (entity.type === 'sphere') {
+        if (entity.shape === 'sphere') {
             return {
                 geometry: <sphereGeometry args={[dims.x, 32, 32]} />,
                 collider: <BallCollider args={[dims.x]} />
@@ -92,7 +110,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
             geometry: <boxGeometry args={[dims.x, dims.y, dims.z]} />,
             collider: <CuboidCollider args={[dims.x / 2, dims.y / 2, dims.z / 2]} />
         };
-    }, [entity.type, entity.dimensions]);
+    }, [entity.shape, entity.dimensions]);
 
     // Apply Physical Overrides (Quantum Bridge)
     let restitution = entity.physics.restitution;
@@ -117,27 +135,36 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
     return (
         <RigidBody
             ref={rbRef}
-            type={entity.isStatic ? 'fixed' : 'dynamic'}
+            type={entity.isRemote ? 'kinematicPosition' : (entity.physics.isStatic ? 'fixed' : 'dynamic')}
             position={[entity.position.x, entity.position.y, entity.position.z]}
-            rotation={[
-                THREE.MathUtils.degToRad(entity.rotation?.x || 0),
-                THREE.MathUtils.degToRad(entity.rotation?.y || 0),
-                THREE.MathUtils.degToRad(entity.rotation?.z || 0)
-            ]}
+            quaternion={entity.rotation ? [entity.rotation.x, entity.rotation.y, entity.rotation.z, entity.rotation.w] : [0, 0, 0, 1]}
             colliders={false}
             mass={entity.physics.mass}
             friction={friction}
             restitution={restitution}
             onCollisionEnter={handleCollision}
         >
-            <mesh 
-                material={material}
+            <mesh
+                material={entity.shaderCode ? undefined : material}
                 onClick={(e) => {
                     e.stopPropagation();
                     onSelect?.(entity.id);
                 }}
             >
                 {geometry}
+                {/* OMNI-SHADER ENGINE: Use dynamic shader if provided */}
+                {entity.shaderCode && (
+                    <DynamicShaderMaterial
+                        shaderCode={entity.shaderCode}
+                        color={entity.visual.color || '#3b82f6'}
+                        time={shaderTime}
+                        density={entity.neuralPhysics?.elasticity || 0.5}
+                        stress={entity.physics.mass > 50 ? 0.8 : (entity.isUnstable ? 0.5 : 0.0)} 
+                        isManifesting={entity.truthSource === 'METAPHOR'} // MOCK: Generative objects glow
+                        isTransparent={entity.visual.texture?.toLowerCase().includes('glass') || entity.visual.texture?.toLowerCase().includes('transparent')}
+                        domain={domain}
+                    />
+                )}
                 {truthColor && (
                     <mesh position={[0, 0, 0]} scale={1.05}>
                         {geometry}
@@ -188,9 +215,9 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
                                         <p className="text-[9px] text-gray-400 italic leading-tight line-clamp-3">&quot;{entity.citation.snippet}&quot;</p>
                                     )}
                                     {entity.citation.url && (
-                                        <a 
-                                            href={entity.citation.url} 
-                                            target="_blank" 
+                                        <a
+                                            href={entity.citation.url}
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             className="mt-2 block text-[8px] text-cyan-500 hover:underline truncate"
                                         >
@@ -316,15 +343,15 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
     const mode = activeNode?.engineMode || worldState.mode;
 
     const handleCanvasFailure = (err: string) => {
-        dispatch({ 
-            type: 'ADD_MISSION_LOG', 
-            payload: { 
-                agent: 'Sentinel', 
-                message: `GPU Alert: ${err}. Falling back to stable Voxel mode.`, 
-                type: 'ERROR' 
-            } 
+        dispatch({
+            type: 'ADD_MISSION_LOG',
+            payload: {
+                agent: 'Sentinel',
+                message: `GPU Alert: ${err}. Falling back to stable Voxel mode.`,
+                type: 'ERROR'
+            }
         });
-        
+
         // Force Voxel Fallback: Generate generic voxels if custom code fails
         dispatch({
             type: 'SYNC_WORLD',
@@ -337,15 +364,15 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                     { x: 1, y: 0, z: 0, color: '#3b82f6' },
                     { x: 0, y: 1, z: 0, color: '#3b82f6' }
                 ]
-            } as any
+            }
         });
     };
 
     if (worldState.custom_canvas_code) {
         return (
             <Html transform position={[0, 0, 0]}>
-                <UniversalCanvas 
-                    customCode={worldState.custom_canvas_code} 
+                <UniversalCanvas
+                    customCode={worldState.custom_canvas_code}
                     onFailure={handleCanvasFailure}
                 />
             </Html>
@@ -356,7 +383,7 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
         const params = worldState.scientificParams;
         return (
             <LabBench
-                scenario={worldState.scenario as any}
+                scenario={worldState.scenario}
                 scientificParams={params}
                 initialState={params?.initialState as number[]}
                 l1={params?.l1}
@@ -380,8 +407,41 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
     const entities = worldState.entities || [];
     const hasGround = entities.some(e => e.id === 'ground' || e.name?.toLowerCase().includes('ground'));
 
+    // MODULE E: Environment Presets (Atmospheric Context)
+    const domain = worldState.domain || 'SCIENCE';
+    const presets = {
+        SCIENCE: { ambient: 1.5, point: 2, fogColor: '#020617', fogNear: 10, fogFar: 50 },
+        HISTORY: { ambient: 0.8, point: 1.5, fogColor: '#2d1b0e', fogNear: 5, fogFar: 30 },
+        MUSIC: { ambient: 1.2, point: 3, fogColor: '#1e0b36', fogNear: 15, fogFar: 60 },
+        ABSTRACT: { ambient: 0.5, point: 5, fogColor: '#000000', fogNear: 2, fogFar: 20 },
+        TRADE: { ambient: 2.0, point: 1, fogColor: '#111827', fogNear: 20, fogFar: 100 }
+    };
+    const currentPreset = presets[domain] || presets.SCIENCE;
+
     return (
         <group onPointerMissed={() => dispatch({ type: 'DESELECT_ENTITY' })}>
+            <color attach="background" args={[currentPreset.fogColor]} />
+            <fog attach="fog" args={[currentPreset.fogColor, currentPreset.fogNear, currentPreset.fogFar]} />
+            
+            {domain === 'MUSIC' && (
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]} receiveShadow>
+                    <planeGeometry args={[100, 100, 64, 64]} />
+                    <DynamicShaderMaterial
+                        shaderCode={`
+                            void main() {
+                                float dist = length(vPosition.xz);
+                                float ripple = sin(dist * 2.0 - uTime * 5.0) * 0.1;
+                                vec3 color = mix(uColor, vec3(0.1, 0.0, 0.2), dist * 0.02);
+                                gl_FragColor = vec4(color + ripple, 0.8);
+                            }
+                        `}
+                        color="#8b5cf6"
+                        domain="MUSIC"
+                        isTransparent
+                    />
+                </mesh>
+            )}
+
             {state.structuralHeatmap && <StructuralHeatmapRenderer heatmap={state.structuralHeatmap} />}
             {worldState.sabotage_reveal && (
                 <Html position={[0, 5, 0]} distanceFactor={15}>
@@ -409,7 +469,17 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                 </RigidBody>
             )}
 
-            {entities.length > 0 ? entities.map(entity => (
+            {/* ECS PERFORMANCE SWITCH: Use GPU-optimized renderer for large scenes */}
+            {entities.length > ECS_THRESHOLD ? (
+                <>
+                    {/* Sync to ECS World */}
+                    {(() => { syncFromWorldState(worldState); return null; })()}
+                    <ECSRenderer
+                        onCollision={onCollision}
+                        onSelect={handleSelect}
+                    />
+                </>
+            ) : entities.length > 0 ? entities.map(entity => (
                 <EntityRenderer
                     key={entity.id}
                     entity={entity}
@@ -418,40 +488,54 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                     onSelect={handleSelect}
                     isSelected={entity.id === state.selectedEntityId}
                     blackboardContext={bbCtx}
+                    domain={domain}
                 />
             )) : (
                 <group>
                     <EntityRenderer
                         entity={{
                             id: 'sentinel-obelisk',
-                            type: 'box',
+                            shape: 'box',
                             position: { x: 0, y: 4, z: 0 },
-                            rotation: { x: 0, y: 45, z: 0 },
+                            rotation: { x: 0, y: 0, z: 0, w: 1 },
                             dimensions: { x: 0.5, y: 8, z: 0.5 },
-                            physics: { mass: 0, friction: 0.5, restitution: 0.5 },
-                            color: '#3b82f6',
-                            name: 'Quantum Obelisk',
-                            isStatic: true,
-                            texturePrompt: 'glowing obsidian with neon blue circuits'
+                            physics: { mass: 0, friction: 0.5, restitution: 0.5, isStatic: true },
+                            visual: {
+                                color: '#3b82f6',
+                                texture: 'glowing obsidian with neon blue circuits'
+                            },
+                            name: 'Quantum Obelisk'
                         }}
                         onRegister={registerRb}
                         onCollision={onCollision}
                         onSelect={handleSelect}
                         isSelected={'sentinel-obelisk' === state.selectedEntityId}
                         blackboardContext={bbCtx}
+                        domain={domain}
                     />
                     {/* Visual Flare for the Obelisk */}
                     <pointLight position={[0, 5, 0]} intensity={5} color="#3b82f6" />
                 </group>
             )}
 
-            {worldState.joints?.map(joint => (
-                <JointRenderer key={joint.id} joint={joint} getRB={getRB} />
-            ))}
+                        {worldState.joints?.map(joint => (
 
-            <ambientLight intensity={1.5} />
-            <pointLight position={[10, 10, 10]} intensity={2} castShadow />
-            <directionalLight position={[-5, 5, 5]} intensity={1} />
-        </group>
-    );
-};
+                            <JointRenderer key={joint.id} joint={joint} getRB={getRB} />
+
+                        ))}
+
+            
+
+                        <ambientLight intensity={currentPreset.ambient} />
+
+                        <pointLight position={[10, 10, 10]} intensity={currentPreset.point} castShadow />
+
+                        <directionalLight position={[-5, 5, 5]} intensity={1} />
+
+                    </group>
+
+                );
+
+            };
+
+            

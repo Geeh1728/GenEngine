@@ -1,5 +1,6 @@
 'use server';
 
+import crypto from 'crypto';
 import { ai, ROBOTICS_MODEL_NAME, geminiFlash } from '@/lib/genkit/config';
 import { embeddingModel } from '@/lib/google';
 import { shieldInput, shieldOutput, checkRateLimit } from '@/lib/security/armor';
@@ -8,6 +9,15 @@ import { architectFlow } from '@/lib/genkit/agents/architect';
 import { sanitizeInput } from '@/lib/utils/text';
 
 import { SkillTree } from '@/lib/genkit/schemas';
+
+function mapLogs(logs: any[] | undefined): MissionLog[] | undefined {
+    if (!logs) return undefined;
+    return logs.map(log => ({
+        ...log,
+        id: crypto.randomUUID(),
+        timestamp: Date.now()
+    }));
+}
 
 export async function generateCurriculum(userGoal: string): Promise<SkillTree | null> {
     try {
@@ -31,6 +41,7 @@ export async function compileHypothesis(hypothesis: string, context: string, fil
 import { WorldState, Entity } from '@/lib/simulation/schema';
 import { Quest } from '@/lib/genkit/agents/questAgent';
 import { StructuralAnalysis } from '@/lib/genkit/schemas';
+import { MissionLog } from '@/lib/multiplayer/GameState';
 
 export async function generateSimulationLogic(
     hypothesis: string, 
@@ -39,9 +50,9 @@ export async function generateSimulationLogic(
     fileUri?: string,
     previousInteractionId?: string
 ): Promise<
-    | { success: true; worldState: WorldState; interactionId?: string; quest: Quest | null | undefined; isSabotaged: boolean; logs?: any[] }
-    | { success: false; isBlocked: true; error: string; message: string; nativeReply: string; logs?: any[] }
-    | { success: false; error: string; logs?: any[] }
+    | { success: true; worldState: WorldState; interactionId?: string; quest: Quest | null | undefined; isSabotaged: boolean; logs?: MissionLog[] }
+    | { success: false; isBlocked: true; error: string; message: string; nativeReply: string; interactionId?: string; logs?: MissionLog[] }
+    | { success: false; error: string; logs?: MissionLog[] }
 > {
     try {
         // 1. Rate Limit Check
@@ -86,7 +97,8 @@ export async function generateSimulationLogic(
                 error: String(result.message || 'Input rejected by the Socratic Saboteur.'),
                 message: String(result.message || ''),
                 nativeReply: String(result.nativeReply || ''),
-                logs: result.logs
+                interactionId: result.interactionId,
+                logs: mapLogs(result.logs)
             };
         }
 
@@ -106,7 +118,7 @@ export async function generateSimulationLogic(
             interactionId: result.interactionId,
             quest: result.quest,
             isSabotaged: !!(result.worldState as WorldState).sabotage_reveal,
-            logs: result.logs
+            logs: mapLogs(result.logs)
         };
     } catch (error) {
         console.error('Kinetic Core Error:', error);
@@ -129,9 +141,9 @@ export async function processMultimodalIntent(params: {
     isSaboteurReply?: boolean;
     previousInteractionId?: string;
 }): Promise<
-    | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | null | undefined; nativeReply: string; interactionId?: string; logs?: any[] }
-    | { success: false; isBlocked: true; message: string; nativeReply: string; logs?: any[] }
-    | { success: false; error: string; logs?: any[] }
+    | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | null | undefined; nativeReply: string; interactionId?: string; logs?: MissionLog[] }
+    | { success: false; isBlocked: true; message: string; nativeReply: string; interactionId?: string; logs?: MissionLog[] }
+    | { success: false; error: string; logs?: MissionLog[] }
 > {
     try {
         if (!(await checkRateLimit())) throw new Error('Neural link bandwidth exceeded.');
@@ -155,7 +167,8 @@ export async function processMultimodalIntent(params: {
                 isBlocked: true,
                 message: String(result.message || ''),
                 nativeReply: String(result.nativeReply || ''),
-                logs: result.logs
+                interactionId: result.interactionId,
+                logs: mapLogs(result.logs)
             };
         }
 
@@ -170,7 +183,7 @@ export async function processMultimodalIntent(params: {
             quest: result.quest,
             nativeReply: String(result.nativeReply || ''),
             interactionId: result.interactionId,
-            logs: result.logs
+            logs: mapLogs(result.logs)
         };
     } catch (error) {
         console.error('Multimodal Gateway Error:', error);
