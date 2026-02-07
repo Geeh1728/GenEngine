@@ -10,6 +10,8 @@ import { syncFromRapier, registerRigidBody, selectEntity, getRenderTransforms, R
 import { DynamicShaderMaterial } from './DynamicShaderMaterial';
 import { timeTurner, useTimeTurner } from '@/lib/store/TimeTurnerStore';
 import { newtonEngine } from '@/lib/simulation/newton-engine';
+import { useGenesisStore } from '@/hooks/useGenesisStore';
+import { p2p } from '@/lib/multiplayer/P2PConnector';
 
 /**
  * ECS Renderer: High-performance entity rendering using GPU instancing.
@@ -111,6 +113,7 @@ interface HistoryFrame {
 
 export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
     const { camera } = useThree();
+    const { dispatch } = useGenesisStore();
     const [isWorkerReady, setIsWorkerReady] = useState(false);
     const [transforms, setTransforms] = useState<RenderTransform[]>([]);
     const [entityCount, setEntityCount] = useState(0);
@@ -152,9 +155,20 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
         workerRef.current.postMessage({ type: 'SYNC_WORLD', payload });
     }, [isWorkerReady, entityCount]);
 
-    const handleCollision = (id: string, impactMagnitude: number) => {
+    const handleCollision = (id: string, impactMagnitude: number, position?: { x: number, y: number, z: number }) => {
         if (onCollision && impactMagnitude > 5) {
             onCollision(impactMagnitude);
+            
+            // MODULE A-S: Acoustic Sync & Interrupt Sensitivity
+            dispatch({ type: 'RECORD_INSTRUMENT_ACTIVITY' });
+            
+            // Broadcast Visual Event (Ripple)
+            p2p.broadcastVisualEvent({
+                type: 'IMPACT_RIPPLE',
+                entityId: id,
+                magnitude: impactMagnitude,
+                position: position || { x: 0, y: 0, z: 0 }
+            });
         }
     };
 
@@ -203,7 +217,7 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
 
                 if (deltaV > 50) {
                     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(20);
-                    handleCollision(e.id, deltaV);
+                    handleCollision(e.id, deltaV, { x: newPos.x, y: newPos.y, z: newPos.z });
                 }
                 lastVelocities.current.set(e.id, velocity);
 
@@ -337,7 +351,7 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
                                     onCollisionEnter={(payload) => {
                                         const force = payload.manifold?.localNormal1() || { x: 0, y: 0, z: 0 };
                                         const magnitude = Math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2);
-                                        handleCollision(t.id, magnitude * 10);
+                                        handleCollision(t.id, magnitude * 10, { x: t.position[0], y: t.position[1], z: t.position[2] });
                                     }}
                                 >
                                     {MeshContent}

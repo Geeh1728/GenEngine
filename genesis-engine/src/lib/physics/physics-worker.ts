@@ -36,6 +36,7 @@ let entityIds: string[] = []; // To maintain order for SAB
 // Shared Buffer: [Version, Count, ... (7 floats per entity: x,y,z, qx,qy,qz,qw)]
 let sharedBuffer: Float32Array;
 const STRIDE = 8; // x, y, z, qx, qy, qz, qw, padding
+const MAX_ENTITIES = 490; // (4000 - 4) / 8 = 499.5
 
 self.onmessage = async (e) => {
     const { type, payload } = e.data;
@@ -48,10 +49,15 @@ self.onmessage = async (e) => {
             await RAPIER.init();
             world = new RAPIER.World({ x: 0.0, y: -9.81, z: 0.0 });
             if (payload && payload.buffer) {
-                sharedBuffer = new Float32Array(payload.buffer);
+                try {
+                    sharedBuffer = new Float32Array(payload.buffer);
+                } catch (err) {
+                    console.error("[GhostKernel] SharedArrayBuffer initialization failed:", err);
+                    return;
+                }
             }
             isPhysicsInitialized = true;
-            console.log("[GhostKernel] Physics Worker Initialized with Gravity -9.81");
+            console.log("[GhostKernel] Physics Worker Initialized with Hardened Buffer");
             break;
 
         case 'SYNC_WORLD':
@@ -61,11 +67,30 @@ self.onmessage = async (e) => {
 
         case 'STEP':
             if (!isPhysicsInitialized) return;
+            
+            // PHYSICS STABILITY GATING: Prevent kinetic explosions
+            const bodies = world.bodies.getAll();
+            bodies.forEach((body: any) => {
+                const vel = body.linvel();
+                const speed = Math.sqrt(vel.x**2 + vel.y**2 + vel.z**2);
+                if (speed > 1000) {
+                    body.setLinvel({ x: vel.x * 0.1, y: vel.y * 0.1, z: vel.z * 0.1 }, true);
+                }
+            });
+
             world.step();
             writeStateToBuffer();
-            // We don't necessarily need to postMessage every frame if SAB is used, 
-            // but for 'STEP_COMPLETE' synchronization it helps.
             self.postMessage({ type: 'STEP_COMPLETE' });
+            break;
+
+        case 'RESET':
+            if (world) {
+                world.free(); // Explicitly free WASM memory
+                world = null;
+                bodyMap.clear();
+                entityIds = [];
+                isPhysicsInitialized = false;
+            }
             break;
     }
 };
@@ -154,28 +179,61 @@ function updateWorldFromState(state: WorkerPayload) {
 }
 
 function writeStateToBuffer() {
-    if (!sharedBuffer) return;
+
+    if (!sharedBuffer || sharedBuffer.length === 0) return;
+
+
 
     // Header: Update version/frame count at index 0
+
     sharedBuffer[0] = (sharedBuffer[0] + 1) % 100000;
-    sharedBuffer[1] = entityIds.length;
+
+    
+
+    // SAFETY: Cap count to buffer capacity
+
+    const count = Math.min(entityIds.length, MAX_ENTITIES);
+
+    sharedBuffer[1] = count;
+
+
 
     // Data
-    for (let i = 0; i < entityIds.length; i++) {
-        const id = entityIds[i];
-        const body = bodyMap.get(id);
-        if (body) {
-            const t = body.translation();
-            const r = body.rotation();
-            const offset = 4 + (i * STRIDE); // Header is 4 floats
 
-            sharedBuffer[offset + 0] = t.x;
+    for (let i = 0; i < count; i++) {
+
+        const id = entityIds[i];
+
+        const body = bodyMap.get(id);
+
+        if (body) {
+
+            const t = body.translation();
+
+            const r = body.rotation();
+
+            const offset = 4 + (i * STRIDE);
+
+
+
+            // High-speed write (Float32Array optimization)
+
+            sharedBuffer[offset] = t.x;
+
             sharedBuffer[offset + 1] = t.y;
+
             sharedBuffer[offset + 2] = t.z;
+
             sharedBuffer[offset + 3] = r.x;
+
             sharedBuffer[offset + 4] = r.y;
+
             sharedBuffer[offset + 5] = r.z;
+
             sharedBuffer[offset + 6] = r.w;
+
         }
+
     }
+
 }

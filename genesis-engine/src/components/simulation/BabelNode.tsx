@@ -6,6 +6,7 @@ import { useLiveAudio } from '@/hooks/useLiveAudio';
 import { useAstraCompanion } from '@/hooks/useAstraCompanion';
 import { AstraOrb } from '../audio/AstraOrb';
 import { ExternalLink } from 'lucide-react';
+import { useGenesisStore } from '@/hooks/useGenesisStore';
 
 interface BabelNodeProps {
     worldState: WorldState;
@@ -16,8 +17,12 @@ export const BabelNode: React.FC<BabelNodeProps> = ({
     worldState,
     onPhysicsUpdate
 }) => {
+    const { state } = useGenesisStore();
     const containerRef = useRef<HTMLDivElement>(null);
     const { isCompanionActive, toggleCompanion } = useAstraCompanion();
+
+    const isInstrumentActive = Date.now() - state.lastInstrumentActivity < 2000;
+
     const {
         status,
         volume,
@@ -28,7 +33,8 @@ export const BabelNode: React.FC<BabelNodeProps> = ({
         speakLocal
     } = useLiveAudio({
         onPhysicsUpdate,
-        initialWorldState: worldState
+        initialWorldState: worldState,
+        isInstrumentActive
     });
 
 

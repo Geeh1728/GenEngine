@@ -63,11 +63,38 @@ export const getDB = async (): Promise<PGlite | null> => {
                 actual_model_string TEXT,
                 last_verified TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS oracle_cache (
+                url TEXT PRIMARY KEY,
+                data JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
     console.log('🔋 Genesis Local DB: Online');
   }
   return dbInstance;
 };
+
+/**
+ * MODULE A++: ORACLE CACHE (Titan Disk)
+ */
+export async function getCachedOracleData(url: string) {
+  const db = await getDB();
+  if (!db) return null;
+
+  const result = await db.query('SELECT data FROM oracle_cache WHERE url = $1', [url]);
+  return (result.rows[0] as { data: any })?.data || null;
+}
+
+export async function cacheOracleData(url: string, data: any) {
+  const db = await getDB();
+  if (!db) return;
+
+  await db.query(`
+    INSERT INTO oracle_cache (url, data)
+    VALUES ($1, $2)
+    ON CONFLICT (url) DO UPDATE SET data = EXCLUDED.data, created_at = CURRENT_TIMESTAMP
+  `, [url, JSON.stringify(data)]);
+}
 
 /**
  * Get a model string from the dynamic registry.

@@ -2,6 +2,7 @@ import { ai, OPENROUTER_FREE_MODELS, BRAIN_PRIMARY } from '../config';
 import { z } from 'genkit';
 import { executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
+import { getCachedOracleData, cacheOracleData } from '../../db/pglite';
 
 export const LibrarianInputSchema = z.object({
     userQuery: z.string(),
@@ -37,7 +38,24 @@ export const librarianAgent = ai.defineFlow(
     },
     async (input) => {
         if (input.url || input.isGrounding) {
-            blackboard.log('Librarian', `Oracle is grounding intent via: ${input.url || 'Web Search'}...`, 'THINKING');
+            // ORACLE CACHE (Titan Disk)
+            if (input.url) {
+                const cached = await getCachedOracleData(input.url);
+                if (cached) {
+                    blackboard.log('Librarian', `Oracle retrieved cached grounding for: ${input.url}`, 'SUCCESS');
+                    if (cached.constants) blackboard.update({ externalConstants: cached.constants });
+                    if (cached.summary) blackboard.update({ researchFindings: cached.summary });
+                    return cached;
+                }
+            }
+
+            const isJSHeavy = input.url && (
+                input.url.includes('notion') || 
+                input.url.includes('gitbook') || 
+                input.url.includes('docs')
+            );
+
+            blackboard.log('Librarian', `Oracle is grounding intent via: ${input.url || 'Web Search'}... ${isJSHeavy ? '(Apify Deep Extraction Active)' : ''}`, 'THINKING');
 
             const result = await executeApexLoop({
                 model: BRAIN_PRIMARY.name, // Use Gemini 3 for native grounding
@@ -45,6 +63,7 @@ export const librarianAgent = ai.defineFlow(
                     ORACLE GROUNDING TASK:
                     URL: ${input.url || 'Perform web search for context'}
                     USER QUERY: "${input.userQuery}"
+                    DEEP_EXTRACTION: ${isJSHeavy ? 'TRUE (Using Apify Patterns)' : 'FALSE'}
                     
                     INSTRUCTION:
                     1. Extract all physical constants, material properties, and mathematical formulas relevant to the query.
@@ -60,6 +79,11 @@ export const librarianAgent = ai.defineFlow(
             });
 
             if (!result.output) throw new Error('Oracle grounding failed.');
+
+            // Cache for future users (R0 Sovereignty)
+            if (input.url) {
+                await cacheOracleData(input.url, result.output);
+            }
 
             // Update Blackboard with grounded data
             if (result.output.constants) {

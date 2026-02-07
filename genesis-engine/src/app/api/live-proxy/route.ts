@@ -4,20 +4,45 @@ export const runtime = 'edge';
 export const maxDuration = 60;
 
 /**
- * THE IRON SHIELD PROXY (v11.0 Platinum Swarm)
+ * THE IRON SHIELD PROXY (v21.0 MCP Hardened)
  * Objective: Securely proxy Gemini Live WebSockets without exposing keys to the client.
- * Implementation: Vercel Edge Function with Bi-Directional Streaming.
  */
 export async function GET(req: NextRequest) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const origin = req.headers.get('origin');
+    const host = req.headers.get('host');
+
+    // SECURITY: Prevent Cross-Site WebSocket Hijacking (CSWSH)
+    if (origin && !origin.includes(host || '')) {
+        return new Response("Forbidden: Potential CSWSH Detected.", { 
+            status: 403,
+            headers: { 
+                'X-Content-Type-Options': 'nosniff',
+                'X-Frame-Options': 'DENY',
+                'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+            }
+        });
+    }
 
     if (!apiKey) {
-        return new Response("Astra: GEMINI_API_KEY is missing from server environment.", { status: 500 });
+        return new Response("Astra: GEMINI_API_KEY is missing from server environment.", { 
+            status: 500,
+            headers: { 
+                'X-Content-Type-Options': 'nosniff',
+                'X-Frame-Options': 'DENY'
+            }
+        });
     }
 
     // 1. Validate WebSocket Upgrade
     if (req.headers.get('upgrade') !== 'websocket') {
-        return new Response("Iron Shield: This endpoint requires a WebSocket connection (Upgrade: websocket).", { status: 426 });
+        return new Response("Iron Shield: Upgrade Required.", { 
+            status: 426,
+            headers: { 
+                'Upgrade': 'websocket',
+                'X-Content-Type-Options': 'nosniff'
+            }
+        });
     }
 
     const GOOGLE_WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BiDiGenerateContent?key=${apiKey}`;

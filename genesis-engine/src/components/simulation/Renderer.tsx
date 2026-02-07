@@ -18,8 +18,28 @@ import { ECSRenderer } from './ECSRenderer';
 import { syncFromWorldState } from '@/lib/ecs/systems';
 import { z } from 'zod';
 
+import { p2p } from '@/lib/multiplayer/P2PConnector';
+
 // ECS Performance Threshold: Switch to ECS when entity count exceeds this
 const ECS_THRESHOLD = 50;
+
+const VisualEffectRenderer = ({ events }: { events: any[] }) => {
+    return (
+        <group>
+            {events.map((event, i) => (
+                <group key={`${event.entityId}-${event.timestamp}`}>
+                    {event.type === 'IMPACT_RIPPLE' && (
+                        <mesh position={[event.position?.x || 0, 0, event.position?.z || 0]}>
+                            <sphereGeometry args={[0.1, 32, 32]} />
+                            <meshBasicMaterial color="#06b6d4" transparent opacity={0.8} />
+                            <pointLight color="#06b6d4" intensity={event.magnitude / 10} distance={10} />
+                        </mesh>
+                    )}
+                </group>
+            ))}
+        </group>
+    );
+};
 
 const StructuralHeatmapRenderer = ({ heatmap }: { heatmap: z.infer<typeof StructuralHeatmapSchema> }) => {
     return (
@@ -59,6 +79,7 @@ interface EntityRendererProps {
 }
 
 const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onCollision, onSelect, blackboardContext, isSelected, domain = 'SCIENCE' }) => {
+    const { dispatch } = useGenesisStore();
     const rbRef = useRef<RapierRigidBody>(null);
     const [showCitation, setShowCitation] = useState(false);
     const [shaderTime, setShaderTime] = useState(0);
@@ -129,6 +150,16 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
         const impulse = event.totalForceMagnitude || 0;
         if (impulse > 50) {
             onCollision(impulse);
+            
+            // MODULE A-S: Sync Ripples & Interrupt Sensitivity
+            dispatch({ type: 'RECORD_INSTRUMENT_ACTIVITY' });
+
+            p2p.broadcastVisualEvent({
+                type: 'IMPACT_RIPPLE',
+                entityId: entity.id,
+                magnitude: impulse,
+                position: entity.position
+            });
         }
     };
 
@@ -306,13 +337,22 @@ interface UniversalRendererProps {
 export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollision }) => {
     const [rbMap, setRbMap] = useState<Record<string, RapierRigidBody>>({});
     const [bbCtx, setBbCtx] = useState<BlackboardContext>(blackboard.getContext());
+    const [visualEvents, setVisualEvents] = useState<any[]>([]);
     const { state, dispatch } = useGenesisStore();
     const { worldState, activeNode, selectedEntityId } = state;
 
     useEffect(() => {
         const unsubscribe = blackboard.subscribe(setBbCtx);
+        const unp2p = p2p.onVisualEvent((event) => {
+            setVisualEvents(prev => [...prev, event]);
+            setTimeout(() => {
+                setVisualEvents(prev => prev.filter(e => e !== event));
+            }, 2000);
+        });
+
         return () => {
             unsubscribe();
+            unp2p();
         };
     }, []);
 
@@ -423,6 +463,8 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
             <color attach="background" args={[currentPreset.fogColor]} />
             <fog attach="fog" args={[currentPreset.fogColor, currentPreset.fogNear, currentPreset.fogFar]} />
             
+            <VisualEffectRenderer events={visualEvents} />
+
             {domain === 'MUSIC' && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]} receiveShadow>
                     <planeGeometry args={[100, 100, 64, 64]} />

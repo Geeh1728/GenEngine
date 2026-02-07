@@ -5,31 +5,33 @@
 
 export const MODELS = {
     // SINGLE IDENTIFIERS
-    BRAIN_AUDIO: 'googleai/gemini-2.0-flash-native-audio-dialog',
+    BRAIN_AUDIO: 'googleai/gemini-2.0-flash-exp', // Latest multimodal live
     EMBEDDING_MODEL: 'googleai/text-embedding-004',
     MISTRAL_EMBED: 'mistralai/mistral-embed:free',
 };
 
 // CASCADING WATERFALLS (Priority Sequence)
 export const LOGIC_WATERFALL = [
-    'openai/gpt-4o-mini',
-    'googleai/gemini-2.0-flash',
-    'googleai/gemini-1.5-flash'
+    'openai/o3-mini', 
+    'googleai/gemini-3-flash-exp', // v21.0 Hardened
+    'googleai/gemini-2.0-pro-exp-02-05',
+    'googleai/gemini-2.0-flash-001',
+    'googleai/gemini-1.5-pro'
 ];
 
 export const VISION_WATERFALL = [
-    'openai/gpt-4o-mini',
-    'googleai/gemini-2.0-flash'
+    'googleai/gemini-2.0-flash-001',
+    'openai/gpt-4o-mini'
 ];
 
 export const PHYSICS_WATERFALL = [
-    'openai/gpt-4o-mini',
-    'googleai/gemini-2.0-flash'
+    'googleai/gemini-2.0-flash-001',
+    'openai/gpt-4o-mini'
 ];
 
 export const CONTEXT_WATERFALL = [
-    'openai/gpt-4o-mini',
-    'googleai/gemini-2.0-flash'
+    'googleai/gemini-2.0-flash-001',
+    'openai/gpt-4o-mini'
 ];
 
 export const REFLEX_WATERFALL = [

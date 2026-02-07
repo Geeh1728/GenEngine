@@ -8,6 +8,7 @@ import { sovereignTTS } from '@/lib/audio/sovereign-tts';
 export interface UseLiveAudioOptions {
     onPhysicsUpdate?: (delta: Partial<WorldState>) => void;
     initialWorldState?: WorldState;
+    isInstrumentActive?: boolean;
 }
 
 export const useLiveAudio = (options?: UseLiveAudioOptions) => {
@@ -118,9 +119,14 @@ export const useLiveAudio = (options?: UseLiveAudioOptions) => {
 
             // INTELLIGENT SILENCE: Only interrupt if volume is significant (>0.05)
             // This prevents background noise from cutting off Astra.
+            // MODULE A-S: Skip interrupt if user is playing an instrument (Piano Test)
             if (isSpeaking && normalizedVol > 0.05) {
-                console.log("[VAD] Significant user audio detected. Interrupting Astra.");
-                interrupt();
+                if (options?.isInstrumentActive) {
+                    console.log("[VAD] User is playing. Astra will not interrupt.");
+                } else {
+                    console.log("[VAD] Significant user audio detected. Interrupting Astra.");
+                    interrupt();
+                }
             }
 
             managerRef.current?.sendAudioChunk(pcmData);

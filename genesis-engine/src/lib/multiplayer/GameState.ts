@@ -52,6 +52,7 @@ export interface GlobalGameState {
     lastInteractionId: string | null;
     structuralHeatmap: StructuralHeatmap | null;
     unlockedHUD: boolean;
+    lastInstrumentActivity: number; // Timestamp of last key/impact impulse
 }
 
 export type GameAction =
@@ -80,7 +81,8 @@ export type GameAction =
     | { type: 'CLEAR_MISSION_LOGS' }
     | { type: 'SET_INTERACTION_ID'; payload: string | null }
     | { type: 'SET_HEATMAP'; payload: StructuralHeatmap | null }
-    | { type: 'UNLOCK_HUD' };
+    | { type: 'UNLOCK_HUD' }
+    | { type: 'RECORD_INSTRUMENT_ACTIVITY' };
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
@@ -103,6 +105,7 @@ export const initialGameState: GlobalGameState = {
     lastInteractionId: null,
     structuralHeatmap: null,
     unlockedHUD: false,
+    lastInstrumentActivity: 0,
 };
 
 /**
@@ -259,6 +262,8 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
         }
         case 'RESET_SIMULATION':
             return initialGameState;
+        case 'RECORD_INSTRUMENT_ACTIVITY':
+            return { ...state, lastInstrumentActivity: Date.now() };
         default:
             return state;
     }

@@ -13,9 +13,11 @@ export class P2PConnector {
     private doc: Y.Doc;
     private provider: WebrtcProvider | null = null;
     private ymap: Y.Map<any>;
+    private yevents: Y.Array<any>;
     private isConnected: boolean = false;
     private peerCount: number = 0;
     private onSyncCallback?: (data: Partial<BlackboardContext>) => void;
+    private visualEventListeners: Set<(event: any) => void> = new Set();
     private peerChangeListeners: Set<(count: number) => void> = new Set();
     private eventListeners: Map<string, Set<(data: any) => void>> = new Map();
 
@@ -25,55 +27,25 @@ export class P2PConnector {
     private constructor() {
         this.doc = new Y.Doc();
         this.ymap = this.doc.getMap('blackboard');
+        this.yevents = this.doc.getArray('ephemeral_events');
 
         // Observe changes from Yjs mesh (remote updates)
         this.ymap.observe((event) => {
             if (event.transaction.local) return; // Ignore changes we originated
+// ... (rest of ymap observer)
+        });
 
-            const remoteData: any = {};
-            event.keysChanged.forEach(key => {
-                let data = this.ymap.get(key);
-                
-                // Trigger registered event listeners
-                const listeners = this.eventListeners.get(key);
-                if (listeners) {
-                    listeners.forEach(cb => cb(data));
-                }
-
-                // MODULE A-S: Acoustic Synchronization (Ghost Mesh)
-                if (key === 'audio_event' && data) {
-                    // Trigger ephemeral audio event from remote peer
-                    if (data.timestamp > Date.now() - 2000) { // Only play recent events
-                        sfx.playFrequency(data.frequency, data.type, data.amplitude);
-                    }
-                    return; 
-                }
-
-                // AUTHORITY & SECURITY LOGIC: 
-                // 1. Mark entities as remote
-                if (key === 'currentWorldState' && data) {
-                    if (data.entities) {
-                        data.entities = data.entities.map((e: any) => ({
-                            ...e,
-                            isRemote: true,
-                            // SECURITY: Strip executable shader code from remote peers
-                            shaderCode: undefined 
-                        }));
-                    }
-                    // SECURITY: Strip arbitrary execution fields from remote peers
-                    data.custom_canvas_code = undefined;
-                    data.python_code = undefined;
-                }
-                
-                remoteData[key] = data;
+        // SYNC THE RIPPLES: Observe ephemeral events
+        this.yevents.observe((event) => {
+            if (event.transaction.local) return;
+            
+            // Handle remote events (like piano key hits or voxel bursts)
+            event.changes.added.forEach((item) => {
+                const data = item.content.getContent();
+                data.forEach((val: any) => {
+                    this.visualEventListeners.forEach(cb => cb(val));
+                });
             });
-
-            if (Object.keys(remoteData).length > 0) {
-                console.log('[P2P] Ghost Mesh Sync Received:', Object.keys(remoteData));
-                // Update local blackboard without triggering a re-broadcast
-                blackboard.update(remoteData);
-                if (this.onSyncCallback) this.onSyncCallback(remoteData);
-            }
         });
 
         // CENTRAL SUBSCRIPTION: Managed by connect/disconnect to save cycles
@@ -214,6 +186,31 @@ export class P2PConnector {
         }
         this.eventListeners.get(key)!.add(callback);
         return () => this.eventListeners.get(key)?.delete(callback);
+    }
+
+    public onVisualEvent(callback: (event: any) => void) {
+        this.visualEventListeners.add(callback);
+        return () => this.visualEventListeners.delete(callback);
+    }
+
+    /**
+     * Broadcast a visual event (ripple, burst) to all peers.
+     */
+    public broadcastVisualEvent(event: any) {
+        if (!this.isConnected) return;
+        
+        this.doc.transact(() => {
+            this.yevents.push([{
+                ...event,
+                timestamp: Date.now(),
+                origin: this.doc.clientID
+            }]);
+
+            // EPHEMERAL PURGE: Keep only the last 50 events to prevent doc bloat
+            if (this.yevents.length > 100) {
+                this.yevents.delete(0, 50);
+            }
+        });
     }
 
     public onPeerChange(callback: (count: number) => void) {
