@@ -1,9 +1,7 @@
 'use server';
 
-import { google } from "@genkit-ai/googleai";
-import { generate } from "@genkit-ai/ai";
+import { ai, geminiFlash } from "@/lib/genkit/config";
 import { z } from "zod";
-import { geminiFlash } from "@/lib/genkit/config";
 
 // --- The Babel Node: Universal Translator ---
 
@@ -14,7 +12,7 @@ export async function translatePhysicsIntent(transcript: string, targetLang: str
     try {
         console.log(`[BabelNode] Translating: "${transcript}" to ${targetLang}...`);
 
-        const response = await generate({
+        const response = await ai.generate({
             model: geminiFlash.name,
             prompt: `
             Role: Interpreter and Physics Engine.
@@ -34,11 +32,11 @@ export async function translatePhysicsIntent(transcript: string, targetLang: str
             output: { format: "json" }
         });
 
-        if (!response.output()) {
+        if (!response.output) {
             throw new Error("Babel translation returned empty output.");
         }
 
-        return { success: true, data: response.output() };
+        return { success: true, data: response.output };
 
     } catch (error) {
         console.error("[BabelNode] Translation Failed:", error);

@@ -143,3 +143,5 @@ export function RealityLens({ onTeleport }: RealityLensProps) {
         </div>
     );
 }
+
+export default RealityLens;

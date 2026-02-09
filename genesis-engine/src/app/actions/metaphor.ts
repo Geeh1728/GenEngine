@@ -1,9 +1,7 @@
 'use server';
 
-import { google } from "@genkit-ai/googleai";
-import { generate } from "@genkit-ai/ai";
+import { ai, geminiFlash } from "@/lib/genkit/config";
 import { z } from "zod";
-import { geminiFlash } from "@/lib/genkit/config";
 import { WorldStateSchema } from "@/lib/simulation/schema";
 
 export const METAPHOR_SYSTEM_INSTRUCTION = `
@@ -38,17 +36,17 @@ export async function generateMetaphor(prompt: string, imageBase64?: string) {
              inputs.push({ text: `Gamify this concept: "${prompt}"` });
         }
 
-        const response = await generate({
+        const response = await ai.generate({
             model: geminiFlash.name,
             prompt: inputs,
             output: { format: "json", schema: WorldStateSchema }
         });
 
-        if (!response.output()) {
+        if (!response.output) {
             throw new Error("Metaphor generation failed.");
         }
 
-        return { success: true, data: response.output() };
+        return { success: true, data: response.output };
 
     } catch (error) {
         console.error("[MetaphorEngine] Error:", error);

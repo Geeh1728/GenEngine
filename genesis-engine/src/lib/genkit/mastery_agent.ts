@@ -1,6 +1,70 @@
 import { z } from 'genkit';
 import { ai, geminiFlash, gemini3Flash } from './config';
-import { SkillTreeSchema, SkillNodeSchema, SimConfigSchema } from './schemas';
+import { SkillTreeSchema, SkillNodeSchema, SimConfigSchema, WorldRuleSchema } from './schemas';
+import { executeApexLoop } from './resilience';
+
+export const MasteryQuestionSchema = z.object({
+    id: z.string(),
+    text: z.string(),
+    options: z.array(z.string()).length(4),
+    correctOption: z.number().min(0).max(3),
+    explanation: z.string(),
+});
+
+export const MasteryChallengeSchema = z.object({
+    questions: z.array(MasteryQuestionSchema),
+});
+
+// Input type for the flow
+type MasteryFlowInput = {
+    rules: z.infer<typeof WorldRuleSchema>[];
+    complexity: 'fundamental' | 'standard' | 'expert';
+};
+
+// Rule type for mapping
+type WorldRule = z.infer<typeof WorldRuleSchema>;
+
+/**
+ * THE MASTERY AGENT (v11.0 Platinum Swarm)
+ * Objective: Generate adaptive, citation-backed verification questions.
+ */
+export const masteryChallengeFlow = ai.defineFlow(
+    {
+        name: 'masteryChallengeFlow',
+        inputSchema: z.object({
+            rules: z.array(WorldRuleSchema),
+            complexity: z.enum(['fundamental', 'standard', 'expert']),
+        }),
+        outputSchema: MasteryChallengeSchema,
+    },
+    async (input: MasteryFlowInput) => {
+        const result = await executeApexLoop({
+            task: 'CHAT',
+            prompt: `
+                You are the "Master of Genesis," a guardian of quantum knowledge.
+                Based on the following physical rules extracted from the study material, generate 3 challenging multiple-choice questions for a "Mastery Verification."
+
+                Rules:
+                ${input.rules.map((r: WorldRule) => `- ${r.rule}: ${r.description} (Source: ${r.grounding_source})`).join('\n')}
+
+                Complexity Level: ${input.complexity.toUpperCase()}
+
+                TASK:
+                1. Create 3 questions that test the user's understanding of how these rules interact.
+                2. Provide 4 options for each question.
+                3. One option must be correct (0-indexed correctOption).
+                4. Provide an 'explanation' that directly cites the 'grounding_source' from the rules.
+                5. Adjust question difficulty to the complexity level:
+                   - FUNDAMENTAL: focus on analogies and basic behaviors.
+                   - STANDARD: focus on terminology and experimental outcomes.
+                   - EXPERT: focus on the underlying mathematical/theoretical logic.
+            `,
+            schema: MasteryChallengeSchema,
+        });
+
+        return result.output;
+    }
+);
 
 // --- Mastery Agent: Living Exam Mode ---
 

@@ -1,9 +1,7 @@
 'use server';
 
-import { google } from "@genkit-ai/googleai";
-import { generate } from "@genkit-ai/ai";
+import { ai, geminiFlash } from "@/lib/genkit/config";
 import { z } from "zod";
-import { geminiFlash } from "@/lib/genkit/config";
 
 // --- The Reality Lens: Server-Side Vision Analysis ---
 
@@ -26,7 +24,7 @@ export async function analyzeReality(imageBase64: string, isPremium: boolean = f
             : "You are a 2D Vision Engine. Detect physical objects (boxes, cups, balls). Output a JSON list: { box_2d: [ymin, xmin, ymax, xmax], label: string, estimatedMass: number }.";
 
         // 3. Call Genkit
-        const response = await generate({
+        const response = await ai.generate({
             model: modelName,
             prompt: [
                 { text: systemPrompt },
@@ -35,11 +33,11 @@ export async function analyzeReality(imageBase64: string, isPremium: boolean = f
             output: { format: "json" } // Enforce JSON mode
         });
 
-        if (!response.output()) {
+        if (!response.output) {
             throw new Error("Gemini returned empty output.");
         }
 
-        return { success: true, data: response.output() };
+        return { success: true, data: response.output };
 
     } catch (error) {
         console.error("[RealityLens] Analysis Failed:", error);
