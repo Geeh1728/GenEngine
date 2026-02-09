@@ -22,7 +22,7 @@ export interface BlackboardContext {
     missionLogs: Array<{
         agent: string;
         message: string;
-        type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' | 'MANIFEST' | 'SYMBOLIC';
+        type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' | 'MANIFEST' | 'SYMBOLIC' | 'THOUGHT';
         timestamp: number;
     }>;
     streamingProgress: number; // 0-100
@@ -64,7 +64,7 @@ class Blackboard {
         return Blackboard.instance;
     }
 
-    public log(agent: string, message: string, type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' | 'MANIFEST' | 'SYMBOLIC' = 'INFO') {
+    public log(agent: string, message: string, type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' | 'MANIFEST' | 'SYMBOLIC' | 'THOUGHT' = 'INFO') {
         console.log(`[Blackboard][${type}] ${agent}: ${message}`);
         this.context.missionLogs.push({
             agent,

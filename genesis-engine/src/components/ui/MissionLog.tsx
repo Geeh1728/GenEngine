@@ -69,6 +69,7 @@ export const MissionLog: React.FC = () => {
             case 'THINKING': return <Brain className="w-3 h-3 text-blue-400 animate-pulse" />;
             case 'MANIFEST': return <span className="text-[10px]">✨</span>;
             case 'SYMBOLIC': return <span className="text-[10px]">⚖️</span>;
+            case 'THOUGHT': return <span className="text-[10px]">💭</span>;
             default: return <Activity className="w-3 h-3 text-gray-400" />;
         }
     };
@@ -215,10 +216,12 @@ export const MissionLog: React.FC = () => {
                                         animate={{ opacity: 1, x: 0 }}
                                         className={`flex gap-4 items-start group/item ${log.type === 'SYMBOLIC' ? 'bg-amber-400/5 p-2 rounded-xl border border-amber-400/10' : ''
                                             } ${log.type === 'MANIFEST' ? 'bg-blue-400/5 p-2 rounded-xl border border-blue-400/10' : ''
+                                            } ${log.type === 'THOUGHT' ? 'bg-zinc-900/50 p-2 rounded-xl border border-zinc-800 border-dashed' : ''
                                             }`}
                                     >
                                         <div className={`mt-1 shrink-0 p-1.5 rounded-lg border transition-colors ${log.type === 'SYMBOLIC' ? 'bg-amber-400/10 border-amber-400/20' :
                                             log.type === 'MANIFEST' ? 'bg-blue-400/10 border-blue-400/20' :
+                                            log.type === 'THOUGHT' ? 'bg-zinc-800/50 border-zinc-700' :
                                                 'bg-white/5 border-white/5 group-hover/item:border-white/10'
                                             }`}>
                                             {getIcon(log.type)}
@@ -247,6 +250,7 @@ export const MissionLog: React.FC = () => {
                                             </div>
                                             <p className={`text-[11px] font-mono leading-relaxed break-words selection:bg-blue-500/30 ${log.type === 'SYMBOLIC' ? 'text-amber-200' :
                                                     log.type === 'MANIFEST' ? 'text-blue-200' :
+                                                    log.type === 'THOUGHT' ? 'text-zinc-500 italic' :
                                                         'text-gray-300'
                                                 }`}>
                                                 {log.message}

@@ -42,9 +42,16 @@ if (process.env.NODE_ENV === 'development') {
 
 // 1. Force-load the key from ANY possible name (Resilience)
 const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+const openRouterKey = process.env.OPENROUTER_API_KEY;
+
+// satisfy openai plugin validation
+if (openRouterKey && !process.env.OPENAI_API_KEY) {
+    process.env.OPENAI_API_KEY = openRouterKey;
+}
 
 if (!apiKey) {
-    console.error("❌ CRITICAL ERROR: NO API KEY FOUND. Check your .env.local file.");
+    // Only log if not in a headless/test environment where keys might be injected differently
+    if (process.env.NODE_ENV !== 'test') console.error("❌ CRITICAL ERROR: NO GOOGLE API KEY FOUND.");
 } else {
     console.log("✅ Genkit API Key Detected.");
 }
@@ -55,10 +62,64 @@ export const ai = genkit({
         // Explicitly pass the key. Do not rely on auto-discovery.
         googleAI({ apiKey: apiKey }),
         openAI({
-            apiKey: process.env.OPENROUTER_API_KEY,
+            apiKey: openRouterKey,
             baseURL: 'https://openrouter.ai/api/v1',
         }),
     ],
+});
+
+/**
+ * MODULE O-R: OPENROUTER ADAPTER (v23.0 ULTIMATE)
+ * Objective: Direct integration with OpenRouter to ensure 100% model availability.
+ */
+const openRouterModels = [
+    { id: 'deepseek/deepseek-r1-0528:free', name: 'deepseek-r1' },
+    { id: 'liquid/lfm-2.5-1.2b-thinking:free', name: 'liquid-lfm' },
+    { id: 'nvidia/nemotron-3-nano-30b-a3b:free', name: 'nemotron' },
+    { id: 'openai/gpt-oss-120b:free', name: 'gpt-oss' },
+    { id: 'mistralai/mistral-small-3.1-24b-instruct:free', name: 'mistral-small' },
+    { id: 'openrouter/free', name: 'free-router' },
+    { id: 'qwen/qwen3-coder:free', name: 'qwen-coder' },
+    { id: 'allenai/molmo2-8b:free', name: 'molmo-2' },
+    { id: 'qwen/qwen3-next-80b-a3b-instruct:free', name: 'qwen-vl' },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'llama-3.3-70b' }
+];
+
+openRouterModels.forEach(model => {
+    ai.defineModel(
+        {
+            name: `openrouter/${model.name}`,
+            label: `OpenRouter ${model.id}`,
+        },
+        async (req) => {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${openRouterKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: model.id,
+                    messages: req.messages.map(m => ({
+                        role: m.role,
+                        content: m.content[0].text // Simplified for now
+                    })),
+                    temperature: req.config?.temperature,
+                    max_tokens: req.config?.maxOutputTokens,
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(`OpenRouter Error: ${JSON.stringify(data)}`);
+
+            return {
+                message: {
+                    role: 'model',
+                    content: [{ text: data.choices[0].message.content }]
+                }
+            };
+        }
+    );
 });
 
 // 3. Define the Models

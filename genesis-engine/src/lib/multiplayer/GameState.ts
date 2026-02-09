@@ -28,7 +28,7 @@ export interface MissionLog {
     timestamp: number;
     agent: string;
     message: string;
-    type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING';
+    type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' | 'THOUGHT';
 }
 
 export interface GlobalGameState {
@@ -53,6 +53,7 @@ export interface GlobalGameState {
     structuralHeatmap: StructuralHeatmap | null;
     unlockedHUD: boolean;
     lastInstrumentActivity: number; // Timestamp of last key/impact impulse
+    latentContext: string | null; // Compressed semantic memory (v21.5)
 }
 
 export type GameAction =
@@ -82,7 +83,8 @@ export type GameAction =
     | { type: 'SET_INTERACTION_ID'; payload: string | null }
     | { type: 'SET_HEATMAP'; payload: StructuralHeatmap | null }
     | { type: 'UNLOCK_HUD' }
-    | { type: 'RECORD_INSTRUMENT_ACTIVITY' };
+    | { type: 'RECORD_INSTRUMENT_ACTIVITY' }
+    | { type: 'SET_LATENT_CONTEXT'; payload: string };
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
@@ -106,6 +108,7 @@ export const initialGameState: GlobalGameState = {
     structuralHeatmap: null,
     unlockedHUD: false,
     lastInstrumentActivity: 0,
+    latentContext: null,
 };
 
 /**
@@ -264,6 +267,8 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return initialGameState;
         case 'RECORD_INSTRUMENT_ACTIVITY':
             return { ...state, lastInstrumentActivity: Date.now() };
+        case 'SET_LATENT_CONTEXT':
+            return { ...state, latentContext: action.payload };
         default:
             return state;
     }

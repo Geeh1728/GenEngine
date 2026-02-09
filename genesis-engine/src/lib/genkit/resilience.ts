@@ -1,10 +1,11 @@
-import { ai, OPENROUTER_FREE_MODELS } from './config';
+import { ai } from './config';
 import { z } from 'genkit';
-import { incrementApiUsage, getApiUsage, getRegisteredModel } from '../db/pglite';
-import { sentinelRepairAgent } from './agents/sentinel';
+import { getApiUsage } from '../db/pglite';
 import { LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL } from './models';
 import { cleanModelOutput } from '../utils/ai-sanitizer';
 import { checkNanoCapabilities, localReflexQuery } from '../ai/local-nano';
+import { quotaOracle } from '../utils/quota-oracle';
+import { blackboard } from './context';
 
 import { MessageData, GenerateOptions } from 'genkit';
 import { StreamingRealityParser, StreamingCallback } from './streamingReality';
@@ -58,7 +59,7 @@ function preparePromptForModel(prompt: string, modelId: string): string {
 
 /**
  * PLATINUM WATERFALL RESOLVER
- * Objective: Determine the optimal model list based on task and RPD limits.
+ * Objective: Determine the optimal model list based on real-time quota analysis.
  */
 async function getWaterfallForTask(task: TaskType): Promise<string[]> {
     let waterfall: string[];
@@ -72,17 +73,10 @@ async function getWaterfallForTask(task: TaskType): Promise<string[]> {
         default: waterfall = LOGIC_WATERFALL;
     }
 
-    // SMART-SWITCH: Filter out models near 20 RPD limit
+    // DYNAMIC QUOTA GATING (v22.0)
     const validatedWaterfall: string[] = [];
     for (const model of waterfall) {
-        if (model.includes('gemini-3') || model.includes('gemini-2.5') || model.includes('robotics-er')) {
-            const usage = await getApiUsage(model);
-            if (usage < 18) {
-                validatedWaterfall.push(model);
-            } else {
-                console.warn(`[Waterfall] Skipping ${model} (Limit Reached: ${usage}/20)`);
-            }
-        } else {
+        if (await quotaOracle.isSafe(model)) {
             validatedWaterfall.push(model);
         }
     }
@@ -92,7 +86,7 @@ async function getWaterfallForTask(task: TaskType): Promise<string[]> {
 
 export async function executeApexLoop<T extends z.ZodTypeAny>(
     options: ResilienceOptions<T>
-): Promise<{ output: z.infer<T> | null, interactionId?: string }> {
+): Promise<{ output: z.infer<T> | null, interactionId?: string, thinking?: string }> {
     const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId, modelAlias, enableStreaming, onStreamingUpdate } = options;
 
     let waterfall = model ? [model] : await getWaterfallForTask(task);
@@ -164,12 +158,26 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
             }
 
             if (result.output) {
-                // TRACK USAGE for smart-switch
-                await incrementApiUsage(modelName);
+                // QUOTA TELEMETRY: Record success
+                await quotaOracle.recordSuccess(modelName);
                 
                 if (onLog) onLog(`Neural Link established via ${modelName}.`, 'SUCCESS');
                 
                 let finalOutput = result.output;
+                let thinking: string | undefined;
+
+                // REASONING SANDBOX (v21.5): Extract <think> block
+                if (result.text && result.text.includes('<think>')) {
+                    const match = result.text.match(/<think>([\s\S]*?)<\/think>/);
+                    if (match && match[1]) {
+                        thinking = match[1].trim();
+                        // Log the raw thought process for "Scholar" mode users
+                        if (thinking) {
+                            blackboard.log('DeepSeek', thinking.substring(0, 300) + '...', 'THOUGHT');
+                        }
+                    }
+                }
+
                 // SANITIZATION for DeepSeek
                 if (modelName.includes('deepseek')) {
                     if (result.text) {
@@ -183,7 +191,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
                 }
 
                 const interactionId = (result as { metadata?: { interaction_id?: string } }).metadata?.interaction_id;
-                return { output: finalOutput, interactionId };
+                return { output: finalOutput, interactionId, thinking };
             } else {
                 throw new Error("No structured output generated.");
             }
@@ -194,7 +202,13 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
 
             // PIVOT Logic: If 429 or 503, immediately move to next model in waterfall
             if (errorMessage.includes('429') || errorMessage.includes('500') || errorMessage.includes('503') || errorMessage.includes('limit')) {
-                if (onLog) onLog(`⚠️ Node Throttled (${modelName}). Pivoting to next available specialist...`, 'ERROR');
+                const nextModel = waterfall[currentWaterfallIdx + 1];
+                const providerSwitch = modelName.startsWith('googleai') && nextModel?.startsWith('openrouter');
+                
+                if (onLog) {
+                    onLog(`⚠️ Node Throttled (${modelName}). ${providerSwitch ? 'Switching Providers...' : 'Pivoting...'}`, 'ERROR');
+                }
+                
                 currentWaterfallIdx++;
                 attempts = 0; // Reset attempts for the next model
                 continue; // Immediate retry with next model

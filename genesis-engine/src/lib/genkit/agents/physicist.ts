@@ -98,7 +98,14 @@ export const physicistFlow = ai.defineFlow(
                     try {
                         const response = await executeApexLoop({
                             model: DEEPSEEK_LOGIC_MODEL,
-                            system: systemPrompt,
+                            system: `${systemPrompt}
+                            
+                            REASONING SANDBOX PROTOCOL (v21.5):
+                            You MUST use your internal thinking block (<think> tags) to perform a 'Mental Stress Test' of the physics.
+                            1. Simulate the proposed structure in your mind.
+                            2. Identify high-stress joints or overlapping colliders.
+                            3. Self-correct the coordinates and constants until the simulation is stable.
+                            4. ONLY then, output the finalized JSON.`,
                             prompt: `Derive the physical parameters for the following concept.
                             ${lastError ? `\n\nPREVIOUS ERROR: ${lastError}. Please self-correct.` : ''}
                             

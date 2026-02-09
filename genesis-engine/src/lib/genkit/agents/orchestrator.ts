@@ -19,9 +19,9 @@ import { hiveBus } from '../event-bus';
 
 const TaskManifestSchema = z.object({
     subTasks: z.array(z.object({
-        agentType: z.enum(['OBJECT_DESIGNER', 'PHYSICS_ENGINEER', 'SHADER_ARTIST']),
+        agentType: z.enum(['Visuals/Shaders', 'Joints/Constraints', 'Math/Trajectories', 'General/Reflex']),
         instruction: z.string()
-    })).describe('Decomposed tasks for worker bees')
+    })).describe('Decomposed tasks for specialized Hive experts')
 });
 
 const WorkerOutputSchema = z.object({
@@ -31,31 +31,39 @@ const WorkerOutputSchema = z.object({
 });
 
 /**
- * HIVE ORCHESTRATOR (v13.0 GOLD)
- * Objective: Massive parallel execution via Gemma 3 1B workers.
+ * HIVE ORCHESTRATOR (v21.5 MOE Hardened)
+ * Objective: Fine-grained parallel execution via specialized Gemma 3 experts.
  */
 export async function executeHiveSwarm(generalGoal: string, context: string) {
-    console.log("[Hive] General is issuing Work Orders...");
+    console.log("[Hive] General is issuing specialized Work Orders...");
     
-    // 1. THE GENERAL (DeepSeek/Gemini 3 Planning)
+    // 1. THE GENERAL (Reasoning head)
     const plan = await executeApexLoop({
         task: 'MATH',
         prompt: `ACT AS GENERAL: Decompose this learning simulation goal into a parallel TaskManifest.
         GOAL: "${generalGoal}"
         CONTEXT: ${context}
+        
+        EXPERT ROLES:
+        - Visuals/Shaders: Focus on colors, textures, and GLSL effects.
+        - Joints/Constraints: Focus on connections, hinges, and physical limits.
+        - Math/Trajectories: Focus on exact positions, velocities, and orbital paths.
+        - General/Reflex: Default for object spawning and simple UI logic.
+        
         Return JSON.`,
         schema: TaskManifestSchema
     });
 
     if (!plan.output) return null;
 
-    // 2. THE WORKERS (Parallel Gemma 3 1B)
+    // 2. THE EXPERTS (Fine-Grained MOE)
     const workerPromises = plan.output.subTasks.map(task => {
         hiveBus.registerWorker();
+        // Route to Reflex waterfall for speed
         return executeApexLoop({
-            task: 'REFLEX', // High RPD fallback models
-            prompt: `WORKER BEE: Execute sub-task "${task.agentType}". Instruction: ${task.instruction}.
-            Return JSON matching WorkerOutputSchema. Focus ONLY on your instruction.`,
+            task: 'REFLEX', 
+            prompt: `EXPERT ROLE: "${task.agentType}". Instruction: ${task.instruction}.
+            Return JSON matching WorkerOutputSchema. Focus ONLY on your specific domain.`,
             schema: WorkerOutputSchema
         }).finally(() => hiveBus.releaseWorker());
     });
