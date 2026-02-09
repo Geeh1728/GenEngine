@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Camera, Scan, Box, ArrowRight } from 'lucide-react';
+import { Camera, Scan, Box, ArrowRight, X } from 'lucide-react';
 import { analyzeReality } from '@/app/actions/vision';
 import { parseBoundingBoxes2D } from '@/lib/gemini/spatialParser';
+import { Entity } from '@/lib/simulation/schema';
 
 interface RealityLensProps {
-    onTeleport: (entities: any[]) => void;
+    onTeleport: (newEntities: Entity[], newJoints?: any[]) => void;
+    onClose: () => void;
 }
 
-export function RealityLens({ onTeleport }: RealityLensProps) {
+export function RealityLens({ onTeleport, onClose }: RealityLensProps) {
     const [imageSrc, setImageSrc] = useState<string | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [visionData, setVisionData] = useState<any[]>([]);
@@ -49,21 +51,23 @@ export function RealityLens({ onTeleport }: RealityLensProps) {
         if (visionData.length === 0) return;
 
         // Convert Vision Data to Physics Entities
-        const newEntities = visionData.map((box, index) => ({
+        const newEntities: Entity[] = visionData.map((box, index) => ({
             id: `reality-${index}-${Date.now()}`,
-            type: box.label.toLowerCase().includes('ball') ? 'sphere' : 'cube',
-            position: [(box.x - 0.5) * 20, (0.5 - box.y) * 20, 0], // Map 0-1 to World Coordinates
-            scale: [box.width * 10, box.height * 10, 1],
-            color: '#22d3ee', // Cyan default
+            shape: box.label.toLowerCase().includes('ball') ? 'sphere' : 'cube',
+            position: { x: (box.x - 0.5) * 20, y: (0.5 - box.y) * 20, z: 0 },
+            dimensions: { x: box.width * 10, y: box.height * 10, z: 1 },
+            visual: {
+                color: '#22d3ee',
+            },
             physics: {
-                mass: 1, // Default mass
+                mass: 1,
                 restitution: 0.5,
                 friction: 0.5
             },
-            label: box.label
+            name: box.label
         }));
 
-        onTeleport(newEntities);
+        onTeleport(newEntities, []);
     };
 
     return (
@@ -73,12 +77,20 @@ export function RealityLens({ onTeleport }: RealityLensProps) {
                 <h3 className="text-sm font-bold text-cyan-400 flex items-center gap-2">
                     <Scan size={16} /> REALITY LENS
                 </h3>
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors"
-                >
-                    <Camera size={16} />
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors"
+                    >
+                        <Camera size={16} />
+                    </button>
+                    <button 
+                        onClick={onClose}
+                        className="p-2 bg-gray-800 hover:bg-red-900/40 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
                 <input 
                     ref={fileInputRef} 
                     type="file" 
