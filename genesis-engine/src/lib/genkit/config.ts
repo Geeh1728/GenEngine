@@ -69,20 +69,15 @@ export const ai = genkit({
 });
 
 /**
- * MODULE O-R: OPENROUTER ADAPTER (v23.0 ULTIMATE)
+ * MODULE O-R: OPENROUTER ADAPTER (v23.5 HARDENED)
  * Objective: Direct integration with OpenRouter to ensure 100% model availability.
  */
 const openRouterModels = [
     { id: 'deepseek/deepseek-r1-0528:free', name: 'deepseek-r1' },
     { id: 'liquid/lfm-2.5-1.2b-thinking:free', name: 'liquid-lfm' },
     { id: 'nvidia/nemotron-3-nano-30b-a3b:free', name: 'nemotron' },
-    { id: 'openai/gpt-oss-120b:free', name: 'gpt-oss' },
-    { id: 'mistralai/mistral-small-3.1-24b-instruct:free', name: 'mistral-small' },
     { id: 'openrouter/free', name: 'free-router' },
-    { id: 'qwen/qwen3-coder:free', name: 'qwen-coder' },
-    { id: 'allenai/molmo2-8b:free', name: 'molmo-2' },
-    { id: 'qwen/qwen3-next-80b-a3b-instruct:free', name: 'qwen-vl' },
-    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'llama-3.3-70b' }
+    { id: 'qwen/qwen3-coder:free', name: 'qwen-coder' }
 ];
 
 openRouterModels.forEach(model => {
@@ -126,18 +121,18 @@ openRouterModels.forEach(model => {
 
 // --- TIER 1: THE ELITE COUNCIL (20 RPD) ---
 export const gemini3Flash = {
-    name: LEGACY_MODELS.BRAIN_PRIMARY,
+    name: MODELS.BRAIN_FLASH_3,
     label: 'Gemini 3 Flash',
 };
 
 // --- TIER 2: THE NUCLEAR WORKHORSE (14,400 RPD!) ---
 export const geminiFlash = {
-    name: LEGACY_MODELS.BRAIN_WORKHORSE,
-    label: 'Gemma 3 27b'
+    name: MODELS.BRAIN_FLASH_25,
+    label: 'Gemini 2.5 Flash'
 };
 
 export const gemma3_4b = {
-    name: LEGACY_MODELS.BRAIN_REFLEX,
+    name: MODELS.GEMMA_3_4B,
     label: 'Gemma 3 4b'
 };
 
@@ -154,17 +149,17 @@ export const geminiAudio = {
 
 // --- TIER 3: OPENROUTER FREE SPECIALISTS ---
 export const OPENROUTER_FREE_MODELS = {
-    MATH: LOGIC_WATERFALL[0],
-    VISION: VISION_WATERFALL[0],
-    VISION_PRO: VISION_WATERFALL[0],
-    DEAN: CONTEXT_WATERFALL[1],
-    LIBRARIAN: CONTEXT_WATERFALL[1],
-    DYNAMIC: PHYSICS_WATERFALL[0],
-    REFLEX: REFLEX_WATERFALL[0],
-    GENERAL: 'openai/meta-llama/llama-3.3-70b-instruct:free',
+    MATH: MODELS.LOGIC_DEEPSEEK,
+    VISION: MODELS.BRAIN_FLASH_3, 
+    VISION_PRO: MODELS.ROBOTICS_ER,
+    DEAN: MODELS.BRAIN_FLASH_3,
+    LIBRARIAN: MODELS.BRAIN_LITE,
+    DYNAMIC: MODELS.PHYSICS_LIQUID,
+    REFLEX: MODELS.REFLEX_NVIDIA,
+    GENERAL: MODELS.LOGIC_FREE_ROUTER,
     CHAT: 'openai/mistralai/mistral-7b-instruct:free',
-    CODE: 'openai/qwen/qwen-2.5-coder-32b-instruct:free',
-    EMBED: MODELS.MISTRAL_EMBED
+    CODE: MODELS.LOGIC_QWEN_CODER,
+    EMBED: 'mistralai/mistral-embed:free'
 };
 
 // Legacy Compatibility

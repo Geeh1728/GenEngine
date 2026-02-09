@@ -3,6 +3,7 @@ import { z } from 'genkit';
 import { executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
 import { getCachedOracleData, cacheOracleData } from '../../db/pglite';
+import { MODELS } from '../models';
 
 export const LibrarianInputSchema = z.object({
     userQuery: z.string(),
@@ -100,7 +101,7 @@ export const librarianAgent = ai.defineFlow(
         blackboard.log('Librarian', `Kimi is analyzing ${input.chapters?.length || 0} chapters for context...`, 'THINKING');
 
         const result = await executeApexLoop({
-            model: OPENROUTER_FREE_MODELS.LIBRARIAN, // MoonshotAI Kimi K2
+            model: MODELS.BRAIN_LITE, // Use Flash Lite for bulk ingestion
             prompt: `
                 You are the Genesis Librarian (Context Guardian).
                 Your goal is to identify which chapters of a textbook are relevant to the student's question.
