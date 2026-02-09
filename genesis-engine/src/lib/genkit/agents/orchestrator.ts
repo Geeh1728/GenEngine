@@ -25,7 +25,7 @@ const TaskManifestSchema = z.object({
 });
 
 const WorkerOutputSchema = z.object({
-    entities: z.array(z.any()).optional(),
+    entities: z.array(EntitySchema).optional(),
     shaderCode: z.string().optional(),
     constraints: z.array(z.string()).optional()
 });
@@ -36,7 +36,7 @@ const WorkerOutputSchema = z.object({
  */
 export async function executeHiveSwarm(generalGoal: string, context: string) {
     console.log("[Hive] General is issuing specialized Work Orders...");
-    
+
     // 1. THE GENERAL (Reasoning head)
     const plan = await executeApexLoop({
         task: 'MATH',
@@ -61,7 +61,7 @@ export async function executeHiveSwarm(generalGoal: string, context: string) {
         hiveBus.registerWorker();
         // Route to Reflex waterfall for speed
         return executeApexLoop({
-            task: 'REFLEX', 
+            task: 'REFLEX',
             prompt: `EXPERT ROLE: "${task.agentType}". Instruction: ${task.instruction}.
             Return JSON matching WorkerOutputSchema. Focus ONLY on your specific domain.`,
             schema: WorkerOutputSchema
@@ -69,12 +69,12 @@ export async function executeHiveSwarm(generalGoal: string, context: string) {
     });
 
     const results = await Promise.all(workerPromises);
-    
+
     // 3. ASSEMBLY
-    const aggregated = {
-        entities: [] as any[],
+    const aggregated: { entities: Entity[]; shaderCode: string; constraints: string[] } = {
+        entities: [],
         shaderCode: "",
-        constraints: [] as string[]
+        constraints: []
     };
 
     results.forEach(res => {
@@ -215,7 +215,7 @@ export const orchestratorFlow = ai.defineFlow(
         if (urlMatch) {
             const detectedUrl = urlMatch[0];
             logs.push({ agent: 'Oracle', message: `🔗 Direct Link detected: ${detectedUrl}. Grounding simulation logic...`, type: 'THINKING' });
-            
+
             try {
                 const oracleResult = await librarianAgent({
                     userQuery: processedInput,
@@ -225,21 +225,21 @@ export const orchestratorFlow = ai.defineFlow(
 
                 if (oracleResult.constants || oracleResult.formulas) {
                     const constantsSummary = oracleResult.constants ? Object.entries(oracleResult.constants).map(([k, v]) => `${k}=${v}`).join(', ') : '';
-                    logs.push({ 
-                        agent: 'Astra', 
-                        message: `🔗 Web-Source verified. I've updated the world's physics constants: ${constantsSummary}`, 
-                        type: 'SUCCESS' 
+                    logs.push({
+                        agent: 'Astra',
+                        message: `🔗 Web-Source verified. I've updated the world's physics constants: ${constantsSummary}`,
+                        type: 'SUCCESS'
                     });
-                    
+
                     // Inject into context
                     blackboardFragment += `\n\nWEB-GROUNDED DATA:\n${JSON.stringify(oracleResult)}`;
                 }
             } catch (err) {
                 console.warn("[Oracle] Link grounding failed:", err);
-                logs.push({ 
-                    agent: 'Oracle', 
-                    message: "⚠️ I can't reach that link directly. Use the Reality Lens to take a screenshot of the page, and I'll analyze it visually.", 
-                    type: 'ERROR' 
+                logs.push({
+                    agent: 'Oracle',
+                    message: "⚠️ I can't reach that link directly. Use the Reality Lens to take a screenshot of the page, and I'll analyze it visually.",
+                    type: 'ERROR'
                 });
             }
         }
@@ -373,7 +373,7 @@ export const orchestratorFlow = ai.defineFlow(
             // NORMALIZATION INTERCEPTOR (The Rosetta Protocol)
             if (worldState && worldState.entities) {
                 // Ensure all entities conform to IUniversalEntity standard before returning
-                worldState.entities = normalizeEntities(worldState.entities) as any;
+                worldState.entities = normalizeEntities(worldState.entities);
             }
 
             // PHASE 4: Self-Healing Sandbox (Verification Loop)
@@ -381,10 +381,10 @@ export const orchestratorFlow = ai.defineFlow(
                 let stableState = worldState;
                 let isStable = true;
                 let failureReason = "";
-                
+
                 // 1. PHYSICAL STABILITY HEURISTICS
                 const entities = stableState.entities || [];
-                
+
                 // Check A: Massive Unanchored Entities
                 const criticalMass = entities.filter(e => e.physics.mass > 500 && !e.physics.isStatic);
                 if (criticalMass.length > 0) {
@@ -400,11 +400,11 @@ export const orchestratorFlow = ai.defineFlow(
                         if (a.physics.isStatic && b.physics.isStatic) continue;
 
                         const dist = Math.sqrt(
-                            Math.pow(a.position.x - b.position.x, 2) + 
+                            Math.pow(a.position.x - b.position.x, 2) +
                             Math.pow(a.position.y - b.position.y, 2)
                         );
                         const combinedRadius = (Math.max(a.dimensions?.x || 1, a.dimensions?.y || 1) + Math.max(b.dimensions?.x || 1, b.dimensions?.y || 1)) / 2;
-                        
+
                         if (dist < combinedRadius * 0.5) { // Significant overlap
                             isStable = false;
                             failureReason = `Critical overlap detected between ${a.id} and ${b.id}. Risk of spawn-time force spike.`;
@@ -416,10 +416,10 @@ export const orchestratorFlow = ai.defineFlow(
 
                 if (!isStable) {
                     logs.push({ agent: 'Sentinel', message: `⚠️ Stability Alert: ${failureReason} Initiating repair loop...`, type: 'ERROR' });
-                    
+
                     for (let repairAttempt = 1; repairAttempt <= 3; repairAttempt++) {
                         logs.push({ agent: 'Operator', message: `Self-healing Attempt ${repairAttempt}/3...`, type: 'THINKING' });
-                        
+
                         const repairRes = await executeApexLoop({
                             prompt: `${processedInput}\n\nSTABILITY FAILURE: ${failureReason}. 
                             FIX: Adjust positions to avoid overlap, increase linearDamping, or normalize mass.`,
@@ -460,16 +460,16 @@ export const orchestratorFlow = ai.defineFlow(
                     if (correctionRes.output) {
                         const correctedState = correctionRes.output;
                         if (correctedState && correctedState.entities) {
-                            correctedState.entities = normalizeEntities(correctedState.entities) as any;
+                            correctedState.entities = normalizeEntities(correctedState.entities);
                         }
 
-                        blackboard.updateFromWorldState(correctedState as any);
+                        blackboard.updateFromWorldState(correctedState);
                         logs.push({ agent: 'Aegis', message: 'Self-correction successful. Consensus reached.', type: 'SUCCESS' });
                         return {
                             status: 'SUCCESS' as const,
-                            worldState: correctedState as any,
+                            worldState: correctedState,
                             visionData,
-                            quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT' })).output as any,
+                            quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT' })).output ?? null,
                             interactionId: correctionRes.interactionId || interactionId,
                             nativeReply,
                             logs,
@@ -486,18 +486,18 @@ export const orchestratorFlow = ai.defineFlow(
                 schema: QuestSchema,
                 system: `Design a mastery quest for this simulation.`,
                 task: 'CHAT',
-                fallback: null as any // Explicitly allow null for quest fallback
+                fallback: null
             });
             const quest = questRes.output;
 
             // Update Blackboard with new state
-            if (worldState) blackboard.updateFromWorldState(worldState as any);
+            if (worldState) blackboard.updateFromWorldState(worldState);
 
             logs.push({ agent: 'Conductor', message: 'Reality Compiled successfully.', type: 'SUCCESS' });
 
             return {
                 status: 'SUCCESS' as const,
-                worldState: worldState as any,
+                worldState,
                 visionData,
                 quest: quest || null,
                 interactionId,

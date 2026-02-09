@@ -38,6 +38,10 @@ const withPWA = require('next-pwa')({
                     maxAgeSeconds: 24 * 60 * 60, // 24 hours
                 },
             },
+        },
+        {
+            urlPattern: /\.wasm$/i,
+            handler: 'NetworkOnly',
         }
     ],
 });

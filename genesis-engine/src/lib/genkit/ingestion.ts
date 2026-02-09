@@ -1,6 +1,6 @@
 import { z } from 'genkit';
-import { ai, geminiFlash } from './config';
-import { IngestionOutputSchema } from './schemas';
+import { ai, geminiFlash, DEEPSEEK_LOGIC_MODEL } from './config';
+import { IngestionOutputSchema, SimConfigSchema, SimEntitySchema, ECSComponentSchema } from './schemas';
 
 export { IngestionOutputSchema } from './schemas';
 
@@ -23,68 +23,75 @@ export const ingestionFlow = ai.defineFlow(
         // modelArmor middleware removed - no longer available in @genkit-ai/google-cloud
     },
     async (input: IngestionFlowInput) => {
-        const tasks: Promise<z.infer<typeof IngestionOutputSchema> | null>[] = [];
+        const tasks: Promise<any>[] = [];
 
-        // --- Task 1: Text Logic extraction (Gemini -> DeepSeek Failover) ---
-        tasks.push((async () => {
-            try {
-                console.log('Attempting ingestion with Gemini 2.5 Flash Lite...');
-                const { output } = await ai.generate({
-                    model: geminiFlash.name,
-                    prompt: `
+        // --- Task 1: Gemini (The Visionary) - Extracts Visual Rules & Entities ---
+        const geminiTask = (async () => {
+            console.log('Gemini 2.5 Flash: Extracting Visual Rules...');
+            const { output } = await ai.generate({
+                model: geminiFlash.name,
+                prompt: `
             Analyze the following ${input.sourceType} content:
             "${input.source}"
     
-            Extract the core "World Rules" or physical principles described in this material.
+            Phase 1: Rule Extraction
+            Extract the core "World Rules" or physical principles.
             For each rule:
-            1. Give it a concise name (rule).
+            1. Give it a concise name.
             2. Provide a clear description.
-            3. Provide a 'grounding_source' - this must be a verbatim quote or a specific reference (like "Page X" for PDFs or a timestamp/segment description for video).
+            3. Provide a 'grounding_source' (verbatim quote or reference).
     
-            The goal is to build a "Quantum Sandbox" where these rules will be simulated.
-            Focus on rules that are actionable or visualizable in a 3D simulation.
+            Phase 2: Visual Entity Description
+            Describe the key physical entities mentioned (e.g., "Ethanol", "Beaker", "Flame").
+            Focus on their visual properties (color, state of matter).
           `,
-                    output: { schema: IngestionOutputSchema },
-                });
+                output: { schema: IngestionOutputSchema.pick({ rules: true, metadata: true }) },
+            });
+            return output;
+        })();
+        tasks.push(geminiTask);
 
-                if (!output) {
-                    throw new Error('Gemini returned no output');
-                }
-                return output;
-            } catch (error) {
-                console.warn('Gemini 2.0 Flash failed. Initiating Failover to DeepSeek-R1 (via OpenRouter)...', error);
-
-                try {
-                    // Failover: DeepSeek-R1 (Reasoning Model)
-                    const { output } = await ai.generate({
-                        model: 'openai/deepseek/deepseek-r1',
-                        prompt: `
-                    CRITICAL TASK: You are the "Logic Validator" for a physics engine.
-                    Analyze the text content below and EXTRACT the mathematical axioms and physical rules.
+        // --- Task 2: DeepSeek-R1 (The Mathematician) - Extracts Physics Constants & Formulas ---
+        const deepSeekTask = (async () => {
+             console.log('DeepSeek-R1: Extracting Mathematical Logic...');
+             try {
+                const { output } = await ai.generate({
+                    model: DEEPSEEK_LOGIC_MODEL, // e.g., 'openrouter/deepseek/deepseek-r1'
+                    prompt: `
+                    CRITICAL TASK: You are the "Text-to-ECS" Compiler.
+                    Analyze the text content below and EXTRACT the strict mathematical and physical parameters.
                     
                     Content: "${input.source}"
                     
-                    OUTPUT IN JSON format only, matching the schema.
-                    1. Verify every rule against standard physics principles.
-                    2. If the text implies a formula, describe it in the 'description'.
-                    3. "grounding_source" is Mandelbrot.
-                        `,
-                        output: { schema: IngestionOutputSchema },
-                    });
-                    return output;
-                } catch (deepSeekError) {
-                    console.error('DeepSeek-R1 failover failed', deepSeekError);
-                    throw deepSeekError;
-                }
-            }
-        })());
+                    OUTPUT: A JSON object matching the SimConfig schema.
+                    1. Identify Entities (e.g., "Water").
+                    2. Assign Components (e.g., BoilingPoint=100, Density=1.0).
+                    3. Extract Global Parameters (e.g., Gravity, AmbientTemp).
+                    
+                    Format:
+                    Entities: [{ name: "Ethanol", components: [{ type: "PhaseState", properties: { boilingPoint: 78.37 } }] }]
+                    `,
+                    output: { schema: SimConfigSchema },
+                });
+                return output;
+             } catch (error) {
+                 console.warn("DeepSeek logic extraction failed, falling back to Gemini for Logic.", error);
+                 // Fallback to Gemini if DeepSeek fails (Resilience)
+                 const { output } = await ai.generate({
+                    model: geminiFlash.name,
+                    prompt: `Extract strict simulation parameters from: "${input.source}"`,
+                    output: { schema: SimConfigSchema }
+                 });
+                 return output;
+             }
+        })();
+        tasks.push(deepSeekTask);
 
-        // --- Task 2: Visual Logic Extraction (Qwen2.5-VL) ---
+        // --- Task 3: Visual Logic Extraction (Qwen2.5-VL) ---
         if (input.images && input.images.length > 0) {
             tasks.push((async () => {
                 try {
                     console.log(`Processing ${input.images!.length} images with Qwen2.5-VL...`);
-                    // We take the first 3 images to avoid token limits or huge payloads for now
                     const imageParts = input.images!.slice(0, 3).map((img: string) => ({ media: { url: img, contentType: 'image/jpeg' } }));
 
                     const { output } = await ai.generate({
@@ -100,7 +107,7 @@ export const ingestionFlow = ai.defineFlow(
                             ` },
                             ...imageParts
                         ],
-                        output: { schema: IngestionOutputSchema }
+                        output: { schema: IngestionOutputSchema.pick({ rules: true }) }
                     });
                     return output;
                 } catch (error) {
@@ -110,22 +117,30 @@ export const ingestionFlow = ai.defineFlow(
             })());
         }
 
-        // --- Merge Results ---
+        // --- Synthesis: Merge the Brains ---
         const results = await Promise.all(tasks);
-        const successfulResults = results.filter((r): r is z.infer<typeof IngestionOutputSchema> => r !== null);
+        
+        // Results[0] is Gemini (Rules), Results[1] is DeepSeek (SimConfig), Results[2] is Qwen (Visual Rules)
+        const geminiResult = results[0];
+        const deepSeekResult = results[1];
+        const qwenResult = results.length > 2 ? results[2] : null;
 
-        if (successfulResults.length === 0) {
-            throw new Error('All ingestion models failed.');
+        if (!geminiResult) {
+            throw new Error('Primary Gemini Ingestion failed.');
         }
 
-        // Merge rules
-        const combinedRules = successfulResults.flatMap(r => r.rules);
+        // Merge Rules
+        let combinedRules = geminiResult.rules || [];
+        if (qwenResult && qwenResult.rules) {
+            combinedRules = [...combinedRules, ...qwenResult.rules];
+        }
 
-        // Use metadata from the first result (usually text source)
-        const primaryMetadata = successfulResults[0].metadata;
+        // Use metadata from Gemini
+        const primaryMetadata = geminiResult.metadata;
 
         return {
             rules: combinedRules,
+            simulationConfig: deepSeekResult ? deepSeekResult : undefined, // Attach the ECS config
             metadata: primaryMetadata
         };
     }

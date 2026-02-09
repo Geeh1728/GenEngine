@@ -44,8 +44,33 @@ interface GhostBuffer {
 }
 
 /**
- * useGenesisEngine: The central hook for managing the simulation lifecycle.
- * Refactored for v9.0: Proactive Lab & Mastery Artifacts.
+ * useGenesisEngine - The central orchestration hook for Genesis Engine.
+ * 
+ * @description Combines simulation state, gamification, and UI state into a unified
+ * interface for the Genesis reality compiler. This is the "God Hook" that coordinates
+ * all simulation lifecycle events, P2P synchronization, and mastery tracking.
+ * 
+ * @returns The complete API for controlling the Genesis Engine:
+ * - `worldState` - Current physics simulation state
+ * - `dispatch` - Redux-like action dispatcher for state updates
+ * - `isProcessing` - Loading state for async operations
+ * - `setWorldState` - Update the world (alias for syncWorldState)
+ * - `resolveChallenge` - Process Saboteur challenge responses
+ * - `handleIngest` - Ingest files for knowledge embedding
+ * - `startSimulation` - Begin a simulation from a skill node
+ * 
+ * @example
+ * ```tsx
+ * const {
+ *   worldState,
+ *   setWorldState,
+ *   dispatch,
+ *   isProcessing,
+ * } = useGenesisEngine();
+ * 
+ * // Dispatch an action
+ * dispatch({ type: 'SET_PROCESSING', payload: true });
+ * ```
  */
 export function useGenesisEngine() {
     const { state, dispatch } = useGenesisStore();
@@ -194,7 +219,7 @@ export function useGenesisEngine() {
     useEffect(() => {
         if (worldState && Object.keys(worldState).length > 0) {
             blackboard.updateFromWorldState(worldState);
-            
+
             // Record History
             setHistory(prev => {
                 const next = [...prev, JSON.parse(JSON.stringify(worldState))];
@@ -221,7 +246,7 @@ export function useGenesisEngine() {
             if (ctx.currentWorldState) {
                 // GHOST MESH INTERPOLATION (Module V)
                 const hasRemote = ctx.currentWorldState.entities?.some((e: any) => e.isRemote);
-                
+
                 if (hasRemote) {
                     const nextEntities = ctx.currentWorldState.entities?.map((e: any) => {
                         if (!e.isRemote) return e;
@@ -230,12 +255,12 @@ export function useGenesisEngine() {
                         if (predicted) {
                             const dx = Math.abs(e.position.x - predicted.x);
                             const dy = Math.abs(e.position.y - predicted.y);
-                            
+
                             // IF divergence is small (<5%), keep predicted for smoothness
                             if (dx < 0.05 && dy < 0.05) {
                                 return { ...e, position: predicted };
                             }
-                            
+
                             // IF divergence is large, smoothly LERP to real data
                             return {
                                 ...e,

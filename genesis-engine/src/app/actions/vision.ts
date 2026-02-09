@@ -1,32 +1,48 @@
 'use server';
 
-import { visualCortexFlow } from '@/lib/genkit/agents/visualCortex';
-import { visionFlow } from '@/lib/genkit/agents/vision';
+import { google } from "@genkit-ai/googleai";
+import { generate } from "@genkit-ai/ai";
+import { z } from "zod";
+import { geminiFlash } from "@/lib/genkit/config";
 
-export async function analyzeReality(imageBase64: string) {
-    try {
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-        const result = await visionFlow({ imageBase64: base64Data });
-        return { success: true, data: result };
-    } catch (error) {
-        console.error("Vision API Error:", error);
-        return { success: false, error: "Failed to analyze reality." };
-    }
-}
+// --- The Reality Lens: Server-Side Vision Analysis ---
 
-export async function analyzeStructuralIntegrity(imageBase64: string, context?: string) {
+/**
+ * Analyzes an image for physical objects using Gemini 2.5 Flash.
+ * Returns raw JSON compatible with the Google Robotics demo parser.
+ */
+export async function analyzeReality(imageBase64: string, isPremium: boolean = false) {
     try {
-        // Strip data:image/png;base64, prefix if present
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+        console.log(`[RealityLens] Analyzing image (Premium: ${isPremium})...`);
         
-        const result = await visualCortexFlow({
-            imageBase64: base64Data,
-            context
+        // 1. Select Model (Tiered Intelligence)
+        // Premium users get the high-fidelity model (simulated here as the same for now, but ready for upgrade)
+        const modelName = isPremium ? geminiFlash.name : geminiFlash.name;
+
+        // 2. Define System Prompt based on Tier
+        // The Robotics/Spatial prompt requires specific output formatting
+        const systemPrompt = isPremium
+            ? "You are a Spatial Robotics Engine. Output 3D bounding boxes [cx, cy, cz, w, h, d, r, p, y] and labels."
+            : "You are a 2D Vision Engine. Detect physical objects (boxes, cups, balls). Output a JSON list: { box_2d: [ymin, xmin, ymax, xmax], label: string, estimatedMass: number }.";
+
+        // 3. Call Genkit
+        const response = await generate({
+            model: modelName,
+            prompt: [
+                { text: systemPrompt },
+                { media: { url: imageBase64, contentType: 'image/jpeg' } }
+            ],
+            output: { format: "json" } // Enforce JSON mode
         });
 
-        return { success: true, data: result };
+        if (!response.output()) {
+            throw new Error("Gemini returned empty output.");
+        }
+
+        return { success: true, data: response.output() };
+
     } catch (error) {
-        console.error("Structural Analysis Error:", error);
-        return { success: false, error: "Failed to analyze structure." };
+        console.error("[RealityLens] Analysis Failed:", error);
+        return { success: false, error: String(error) };
     }
 }

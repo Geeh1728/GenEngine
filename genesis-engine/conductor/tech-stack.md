@@ -13,6 +13,7 @@
   - **Molmo 2 8B**: High-precision robotics-grade spatial mapping.
   - **LiquidAI LFM-2.5**: Dynamic system stability analysis.
   - **Kimi K2.5**: Long-context textbook retrieval and peer review.
+- **Text-to-ECS Compiler (v21.0)**: Automatically converts PDF rules into interactive Entity Component Systems.
 - **Universal Instrument Forge**: Physics-primitive based instrument compilation.
 - **Google text-embedding-004**: Primary vector search engine.
 - **Retrieval**: PGLite (Postgres WASM) + **Titan Disk (OPFS)** for high-speed local persistence.
@@ -20,6 +21,7 @@
 ## Physics & Simulation
 - **3D Engine**: [React Three Fiber](https://r3f.docs.pmnd.rs/getting-started/introduction)
 - **Physics Kernel**: **Ghost Kernel** (Multi-threaded Worker) using Rapier.js and SharedArrayBuffer.
+- **Sentinel Physics Lawyer**: Real-time validation of simulation states against ingested PDF rules.
 - **Scientific Kernel**: Custom RK4 (Runge-Kutta 4th Order) numerical solver.
 - **Omni-Shader Engine**: AI-generated GLSL for neural field visualizations.
 

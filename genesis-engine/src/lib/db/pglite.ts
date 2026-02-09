@@ -23,11 +23,16 @@ export const getDB = async (): Promise<PGlite | null> => {
       });
       console.log('🔋 Genesis Local DB: Online (OPFS High-Speed)');
     } catch (e) {
-      console.warn('[TitanDisk] OPFS restricted, falling back to IndexedDB.');
-      dbInstance = await PGlite.create('idb://genesis-db', {
-        extensions: { vector },
-      });
-      console.log('🔋 Genesis Local DB: Online (IndexedDB Fallback)');
+      console.warn('[TitanDisk] OPFS restricted or Wasm failure, falling back to IndexedDB.', e);
+      try {
+        dbInstance = await PGlite.create('idb://genesis-db', {
+          extensions: { vector },
+        });
+        console.log('🔋 Genesis Local DB: Online (IndexedDB Fallback)');
+      } catch (idbError) {
+        console.error('❌ Genesis Local DB: Critical Failure (Both OPFS and IDB failed)', idbError);
+        return null;
+      }
     }
 
     // Initialize schema (run once)
@@ -119,7 +124,7 @@ export async function updateRegisteredModel(alias: string, modelString: string) 
     VALUES ($1, $2, CURRENT_TIMESTAMP)
     ON CONFLICT (model_alias) DO UPDATE SET actual_model_string = EXCLUDED.actual_model_string, last_verified = CURRENT_TIMESTAMP
   `, [alias, modelString]);
-  
+
   console.log(`🛠️ Sentinel: Updated ${alias} -> ${modelString}`);
 }
 
@@ -137,7 +142,7 @@ export async function incrementApiUsage(modelId: string = 'googleai/gemini-3-fla
     ON CONFLICT (date, model_id) DO UPDATE SET request_count = usage_stats.request_count + 1
     RETURNING request_count
   `, [today, modelId]);
-  
+
   return (result.rows[0] as { request_count: number }).request_count;
 }
 
@@ -199,7 +204,7 @@ export async function saveSimulationToDB(id: string, type: string, dna: unknown)
     VALUES ($1, $2, $3)
     ON CONFLICT (id) DO UPDATE SET dna = EXCLUDED.dna
   `, [id, type, JSON.stringify(dna)]);
-  
+
   console.log(`💾 Simulation ${id} (${type}) saved to Local DB.`);
 }
 

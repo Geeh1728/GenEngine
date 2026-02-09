@@ -1,101 +1,47 @@
 'use server';
 
-import { WorldState } from '@/lib/simulation/schema';
-import { orchestratorFlow } from '@/lib/genkit/agents/orchestrator';
-import { translatorAgent } from '@/lib/genkit/agents/translator';
+import { google } from "@genkit-ai/googleai";
+import { generate } from "@genkit-ai/ai";
+import { z } from "zod";
+import { geminiFlash } from "@/lib/genkit/config";
 
-export type BabelOutput = {
-    success: boolean;
-    physicsDelta: Partial<WorldState>;
-    translatedCommentary: string;
-    originalIntent?: string;
-    error?: string;
-};
+// --- The Babel Node: Universal Translator ---
 
 /**
- * The Babel Node: Semantic Translation Loop
- * Translates speech into physical intent and commentary.
+ * Translates user speech into Physics Intent + Localized Commentary.
  */
-export async function translatePhysicsIntent(
-    transcript: string,
-    currentWorldState: WorldState,
-    targetLang: string = 'English'
-): Promise<BabelOutput> {
+export async function translatePhysicsIntent(transcript: string, targetLang: string = 'English') {
     try {
-        const result = await orchestratorFlow({
-            audioTranscript: transcript,
-            text: `Target Language: ${targetLang}. Current State Context: ${JSON.stringify(currentWorldState)}`,
-            mode: 'AUTO',
-            isSabotageMode: false,
-            isSaboteurReply: false
+        console.log(`[BabelNode] Translating: "${transcript}" to ${targetLang}...`);
+
+        const response = await generate({
+            model: geminiFlash.name,
+            prompt: `
+            Role: Interpreter and Physics Engine.
+            Input: User said: "${transcript}".
+            Task:
+            1. Analyze if the user wants to change the simulation (e.g., 'Make it heavier' -> { mass: current * 1.5 }).
+            2. Translate the meaning of what they said into "${targetLang}".
+            
+            Output JSON:
+            {
+              "physicsDelta": { ...partial WorldState updates... },
+              "translatedCommentary": "The translated text for TTS",
+              "originalIntent": "What they actually meant"
+            }
+            Constraint: Use JSON format only.
+            `,
+            output: { format: "json" }
         });
 
-        if (result.status === 'ERROR' || !result.worldState) {
-            throw new Error(String(result.message || 'Failed to translate physics intent'));
+        if (!response.output()) {
+            throw new Error("Babel translation returned empty output.");
         }
 
-        // Map Orchestrator output to legacy Babel output for compatibility
-        return {
-            success: true,
-            physicsDelta: result.worldState as WorldState,
-            translatedCommentary: String(result.nativeReply || (result.worldState as WorldState).explanation || ''),
-            originalIntent: transcript
-        };
-    } catch (error) {
-        console.error('Babel Node Error:', error);
-        return {
-            success: false,
-            physicsDelta: {},
-            translatedCommentary: '',
-            error: error instanceof Error ? error.message : 'Unknown translation error'
-        };
-    }
-}
-
-/**
- * ASTRA PROTOCOL: Native Audio Processing (v8.0)
- * 1. Audio -> Translator (Gemini Audio) -> English Intent
- * 2. English Intent -> Orchestrator -> Physics Delta
- */
-export async function processNativeAudio(
-    audioBase64: string,
-    currentWorldState: WorldState
-): Promise<BabelOutput> {
-    try {
-        console.log("Processing Native Audio via Astra Protocol...");
-        
-        // Step 1: Translate Audio to Intent
-        const translation = await translatorAgent({
-            audioBase64,
-            contentType: 'audio/webm',
-            worldState: currentWorldState
-        });
-
-        console.log("Astra Translation:", translation.englishIntent);
-
-        // Step 2: Execute Intent via Orchestrator
-        const result = await orchestratorFlow({
-            audioTranscript: translation.englishIntent,
-            text: `Target Language: ${translation.detectedLanguage}. Current State Context: ${JSON.stringify(currentWorldState)}`,
-            mode: 'AUTO',
-            isSabotageMode: false,
-            isSaboteurReply: false
-        });
-
-        return {
-            success: true,
-            physicsDelta: (result.worldState as WorldState) || {},
-            translatedCommentary: translation.nativeReply,
-            originalIntent: translation.englishIntent
-        };
+        return { success: true, data: response.output() };
 
     } catch (error) {
-        console.error('Astra Processing Error:', error);
-        return {
-            success: false,
-            physicsDelta: {},
-            translatedCommentary: "I couldn't hear you clearly.",
-            error: String(error)
-        };
+        console.error("[BabelNode] Translation Failed:", error);
+        return { success: false, error: String(error) };
     }
 }

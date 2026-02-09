@@ -112,6 +112,14 @@ export const initialGameState: GlobalGameState = {
 };
 
 /**
+ * Type guard for valid GlobalGameState modes
+ */
+const VALID_MODES = ['IDLE', 'PHYSICS', 'VOXEL', 'SCIENTIFIC', 'ASSEMBLER'] as const;
+function isValidMode(mode: unknown): mode is GlobalGameState['mode'] {
+    return typeof mode === 'string' && VALID_MODES.includes(mode as GlobalGameState['mode']);
+}
+
+/**
  * Reducer for P2P Socratic Syncing.
  */
 export function gameReducer(state: GlobalGameState, action: GameAction): GlobalGameState {
@@ -191,7 +199,7 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return {
                 ...state,
                 worldState: stableWorld,
-                mode: (stableWorld.mode as any) || 'PHYSICS',
+                mode: isValidMode(stableWorld.mode) ? stableWorld.mode : 'PHYSICS',
                 lastInteractionId: action.payload.interactionId || state.lastInteractionId,
                 lastUpdated: Date.now(),
                 unlockedHUD: true, // Auto-unlock on first manifestation

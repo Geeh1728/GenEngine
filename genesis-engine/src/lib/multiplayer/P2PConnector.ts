@@ -3,6 +3,14 @@ import { WebrtcProvider } from 'y-webrtc';
 import { blackboard, BlackboardContext } from '../genkit/context';
 import { sfx } from '../sound/SoundManager';
 
+/** Visual event interface for P2P mesh synchronization */
+interface VisualEvent {
+    type: string;
+    timestamp: number;
+    origin: number;
+    [key: string]: unknown;
+}
+
 /**
  * Module L: P2P REALITY MESH (Ghost Mesh)
  * Objective: Sync the Physics Blackboard across multiple clients with R0 cost.
@@ -12,14 +20,14 @@ export class P2PConnector {
     private static instance: P2PConnector;
     private doc: Y.Doc;
     private provider: WebrtcProvider | null = null;
-    private ymap: Y.Map<any>;
-    private yevents: Y.Array<any>;
+    private ymap: Y.Map<unknown>;
+    private yevents: Y.Array<VisualEvent>;
     private isConnected: boolean = false;
     private peerCount: number = 0;
     private onSyncCallback?: (data: Partial<BlackboardContext>) => void;
-    private visualEventListeners: Set<(event: any) => void> = new Set();
+    private visualEventListeners: Set<(event: VisualEvent) => void> = new Set();
     private peerChangeListeners: Set<(count: number) => void> = new Set();
-    private eventListeners: Map<string, Set<(data: any) => void>> = new Map();
+    private eventListeners: Map<string, Set<(data: unknown) => void>> = new Map();
 
     private lastBroadcast = 0;
     private BROADCAST_INTERVAL = 1000 / 15; // 15Hz
@@ -32,13 +40,13 @@ export class P2PConnector {
         // Observe changes from Yjs mesh (remote updates)
         this.ymap.observe((event) => {
             if (event.transaction.local) return; // Ignore changes we originated
-// ... (rest of ymap observer)
+            // ... (rest of ymap observer)
         });
 
         // SYNC THE RIPPLES: Observe ephemeral events
         this.yevents.observe((event) => {
             if (event.transaction.local) return;
-            
+
             // Handle remote events (like piano key hits or voxel bursts)
             event.changes.added.forEach((item) => {
                 const data = item.content.getContent();
@@ -66,7 +74,7 @@ export class P2PConnector {
         if (this.isConnected) return;
 
         console.log(`[P2P] Initializing Edge-Signaling Selector for ${roomId}...`);
-        
+
         const defaultSignaling = [
             'wss://signaling.yjs.dev',
             'wss://y-webrtc-signaling-eu.herokuapp.com',
@@ -87,7 +95,7 @@ export class P2PConnector {
                         ws.close();
                         resolve(url);
                     };
-                    ws.onerror = () => {};
+                    ws.onerror = () => { };
                 });
             } catch (e) {
                 return signalingServers[0];
@@ -95,7 +103,7 @@ export class P2PConnector {
         })) as string;
 
         console.log(`[P2P] Selected Edge Node: ${fastestServer}`);
-        
+
         this.provider = new WebrtcProvider(roomId, this.doc, {
             signaling: [fastestServer, ...signalingServers.filter(s => s !== fastestServer)]
         } as any);
@@ -135,7 +143,7 @@ export class P2PConnector {
      */
     public broadcastAudioEvent(type: 'TRIGGER' | 'IMPACT' | 'TENSION', frequency: number, amplitude: number) {
         if (!this.isConnected) return;
-        
+
         this.doc.transact(() => {
             this.ymap.set('audio_event', {
                 type,
@@ -160,12 +168,14 @@ export class P2PConnector {
         this.doc.transact(() => {
             Object.entries(ctx).forEach(([key, value]) => {
                 const currentYValue = this.ymap.get(key);
-                
+
                 // Do NOT broadcast remote entities back to the mesh
                 // (Prevents feedback loops)
-                if (key === 'currentWorldState' && value && (value as any).entities) {
-                    const localEntities = (value as any).entities.filter((e: any) => !e.isRemote);
-                    if (localEntities.length === 0 && (value as any).entities.length > 0) return;
+                if (key === 'currentWorldState' && value && typeof value === 'object' && 'entities' in value) {
+                    const ws = value as { entities?: Array<{ isRemote?: boolean }> };
+                    const entities = ws.entities ?? [];
+                    const localEntities = entities.filter(e => !e.isRemote);
+                    if (localEntities.length === 0 && entities.length > 0) return;
                 }
 
                 // Simple equality check to avoid redundant updates
@@ -198,7 +208,7 @@ export class P2PConnector {
      */
     public broadcastVisualEvent(event: any) {
         if (!this.isConnected) return;
-        
+
         this.doc.transact(() => {
             this.yevents.push([{
                 ...event,

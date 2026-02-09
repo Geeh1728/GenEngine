@@ -1,62 +1,41 @@
-# 🌌 Genesis Engine: The Intelligence Kernel
+# Genesis Engine: The Reality Compiler
 
-The Genesis Engine has been upgraded to a resilient, agent-centric intelligence platform.
+**Version 21.0 - The Text-to-ECS Revolution**
 
-### 🧪 Module K: The Lab Bench (Scientific Accuracy)
-- **Math Kernel (`src/lib/physics/math.ts`)**: High-precision Runge-Kutta 4 (RK4) numerical integrator for solving Lagrangian dynamics.
-- **Exact Physics Hook (`src/hooks/useExactPhysics.ts`)**: A performance-optimized hook using `useFrame` for real-time chaotic simulations with zero React overhead.
-- **Lab Bench Component (`src/components/simulation/LabBench.tsx`)**: Scientific visualization of complex systems like the Double Pendulum.
+## Overview
+The **Genesis Engine** is a "Reality Compiler" that transforms passive learning materials (PDFs, Exams, Photos) into interactive, physics-based simulations. It uses a **Dual-Brain** architecture (Gemini + DeepSeek) to ensure both visual fidelity and mathematical rigor.
 
-### 🛡️ Infrastructure: Self-Healing Generator
-- **Robust Resilience (`src/lib/genkit/resilience.ts`)**: Implements a **Socratic Feedback Loop**. If AI-generated JSON fails schema validation, the error is fed back to the model for an immediate corrective attempt.
-- **Quota Protection**: All agents prioritize `gemini-2.5-flash-lite` to maximize RPM and minimize costs, with seamless failover to `gemini-2.5-flash`.
+## Key Features
 
-### 📜 Module I: The Quest Board
-- **Quest Agent (`src/lib/genkit/agents/questAgent.ts`)**: Generates dynamic learning challenges tailored to the user's current topic.
-- **Quest Overlay (`src/components/ui/QuestOverlay.tsx`)**: A cyberpunk-styled UI that automatically intervenes after repeated simulation failures to guide the user toward mastery.
+### 1. Text-to-ECS Compiler
+Upload a PDF (e.g., "Grade 10 Physical Sciences"). The engine automatically extracts:
+*   **Visual Rules:** "Ethanol is a clear liquid."
+*   **Math Constants:** "Boiling Point = 78.37°C."
+*   **Result:** A playable simulation where entities behave according to the text.
 
-### 🏛️ The Expanded Council of Agents
-The backend architecture has been refactored into a modular agentic system managed by a central **Orchestrator**:
-- **Babel Agent (`translator.ts`)**: Universal translator for physics intent (speech-to-meaning).
-- **Vision Agent (`vision.ts`)**: Robotics-grade spatial understanding using a 1000x1000 normalized grid.
-- **Physicist Agent (`physicist.ts`)**: Intelligent compiler that toggles between standard game physics and exact scientific math.
-- **Critic Agent (`critic.ts`)**: Socratic gatekeeper that detects logical fallacies and impossible physical premises.
+### 2. Reality Lens (Robotics Vision)
+Take a photo of a bridge or a messy desk. The engine scans it using **Gemini 2.5 Flash** (Spatial Mode) and teleports the objects into the 3D world as physics bodies.
 
----
+### 3. Sentinel Physics Lawyer
+The engine validates your actions against the ingested rules. If you try to boil Ethanol at 50°C, the **Sentinel** cites the specific exam question proving you wrong.
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+### 4. Living Exam Mode
+Static exam papers become interactive challenges. "Question 3.5: Explain the phase change" becomes a level where you must replicate the phase change in the lab.
 
-## Getting Started
+### 5. Universal Translator (Babel Node)
+Speak in any language (Zulu, Japanese). The engine translates your **Intent** (e.g., "Make it heavier") into physics updates, allowing cross-cultural collaboration.
 
-First, run the development server:
+## Tech Stack
+*   **Framework:** Next.js 16 + React 19 + Tailwind v4
+*   **AI:** Google Genkit + Gemini 3 Flash / 2.5 Flash + DeepSeek-R1
+*   **Physics:** React Three Fiber + Rapier.js (Worker Thread)
+*   **Database:** PGLite (Postgres WASM) + OPFS
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Setup
+1.  Clone the repo.
+2.  `npm install`
+3.  Set `GOOGLE_GENAI_API_KEY` and `OPENROUTER_API_KEY` in `.env.local`.
+4.  `npm run dev`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+MIT

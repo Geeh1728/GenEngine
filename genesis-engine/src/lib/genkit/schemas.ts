@@ -14,9 +14,32 @@ export const WorldRuleSchema = z.object({
     isActive: z.boolean().default(true).describe('Whether this rule is currently applied to the simulation'),
 });
 
+// ECS Component Definition
+export const ECSComponentSchema = z.object({
+    type: z.string().describe('Component Type (e.g., PhaseState, Volatility)'),
+    properties: z.record(z.string(), z.union([z.number(), z.string(), z.boolean(), z.array(z.number())]))
+        .describe('Key-value pairs for component properties'),
+    trigger: z.string().optional().describe('Condition to trigger this component (e.g., "temp > 100")'),
+    effect: z.string().optional().describe('Visual or logic effect (e.g., "bubble_emitter")')
+});
+
+// ECS Entity Definition
+export const SimEntitySchema = z.object({
+    name: z.string(),
+    components: z.array(ECSComponentSchema)
+});
+
+// Simulation Configuration (The Output of Text-to-ECS)
+export const SimConfigSchema = z.object({
+    entities: z.array(SimEntitySchema),
+    globalParameters: z.record(z.string(), z.number()).describe('Global constants like gravity, temperature'),
+    scenarios: z.array(z.string()).describe('Description of testable scenarios')
+});
+
 // Schema for the ingestion flow output
 export const IngestionOutputSchema = z.object({
     rules: z.array(WorldRuleSchema),
+    simulationConfig: SimConfigSchema.optional().describe('Compiled ECS data for the simulation'),
     metadata: z.object({
         source_type: z.enum(['pdf', 'youtube']),
         title: z.string(),

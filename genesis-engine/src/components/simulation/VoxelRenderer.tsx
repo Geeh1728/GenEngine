@@ -1,93 +1,94 @@
-import React, { useRef, useLayoutEffect, useMemo } from 'react';
-import { Html } from '@react-three/drei';
+'use client';
+
+import React, { useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
-import { WorldState } from '@/lib/simulation/schema';
+import { useThree } from '@react-three/fiber';
+import { SimplexNoise } from 'three/examples/jsm/math/SimplexNoise.js';
 
 interface VoxelRendererProps {
-    voxels: NonNullable<WorldState['voxels']>;
+    seed?: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const VoxelRenderer: React.FC<any> = ({ voxels: initialVoxels, data }) => {
-    // 1. DATA INGEST: Handle both direct prop and data object prop
-    const voxels = useMemo(() => {
-        const raw = initialVoxels || data?.voxels || data;
-        if (Array.isArray(raw)) return raw;
-        return [];
-    }, [initialVoxels, data]);
-
-    console.log("[VoxelRenderer] Parsing Data:", { initialVoxels, data, resultCount: voxels.length });
-
+export function VoxelRenderer({ seed = 123 }: VoxelRendererProps) {
     const meshRef = useRef<THREE.InstancedMesh>(null);
-    const groupRef = useRef<THREE.Group>(null);
-
-    const { count, tempObject, tempColor } = useMemo(() => ({
-        count: voxels.length,
-        tempObject: new THREE.Object3D(),
-        tempColor: new THREE.Color()
-    }), [voxels.length]);
+    const { scene } = useThree();
 
     useLayoutEffect(() => {
-        if (!meshRef.current || count === 0) return;
+        if (!meshRef.current) return;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        voxels.forEach((voxel: any, i: number) => {
-            tempObject.position.set(voxel.x, voxel.y, voxel.z);
-            tempObject.updateMatrix();
-            meshRef.current!.setMatrixAt(i, tempObject.matrix);
+        // Voxel Config
+        const VOXEL_SIZE = 1;
+        const ISLAND_RADIUS = 18;
+        const TREE_HEIGHT = 16;
+        const PALETTE = {
+            GRASS_TOP: new THREE.Color(0x6a8d46),
+            DIRT: new THREE.Color(0x5c4033),
+            STONE: new THREE.Color(0x7a7a7a),
+            TRUNK: new THREE.Color(0x3e2723),
+            LEAVES: new THREE.Color(0xffb7c5),
+            WATER: new THREE.Color(0xaaddff)
+        };
 
-            // Allow for string colors or rgb objects if needed, but defaulting to string from schema
-            tempColor.set(voxel.color || '#888');
-            meshRef.current!.setColorAt(i, tempColor);
+        const voxels: { x: number; y: number; z: number; color: THREE.Color }[] = [];
+        const simplex = new SimplexNoise();
+
+        // Procedural Island Generation
+        for (let x = -ISLAND_RADIUS; x <= ISLAND_RADIUS; x++) {
+            for (let z = -ISLAND_RADIUS; z <= ISLAND_RADIUS; z++) {
+                const d = Math.sqrt(x * x + z * z);
+                if (d < ISLAND_RADIUS - 1) {
+                    const noise = simplex.noise(x * 0.1, z * 0.1);
+                    const surfaceHeight = Math.floor(noise * 2);
+                    let depth = Math.floor((ISLAND_RADIUS - d) * 1.2);
+
+                    for (let y = surfaceHeight; y >= surfaceHeight - depth; y--) {
+                        let color = PALETTE.STONE;
+                        if (y === surfaceHeight) color = PALETTE.GRASS_TOP;
+                        else if (y > surfaceHeight - 3) color = PALETTE.DIRT;
+
+                        voxels.push({ x, y, z, color });
+                    }
+                }
+            }
+        }
+
+        // Procedural Tree
+        const trunkX = -4;
+        const trunkZ = -2;
+        for (let y = 0; y < TREE_HEIGHT; y++) {
+            voxels.push({ x: trunkX, y: y + 1, z: trunkZ, color: PALETTE.TRUNK });
+            // Leaves
+            if (y > 10) {
+                for (let lx = -2; lx <= 2; lx++) {
+                    for (let lz = -2; lz <= 2; lz++) {
+                        if (Math.random() > 0.3) {
+                             voxels.push({ x: trunkX + lx, y: y + 1, z: trunkZ + lz, color: PALETTE.LEAVES });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Apply to InstancedMesh
+        meshRef.current.count = voxels.length;
+        const dummy = new THREE.Object3D();
+        
+        voxels.forEach((v, i) => {
+            dummy.position.set(v.x, v.y, v.z);
+            dummy.updateMatrix();
+            meshRef.current!.setMatrixAt(i, dummy.matrix);
+            meshRef.current!.setColorAt(i, v.color);
         });
 
         meshRef.current.instanceMatrix.needsUpdate = true;
         if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
 
-    }, [voxels, tempObject, tempColor, count]);
-
-    // Module H: Visual Polish - Gentle floating animation
-    useFrame((state) => {
-        if (!groupRef.current) return;
-        const t = state.clock.getElapsedTime();
-        groupRef.current.position.y = Math.sin(t * 0.5) * 0.2;
-        groupRef.current.rotation.y = Math.sin(t * 0.2) * 0.1;
-    });
-
-    // 2. SAFEGUARD: Fallback Grid if no data
-    if (count === 0) {
-        return (
-            <group>
-                <gridHelper args={[20, 20, 0x444444, 0x222222]} />
-                <mesh position={[0, 1, 0]}>
-                    <boxGeometry args={[1, 2, 1]} />
-                    <meshStandardMaterial color="brown" wireframe />
-                </mesh>
-                <Html position={[0, 2.5, 0]}>
-                    <div className="bg-black/80 px-2 py-1 rounded text-xs text-yellow-500 font-mono">
-                        WAITING FOR VOXEL DATA...
-                    </div>
-                </Html>
-            </group>
-        );
-    }
+    }, [seed]);
 
     return (
-        <group ref={groupRef}>
-            <instancedMesh
-                ref={meshRef}
-                args={[undefined, undefined, count]}
-                castShadow
-                receiveShadow
-            >
-                <boxGeometry args={[0.95, 0.95, 0.95]} /> {/* Slightly smaller for wireframe gaps */}
-                <meshStandardMaterial />
-            </instancedMesh>
-
-            {/* Ambient lighting for voxels */}
-            <ambientLight intensity={0.6} />
-            <directionalLight position={[10, 20, 10]} intensity={1.2} castShadow />
-        </group>
+        <instancedMesh ref={meshRef} args={[undefined, undefined, 10000]} castShadow receiveShadow>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial />
+        </instancedMesh>
     );
-};
+}

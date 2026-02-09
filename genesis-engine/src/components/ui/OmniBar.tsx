@@ -25,6 +25,8 @@ import { sfx } from '@/lib/sound/SoundManager';
 import { useWormhole } from '@/hooks/useWormhole';
 import { speculator } from '@/lib/ai/speculator';
 import { MasteryLogic } from '@/lib/gamification/mastery-logic';
+import { GameAction } from '@/lib/multiplayer/GameState';
+import { WorldState } from '@/lib/simulation/schema';
 
 interface OmniBarProps {
     onCameraClick: () => void;
@@ -118,8 +120,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
             executeLocalTool(localTool, (action) => {
                 console.log("[OmniBar] Local Action:", action);
                 sfx.playSuccess();
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                dispatch(action as any);
+                dispatch(action as GameAction);
             });
             setPrompt('');
             return;
@@ -145,7 +146,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
             // 4. Orchestrator Flow via Server Action
             const currentState = worldState;
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Neural Link Timeout")), 45000)
+                setTimeout(() => reject(new Error("Neural Link Timeout")), 120000)
             );
 
             // If we have a cached result from the swarm bees, we use it to boost the Orchestrator
@@ -207,7 +208,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                     successCondition: "Observe geometry",
                     description: "The primary physics link failed. Initiating low-level voxel visualization.",
                     explanation: "System Error Detected. Falling back to primitive geometry to maintain visual feed."
-                } as any
+                } satisfies WorldState
             });
 
             if (msg.includes('?') || msg.toLowerCase().includes('considering')) {

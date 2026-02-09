@@ -1,86 +1,144 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { WorldState } from '@/lib/simulation/schema';
-import { useLiveAudio } from '@/hooks/useLiveAudio';
-import { useAstraCompanion } from '@/hooks/useAstraCompanion';
-import { AstraOrb } from '../audio/AstraOrb';
-import { ExternalLink } from 'lucide-react';
-import { useGenesisStore } from '@/hooks/useGenesisStore';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mic, Volume2, Globe, Activity } from 'lucide-react';
+import { translatePhysicsIntent } from '@/app/actions/babel';
 
 interface BabelNodeProps {
-    worldState: WorldState;
-    onPhysicsUpdate: (delta: Partial<WorldState>) => void;
+    onPhysicsUpdate: (delta: any) => void;
 }
 
-export const BabelNode: React.FC<BabelNodeProps> = ({
-    worldState,
-    onPhysicsUpdate
-}) => {
-    const { state } = useGenesisStore();
-    const containerRef = useRef<HTMLDivElement>(null);
-    const { isCompanionActive, toggleCompanion } = useAstraCompanion();
+export function BabelNode({ onPhysicsUpdate }: BabelNodeProps) {
+    const [isListening, setIsListening] = useState(false);
+    const [transcript, setTranscript] = useState('');
+    const [translation, setTranslation] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+    
+    // Web Speech API Refs
+    const recognitionRef = useRef<any>(null);
+    const synthRef = useRef<SpeechSynthesis | null>(null);
 
-    const isInstrumentActive = Date.now() - state.lastInstrumentActivity < 2000;
-
-    const {
-        status,
-        volume,
-        isSpeaking,
-        start,
-        stop,
-        interrupt,
-        speakLocal
-    } = useLiveAudio({
-        onPhysicsUpdate,
-        initialWorldState: worldState,
-        isInstrumentActive
-    });
-
-
-    // Keyboard Shortcut (Spacebar to Toggle Astra Link)
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.code === 'Space' && !e.repeat) {
-                if (status === 'connected' && isSpeaking) {
-                    interrupt(); // Interrupt Astra if she's talking
-                } else if (status === 'idle' || status === 'disconnected') {
-                    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-                        speakLocal("Sovereign Mode active. Cloud link offline, but I am still here.");
-                        return;
-                    }
-                    e.preventDefault();
-                    start();
-                }
-            }
-        };
+        if (typeof window !== 'undefined') {
+            // Initialize Speech Recognition
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US'; // Default to auto-detect behavior ideally, but explicit for now
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [status, isSpeaking, start, interrupt, speakLocal]);
+                recognition.onstart = () => setIsListening(true);
+                recognition.onend = () => setIsListening(false);
+                recognition.onresult = (event: any) => {
+                    const current = event.resultIndex;
+                    const transcriptText = event.results[current][0].transcript;
+                    setTranscript(transcriptText);
+                };
+
+                recognitionRef.current = recognition;
+            }
+
+            // Initialize TTS
+            synthRef.current = window.speechSynthesis;
+        }
+    }, []);
+
+    const startListening = () => {
+        setTranscript('');
+        setTranslation('');
+        recognitionRef.current?.start();
+    };
+
+    const stopListening = async () => {
+        recognitionRef.current?.stop();
+        if (!transcript) return;
+
+        setIsProcessing(true);
+        
+        // Call the Brain
+        const result = await translatePhysicsIntent(transcript, 'English'); // Default target
+        
+        setIsProcessing(false);
+
+        if (result.success && result.data) {
+            const { physicsDelta, translatedCommentary } = result.data as any;
+            
+            // The Hand: Apply Physics
+            if (physicsDelta) {
+                onPhysicsUpdate(physicsDelta);
+            }
+
+            // The Mouth: Speak Translation
+            if (translatedCommentary && synthRef.current) {
+                setTranslation(translatedCommentary);
+                const utterance = new SpeechSynthesisUtterance(translatedCommentary);
+                synthRef.current.speak(utterance);
+            }
+        }
+    };
 
     return (
-        <div ref={containerRef} className="fixed bottom-24 right-8 z-[100] flex flex-col items-center gap-2 pointer-events-none">
-            <div className="pointer-events-auto flex flex-col items-center gap-2">
-                {!isCompanionActive && (
-                    <button 
-                        onClick={() => toggleCompanion(containerRef)}
-                        className="p-1 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 text-gray-500 hover:text-indigo-400 transition-all mb-1"
-                        title="Astra Companion (PiP)"
-                    >
-                        <ExternalLink className="w-2.5 h-2.5" />
-                    </button>
-                )}
-                <AstraOrb volume={volume} isSpeaking={isSpeaking} status={status as any} />
-            </div>
-            
-            {status === 'connected' && (
-                <span className="text-[8px] font-black text-blue-400/40 uppercase tracking-[0.4em] animate-pulse">
-                    Live Link Active
+        <div className="flex flex-col items-center gap-2 p-4 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl w-64">
+            {/* Header */}
+            <div className="flex items-center justify-between w-full text-xs text-cyan-400 font-mono tracking-widest uppercase mb-2">
+                <span className="flex items-center gap-1"><Globe size={12} /> Babel Node</span>
+                <span className={isListening ? "animate-pulse text-red-400" : "text-gray-600"}>
+                    {isListening ? "REC" : "IDLE"}
                 </span>
-            )}
+            </div>
+
+            {/* Visualization */}
+            <div className="relative w-full h-12 bg-black/50 rounded-lg overflow-hidden border border-white/5 flex items-center justify-center">
+                {isProcessing ? (
+                    <Activity className="text-cyan-400 animate-spin" size={20} />
+                ) : (
+                    <div className="flex gap-1 items-center h-full">
+                         {/* Fake waveform */}
+                        {[...Array(5)].map((_, i) => (
+                            <motion.div
+                                key={i}
+                                className="w-1 bg-cyan-500/50 rounded-full"
+                                animate={{ height: isListening ? [10, 30, 10] : 4 }}
+                                transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.1 }}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Subtitles */}
+            <AnimatePresence>
+                {(transcript || translation) && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="w-full text-center space-y-1"
+                    >
+                        {transcript && <p className="text-[10px] text-gray-400 italic">"{transcript}"</p>}
+                        {translation && <p className="text-xs text-white font-bold text-shadow-glow">"{translation}"</p>}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Controls */}
+            <button
+                onMouseDown={startListening}
+                onMouseUp={stopListening}
+                onTouchStart={startListening}
+                onTouchEnd={stopListening}
+                className={`
+                    mt-2 w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200
+                    ${isListening ? 'bg-red-500/20 border-red-500 text-red-400 scale-110' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'}
+                    border-2 shadow-[0_0_15px_rgba(0,0,0,0.3)]
+                `}
+            >
+                <Mic size={24} />
+            </button>
+            
+            <p className="text-[9px] text-gray-600 mt-1">HOLD TO SPEAK</p>
         </div>
     );
-};
+}

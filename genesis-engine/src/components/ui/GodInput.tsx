@@ -7,6 +7,7 @@ import { queryKnowledge } from '@/lib/db/pglite';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 import { Terminal, Cpu, AlertCircle, Zap, Brain, ShieldAlert } from 'lucide-react';
 import { routeIntentLocally, executeLocalTool } from '@/lib/ai/edgeRouter';
+import { GameAction } from '@/lib/multiplayer/GameState';
 
 export const GodInput: React.FC = () => {
     const [prompt, setPrompt] = useState('');
@@ -33,7 +34,7 @@ export const GodInput: React.FC = () => {
             executeLocalTool(localTool, (action) => {
                 // Here you would normally use a dispatch, but we update engine state directly
                 console.log("Local Action Dispatched:", action);
-                dispatch(action as any);
+                dispatch(action as GameAction);
             });
             setPrompt('');
             return;
@@ -91,7 +92,7 @@ export const GodInput: React.FC = () => {
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 
-                throw new Error((result as any).error || 'Logic compilation failed');
+                throw new Error('error' in result ? result.error : 'Logic compilation failed');
 
             }
         } catch (err) {
@@ -110,11 +111,11 @@ export const GodInput: React.FC = () => {
                     y: 0,
                     opacity: 1,
                     x: status === 'error' ? [0, -10, 10, -10, 10, 0] : 0,
-                    borderColor: 
-                        interactionState === 'BUILDING' ? 'rgba(59, 130, 246, 0.5)' : 
-                        interactionState === 'ANALYZING' ? 'rgba(168, 85, 247, 0.5)' :
-                        interactionState === 'REFLECTION' ? 'rgba(239, 68, 68, 0.5)' :
-                        'rgba(255, 255, 255, 0.1)'
+                    borderColor:
+                        interactionState === 'BUILDING' ? 'rgba(59, 130, 246, 0.5)' :
+                            interactionState === 'ANALYZING' ? 'rgba(168, 85, 247, 0.5)' :
+                                interactionState === 'REFLECTION' ? 'rgba(239, 68, 68, 0.5)' :
+                                    'rgba(255, 255, 255, 0.1)'
                 }}
                 className={`
                     relative backdrop-blur-2xl rounded-2xl border transition-all duration-500
