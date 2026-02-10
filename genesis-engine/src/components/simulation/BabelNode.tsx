@@ -4,12 +4,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Volume2, Globe, Activity } from 'lucide-react';
 import { translatePhysicsIntent } from '@/app/actions/babel';
+import { WorldState } from '@/lib/simulation/schema';
 
 interface BabelNodeProps {
+    worldState?: WorldState;
     onPhysicsUpdate: (delta: any) => void;
 }
 
-export function BabelNode({ onPhysicsUpdate }: BabelNodeProps) {
+export function BabelNode({ worldState, onPhysicsUpdate }: BabelNodeProps) {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState('');
     const [translation, setTranslation] = useState('');
@@ -58,7 +60,7 @@ export function BabelNode({ onPhysicsUpdate }: BabelNodeProps) {
         setIsProcessing(true);
         
         // Call the Brain
-        const result = await translatePhysicsIntent(transcript, 'English'); // Default target
+        const result = await translatePhysicsIntent(transcript, worldState, 'English'); // Default target
         
         setIsProcessing(false);
 

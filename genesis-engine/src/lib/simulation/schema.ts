@@ -97,6 +97,7 @@ export const ScientificParamsSchema = z.object({
 export const EnvironmentSchema = z.object({
     gravity: z.object({ x: z.number(), y: z.number(), z: z.number() }),
     timeScale: z.number().default(1),
+    biome: z.enum(['SPACE', 'EARTH', 'OCEAN', 'FACTORY', 'JUPITER']).optional().describe('The environmental preset'),
 });
 
 // --- WorldState Schema: The complete snapshot of a simulation frame ---

@@ -3,12 +3,14 @@
 import { ai, geminiFlash } from "@/lib/genkit/config";
 import { z } from "zod";
 
+import { WorldState } from "@/lib/simulation/schema";
+
 // --- The Babel Node: Universal Translator ---
 
 /**
  * Translates user speech into Physics Intent + Localized Commentary.
  */
-export async function translatePhysicsIntent(transcript: string, targetLang: string = 'English') {
+export async function translatePhysicsIntent(transcript: string, currentWorldState?: WorldState, targetLang: string = 'English') {
     try {
         console.log(`[BabelNode] Translating: "${transcript}" to ${targetLang}...`);
 
@@ -17,6 +19,10 @@ export async function translatePhysicsIntent(transcript: string, targetLang: str
             prompt: `
             Role: Interpreter and Physics Engine.
             Input: User said: "${transcript}".
+            
+            Current World Context:
+            ${currentWorldState ? JSON.stringify(currentWorldState) : "No context provided."}
+
             Task:
             1. Analyze if the user wants to change the simulation (e.g., 'Make it heavier' -> { mass: current * 1.5 }).
             2. Translate the meaning of what they said into "${targetLang}".

@@ -4,12 +4,14 @@ import React, { useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { SimplexNoise } from 'three/examples/jsm/math/SimplexNoise.js';
+import { VoxelData } from '@/lib/simulation/schema';
 
 interface VoxelRendererProps {
     seed?: number;
+    voxels?: VoxelData[];
 }
 
-export function VoxelRenderer({ seed = 123 }: VoxelRendererProps) {
+export function VoxelRenderer({ seed = 123, voxels: inputVoxels }: VoxelRendererProps) {
     const meshRef = useRef<THREE.InstancedMesh>(null);
     const { scene } = useThree();
 
@@ -29,40 +31,50 @@ export function VoxelRenderer({ seed = 123 }: VoxelRendererProps) {
             WATER: new THREE.Color(0xaaddff)
         };
 
-        const voxels: { x: number; y: number; z: number; color: THREE.Color }[] = [];
-        const simplex = new SimplexNoise();
+        let voxels: { x: number; y: number; z: number; color: THREE.Color }[] = [];
 
-        // Procedural Island Generation
-        for (let x = -ISLAND_RADIUS; x <= ISLAND_RADIUS; x++) {
-            for (let z = -ISLAND_RADIUS; z <= ISLAND_RADIUS; z++) {
-                const d = Math.sqrt(x * x + z * z);
-                if (d < ISLAND_RADIUS - 1) {
-                    const noise = simplex.noise(x * 0.1, z * 0.1);
-                    const surfaceHeight = Math.floor(noise * 2);
-                    let depth = Math.floor((ISLAND_RADIUS - d) * 1.2);
+        if (inputVoxels && inputVoxels.length > 0) {
+            voxels = inputVoxels.map(v => ({
+                x: v.x,
+                y: v.y,
+                z: v.z,
+                color: new THREE.Color(v.color)
+            }));
+        } else {
+            const simplex = new SimplexNoise();
 
-                    for (let y = surfaceHeight; y >= surfaceHeight - depth; y--) {
-                        let color = PALETTE.STONE;
-                        if (y === surfaceHeight) color = PALETTE.GRASS_TOP;
-                        else if (y > surfaceHeight - 3) color = PALETTE.DIRT;
+            // Procedural Island Generation
+            for (let x = -ISLAND_RADIUS; x <= ISLAND_RADIUS; x++) {
+                for (let z = -ISLAND_RADIUS; z <= ISLAND_RADIUS; z++) {
+                    const d = Math.sqrt(x * x + z * z);
+                    if (d < ISLAND_RADIUS - 1) {
+                        const noise = simplex.noise(x * 0.1, z * 0.1);
+                        const surfaceHeight = Math.floor(noise * 2);
+                        let depth = Math.floor((ISLAND_RADIUS - d) * 1.2);
 
-                        voxels.push({ x, y, z, color });
+                        for (let y = surfaceHeight; y >= surfaceHeight - depth; y--) {
+                            let color = PALETTE.STONE;
+                            if (y === surfaceHeight) color = PALETTE.GRASS_TOP;
+                            else if (y > surfaceHeight - 3) color = PALETTE.DIRT;
+
+                            voxels.push({ x, y, z, color });
+                        }
                     }
                 }
             }
-        }
 
-        // Procedural Tree
-        const trunkX = -4;
-        const trunkZ = -2;
-        for (let y = 0; y < TREE_HEIGHT; y++) {
-            voxels.push({ x: trunkX, y: y + 1, z: trunkZ, color: PALETTE.TRUNK });
-            // Leaves
-            if (y > 10) {
-                for (let lx = -2; lx <= 2; lx++) {
-                    for (let lz = -2; lz <= 2; lz++) {
-                        if (Math.random() > 0.3) {
-                             voxels.push({ x: trunkX + lx, y: y + 1, z: trunkZ + lz, color: PALETTE.LEAVES });
+            // Procedural Tree
+            const trunkX = -4;
+            const trunkZ = -2;
+            for (let y = 0; y < TREE_HEIGHT; y++) {
+                voxels.push({ x: trunkX, y: y + 1, z: trunkZ, color: PALETTE.TRUNK });
+                // Leaves
+                if (y > 10) {
+                    for (let lx = -2; lx <= 2; lx++) {
+                        for (let lz = -2; lz <= 2; lz++) {
+                            if (Math.random() > 0.3) {
+                                 voxels.push({ x: trunkX + lx, y: y + 1, z: trunkZ + lz, color: PALETTE.LEAVES });
+                            }
                         }
                     }
                 }
@@ -83,7 +95,7 @@ export function VoxelRenderer({ seed = 123 }: VoxelRendererProps) {
         meshRef.current.instanceMatrix.needsUpdate = true;
         if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
 
-    }, [seed]);
+    }, [seed, inputVoxels]);
 
     return (
         <instancedMesh ref={meshRef} args={[undefined, undefined, 10000]} castShadow receiveShadow>

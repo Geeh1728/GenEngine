@@ -5,7 +5,7 @@ import { RigidBody, CuboidCollider, BallCollider, RapierRigidBody, useFixedJoint
 import { Html } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Search } from 'lucide-react';
-import { Entity, Joint } from '@/lib/simulation/schema';
+import { Entity, Joint, VoxelData } from '@/lib/simulation/schema';
 import { useTextureGen } from '@/lib/simulation/useTextureGen';
 import { LabBench } from './LabBench';
 import { VoxelRenderer } from './VoxelRenderer';
@@ -76,9 +76,21 @@ interface EntityRendererProps {
     blackboardContext?: BlackboardContext;
     isSelected?: boolean;
     domain?: 'SCIENCE' | 'HISTORY' | 'MUSIC' | 'TRADE' | 'ABSTRACT';
+    drift?: number;
+    biomeDamping?: number;
 }
 
-const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onCollision, onSelect, blackboardContext, isSelected, domain = 'SCIENCE' }) => {
+const EntityRenderer: React.FC<EntityRendererProps> = ({ 
+    entity, 
+    onRegister, 
+    onCollision, 
+    onSelect, 
+    blackboardContext, 
+    isSelected, 
+    domain = 'SCIENCE', 
+    drift = 0,
+    biomeDamping = 0
+}) => {
     const { dispatch } = useGenesisStore();
     const rbRef = useRef<RapierRigidBody>(null);
     const [showCitation, setShowCitation] = useState(false);
@@ -150,7 +162,22 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
         const impulse = event.totalForceMagnitude || 0;
         if (impulse > 50) {
             onCollision(impulse);
-            
+
+            // FRACTURE CHECK
+            const fractureThreshold = entity.neuralPhysics?.fracturePoint || 500;
+            if (impulse > fractureThreshold) {
+                console.log(`[Fracture] Entity ${entity.id} shattered! (Impulse: ${impulse.toFixed(1)})`);
+                dispatch({
+                    type: 'SHATTER_ENTITY',
+                    payload: {
+                        id: entity.id,
+                        position: entity.position,
+                        color: entity.visual.color
+                    }
+                });
+                return;
+            }
+
             // MODULE A-S: Sync Ripples & Interrupt Sensitivity
             dispatch({ type: 'RECORD_INSTRUMENT_ACTIVITY' });
 
@@ -173,6 +200,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
             mass={entity.physics.mass}
             friction={friction}
             restitution={restitution}
+            linearDamping={biomeDamping}
             onCollisionEnter={handleCollision}
         >
             <mesh
@@ -190,7 +218,8 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, onRegister, onC
                         color={entity.visual.color || '#3b82f6'}
                         time={shaderTime}
                         density={entity.neuralPhysics?.elasticity || 0.5}
-                        stress={entity.physics.mass > 50 ? 0.8 : (entity.isUnstable ? 0.5 : 0.0)} 
+                        stress={entity.physics.mass > 50 ? 0.8 : (entity.isUnstable ? 0.5 : 0.0)}
+                        drift={drift}
                         isManifesting={entity.truthSource === 'METAPHOR'} // MOCK: Generative objects glow
                         isTransparent={entity.visual.texture?.toLowerCase().includes('glass') || entity.visual.texture?.toLowerCase().includes('transparent')}
                         domain={domain}
@@ -332,9 +361,10 @@ const JointRenderer: React.FC<JointRendererProps> = ({ joint, getRB }) => {
 
 interface UniversalRendererProps {
     onCollision?: (impactMagnitude: number) => void;
+    biomeDamping?: number;
 }
 
-export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollision }) => {
+export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollision, biomeDamping = 0 }) => {
     const [rbMap, setRbMap] = useState<Record<string, RapierRigidBody>>({});
     const [bbCtx, setBbCtx] = useState<BlackboardContext>(blackboard.getContext());
     const [visualEvents, setVisualEvents] = useState<any[]>([]);
@@ -408,7 +438,35 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
         });
     };
 
+    const entities = worldState.entities || [];
+    const voxels = worldState.voxels || [];
+
+    // --- ECS PERFORMANCE MANAGEMENT ---
+    useEffect(() => {
+        if (entities.length > ECS_THRESHOLD) {
+            console.log(`[Renderer] Syncing ${entities.length} entities to ECS world (Threshold: ${ECS_THRESHOLD})`);
+            syncFromWorldState(worldState);
+        }
+    }, [worldState, entities.length]);
+
+    const calculateDrift = (entityId: string, currentPos: { x: number, y: number, z: number }) => {
+        if (!worldState._computedTrajectories) return 0;
+        const trajectory = worldState._computedTrajectories.find((t: any) => t.id === entityId);
+        if (!trajectory || trajectory.path.length === 0) return 0;
+
+        // Compare current position with the last point of the predicted path (as a simple heuristic)
+        const predicted = trajectory.path[trajectory.path.length - 1];
+        const dist = Math.sqrt(
+            Math.pow(currentPos.x - predicted.x, 2) +
+            Math.pow(currentPos.y - predicted.y, 2) +
+            Math.pow(currentPos.z - predicted.z, 2)
+        );
+
+        return dist > 0.5 ? Math.min((dist - 0.5) / 5, 1.0) : 0;
+    };
+
     if (worldState.custom_canvas_code) {
+
         return (
             <Html transform position={[0, 0, 0]}>
                 <UniversalCanvas
@@ -435,16 +493,6 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
         );
     }
 
-    if (mode === 'VOXEL') {
-        // Safe access to union type. If activeNode.data is present, we assume it matches the mode.
-        const voxelData = (activeNode?.data && Array.isArray(activeNode.data))
-            ? activeNode.data
-            : worldState.voxels;
-
-        return <VoxelRenderer data={voxelData} voxels={Array.isArray(voxelData) ? voxelData : undefined} />;
-    }
-
-    const entities = worldState.entities || [];
     const hasGround = entities.some(e => e.id === 'ground' || e.name?.toLowerCase().includes('ground'));
 
     // MODULE E: Environment Presets (Atmospheric Context)
@@ -462,7 +510,8 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
         <group onPointerMissed={() => dispatch({ type: 'DESELECT_ENTITY' })}>
             <color attach="background" args={[currentPreset.fogColor]} />
             <fog attach="fog" args={[currentPreset.fogColor, currentPreset.fogNear, currentPreset.fogFar]} />
-            
+
+            <VoxelRenderer voxels={voxels} />
             <VisualEffectRenderer events={visualEvents} />
 
             {domain === 'MUSIC' && (
@@ -513,15 +562,12 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
 
             {/* ECS PERFORMANCE SWITCH: Use GPU-optimized renderer for large scenes */}
             {entities.length > ECS_THRESHOLD ? (
-                <>
-                    {/* Sync to ECS World */}
-                    {(() => { syncFromWorldState(worldState); return null; })()}
-                    <ECSRenderer
-                        onCollision={onCollision}
-                        onSelect={handleSelect}
-                    />
-                </>
+                <ECSRenderer
+                    onCollision={onCollision}
+                    onSelect={handleSelect}
+                />
             ) : entities.length > 0 ? entities.map(entity => (
+
                 <EntityRenderer
                     key={entity.id}
                     entity={entity}
@@ -531,6 +577,8 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                     isSelected={entity.id === state.selectedEntityId}
                     blackboardContext={bbCtx}
                     domain={domain}
+                    drift={calculateDrift(entity.id, entity.position)}
+                    biomeDamping={biomeDamping}
                 />
             )) : (
                 <group>
@@ -554,30 +602,30 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                         isSelected={'sentinel-obelisk' === state.selectedEntityId}
                         blackboardContext={bbCtx}
                         domain={domain}
+                        biomeDamping={biomeDamping}
                     />
                     {/* Visual Flare for the Obelisk */}
                     <pointLight position={[0, 5, 0]} intensity={5} color="#3b82f6" />
                 </group>
             )}
 
-                        {worldState.joints?.map(joint => (
+            {worldState.joints?.map(joint => (
 
-                            <JointRenderer key={joint.id} joint={joint} getRB={getRB} />
+                <JointRenderer key={joint.id} joint={joint} getRB={getRB} />
 
-                        ))}
+            ))}
 
-            
 
-                        <ambientLight intensity={currentPreset.ambient} />
 
-                        <pointLight position={[10, 10, 10]} intensity={currentPreset.point} castShadow />
+            <ambientLight intensity={currentPreset.ambient} />
 
-                        <directionalLight position={[-5, 5, 5]} intensity={1} />
+            <pointLight position={[10, 10, 10]} intensity={currentPreset.point} castShadow />
 
-                    </group>
+            <directionalLight position={[-5, 5, 5]} intensity={1} />
 
-                );
+        </group>
 
-            };
+    );
 
-            
+};
+

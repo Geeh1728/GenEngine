@@ -19,12 +19,15 @@ async function validate() {
                 previousInteractionId: step1.interactionId
             });
 
-            if (result.success) {
+            if (result.success && 'worldState' in result && result.worldState) {
                 console.log("✅ SUCCESS");
                 console.log(`Scenario: ${result.worldState.scenario}`);
                 console.log(`Domain: ${result.worldState.domain}`);
                 console.log(`Entities: ${result.worldState.entities?.length}`);
                 console.log(`Explanation: ${result.worldState.explanation.substring(0, 200)}...`);
+            } else if (result.success && 'mutation' in result) {
+                console.log("✅ SUCCESS (Mutation Applied)");
+                console.log(`Explanation: ${result.mutation.explanation}`);
             } else {
                 console.error("❌ FAILED STEP 2:", JSON.stringify(result, null, 2));
             }

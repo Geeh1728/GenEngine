@@ -1,7 +1,8 @@
 import { z } from 'genkit';
-import { NodeData, EntitySchema, WorldStateSchema } from '../simulation/schema';
+import { NodeData, EntitySchema, WorldStateSchema, Entity } from '../simulation/schema';
 
 export { WorldStateSchema, EntitySchema } from '../simulation/schema';
+export type { Entity } from '../simulation/schema';
 
 export const ComplexityLevelSchema = z.enum(['fundamental', 'standard', 'expert']);
 
@@ -152,6 +153,14 @@ export const StructuralAnalysisSchema = z.object({
 
 export const SummaryOutputSchema = z.object({
     summary: z.string().describe('The generated summary of the text chunk')
+});
+
+export const SimulationMutationSchema = z.object({
+    type: z.enum(['ENTITY_UPDATE', 'ENVIRONMENT_UPDATE', 'JOINT_REMOVE', 'ENTITY_ADD']),
+    targetId: z.string().optional().describe('ID of the entity or joint to mutate'),
+    patch: z.record(z.string(), z.any()).optional().describe('The delta to apply'),
+    biome: z.enum(['SPACE', 'EARTH', 'OCEAN', 'FACTORY', 'JUPITER']).optional(),
+    explanation: z.string().optional().describe('AI explanation of why this change was made')
 });
 
 export type SkillTree = z.infer<typeof SkillTreeSchema>;

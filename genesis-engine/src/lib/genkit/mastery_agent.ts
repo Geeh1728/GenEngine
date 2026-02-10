@@ -62,6 +62,7 @@ export const masteryChallengeFlow = ai.defineFlow(
             schema: MasteryChallengeSchema,
         });
 
+        if (!result.output) throw new Error("Failed to generate mastery challenge.");
         return result.output;
     }
 );

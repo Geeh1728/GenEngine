@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics, RigidBody, RigidBodyProps } from '@react-three/rapier';
-import { OrbitControls, PerspectiveCamera, Stars } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Stars, Environment, Cloud } from '@react-three/drei';
 import { WorldState, Entity } from '@/lib/simulation/schema';
 import * as THREE from 'three';
+import { BIOME_PRESETS, BiomeType } from '@/lib/simulation/biomes';
 // import { useTextureGen } from '@/lib/simulation/useTextureGen';
 
 const EntityMaterial = ({ color, shape }: { color?: string, shape: string, texturePrompt?: string }) => {
@@ -19,7 +20,7 @@ const EntityMaterial = ({ color, shape }: { color?: string, shape: string, textu
     return <meshStandardMaterial color={color || (shape === 'plane' ? '#444' : '#fff')} />;
 };
 
-const PhysicsEntity = ({ entity }: { entity: Entity }) => {
+const PhysicsEntity = ({ entity, biomeDamping = 0 }: { entity: Entity, biomeDamping?: number }) => {
     const { shape, position, rotation, dimensions = { x: 1, y: 1, z: 1 }, physics, id, isRemote } = entity;
     const { mass, friction, restitution, isStatic } = physics;
 
@@ -66,6 +67,7 @@ const PhysicsEntity = ({ entity }: { entity: Entity }) => {
             mass={mass}
             friction={friction}
             restitution={restitution}
+            linearDamping={biomeDamping}
             colliders={shape === 'plane' ? 'cuboid' : 'hull'}
         >
             <mesh castShadow receiveShadow>
@@ -81,11 +83,63 @@ interface SimulationCanvasProps {
     debug?: boolean;
 }
 
+const BiomeEnvironment = ({ biomeId }: { biomeId?: string }) => {
+    const biome = BIOME_PRESETS[biomeId as BiomeType] || BIOME_PRESETS.EARTH;
+
+    return (
+        <>
+            <ambientLight intensity={biome.visuals.ambientLightIntensity} />
+            <directionalLight
+                position={[10, 10, 5]}
+                intensity={1}
+                castShadow
+                shadow-mapSize={[1024, 1024]}
+            />
+
+            {/* Fog for Atmosphere */}
+            {biome.visuals.fogColor && (
+                <fog attach="fog" args={[biome.visuals.fogColor, 5, 20 / (biome.visuals.fogDensity || 0.05)]} />
+                // Simple exponential fog approximation
+            )}
+
+            {/* Skybox / Background Elements */}
+            {biome.visuals.skybox === 'stars' && (
+                <Stars radius={100} depth={50} count={biome.visuals.starCount || 5000} factor={4} saturation={0} fade speed={1} />
+            )}
+            {biome.visuals.skybox === 'ocean' && (
+                <>
+                    <color attach="background" args={['#001e36']} />
+                    <Stars radius={100} depth={50} count={1000} factor={4} saturation={0} fade speed={0.5} />
+                </>
+            )}
+            {biome.visuals.skybox === 'city' && (
+                <color attach="background" args={['#101010']} />
+            )}
+            {biome.visuals.skybox === 'warehouse' && (
+                <color attach="background" args={['#222']} />
+            )}
+            {/* Add more environmental effects like Clouds if needed */}
+        </>
+    );
+};
+
 export const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ worldState, debug = false }) => {
-    // Default gravity
-    const gravity = worldState?.environment?.gravity
-        ? [worldState.environment.gravity.x, worldState.environment.gravity.y, worldState.environment.gravity.z] as [number, number, number]
-        : [0, -9.81, 0] as [number, number, number];
+
+    // Determine Biome Configuration
+    const currentBiomeId = worldState?.environment?.biome as BiomeType;
+    const biomeConfig = BIOME_PRESETS[currentBiomeId];
+
+    // Gravity Logic: Biome presets override manual gravity if a biome is explicitly set
+    // Otherwise fallback to manual gravity or Earth default
+    const gravity = useMemo(() => {
+        if (biomeConfig) {
+            return [biomeConfig.physics.gravity.x, biomeConfig.physics.gravity.y, biomeConfig.physics.gravity.z] as [number, number, number];
+        }
+        if (worldState?.environment?.gravity) {
+            return [worldState.environment.gravity.x, worldState.environment.gravity.y, worldState.environment.gravity.z] as [number, number, number];
+        }
+        return [0, -9.81, 0] as [number, number, number];
+    }, [biomeConfig, worldState?.environment?.gravity]);
 
     return (
         <div className="w-full h-full bg-black relative">
@@ -93,20 +147,13 @@ export const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ worldState, 
                 <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={50} />
                 <OrbitControls makeDefault />
 
-                {/* Lighting */}
-                <ambientLight intensity={0.5} />
-                <directionalLight
-                    position={[10, 10, 5]}
-                    intensity={1}
-                    castShadow
-                    shadow-mapSize={[1024, 1024]}
-                />
-                <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+                {/* Dynamic Environment */}
+                <BiomeEnvironment biomeId={currentBiomeId} />
 
                 {/* Physics World */}
                 <Physics gravity={gravity} debug={debug}>
                     {worldState?.entities?.map((entity) => (
-                        <PhysicsEntity key={entity.id} entity={entity} />
+                        <PhysicsEntity key={entity.id} entity={entity} biomeDamping={biomeConfig?.physics.wrapperDamping} />
                     ))}
 
                     {/* Fallback Floor if no state - helpful for dev */}
@@ -137,6 +184,12 @@ export const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ worldState, 
                 <h4 className="text-xl font-outfit font-bold text-white uppercase tracking-wider">
                     {worldState?.scenario || 'Simulation Idle'}
                 </h4>
+                {currentBiomeId && (
+                    <div className="mt-1 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-xs text-emerald-400 font-mono">BIOME: {currentBiomeId}</span>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -7,6 +7,7 @@ import { shieldInput, shieldOutput, checkRateLimit } from '@/lib/security/armor'
 import { orchestratorFlow } from '@/lib/genkit/agents/orchestrator';
 import { architectFlow } from '@/lib/genkit/agents/architect';
 import { sanitizeInput } from '@/lib/utils/text';
+import { z } from 'genkit';
 
 import { SkillTree } from '@/lib/genkit/schemas';
 
@@ -40,17 +41,19 @@ export async function compileHypothesis(hypothesis: string, context: string, fil
 
 import { WorldState, Entity } from '@/lib/simulation/schema';
 import { Quest } from '@/lib/genkit/agents/questAgent';
-import { StructuralAnalysis } from '@/lib/genkit/schemas';
-import { MissionLog } from '@/lib/multiplayer/GameState';
+import { StructuralAnalysis, SimulationMutationSchema } from '@/lib/genkit/schemas';
+import { MissionLog, InteractionState } from '@/lib/multiplayer/GameState';
 
 export async function generateSimulationLogic(
     hypothesis: string, 
     context: string, 
     currentWorldState?: WorldState | null, 
     fileUri?: string,
-    previousInteractionId?: string
+    previousInteractionId?: string,
+    interactionState?: InteractionState
 ): Promise<
     | { success: true; worldState: WorldState; interactionId?: string; quest: Quest | null | undefined; isSabotaged: boolean; logs?: MissionLog[] }
+    | { success: true; mutation: z.infer<typeof SimulationMutationSchema>; interactionId?: string; logs?: MissionLog[] }
     | { success: false; isBlocked: true; error: string; message: string; nativeReply: string; interactionId?: string; logs?: MissionLog[] }
     | { success: false; error: string; logs?: MissionLog[] }
 > {
@@ -84,6 +87,7 @@ export async function generateSimulationLogic(
                 mode: 'AUTO',
                 isSabotageMode: isSabotageMode,
                 isSaboteurReply: false,
+                interactionState,
                 fileUri,
                 previousInteractionId
             }
@@ -97,6 +101,15 @@ export async function generateSimulationLogic(
                 error: String(result.message || 'Input rejected by the Socratic Saboteur.'),
                 message: String(result.message || ''),
                 nativeReply: String(result.nativeReply || ''),
+                interactionId: result.interactionId,
+                logs: mapLogs(result.logs)
+            };
+        }
+
+        if (result.mutation) {
+            return {
+                success: true,
+                mutation: result.mutation,
                 interactionId: result.interactionId,
                 logs: mapLogs(result.logs)
             };
@@ -140,8 +153,10 @@ export async function processMultimodalIntent(params: {
     fileUri?: string;
     isSaboteurReply?: boolean;
     previousInteractionId?: string;
+    interactionState?: InteractionState;
 }): Promise<
     | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | null | undefined; nativeReply: string; interactionId?: string; logs?: MissionLog[] }
+    | { success: true; mutation: z.infer<typeof SimulationMutationSchema>; interactionId?: string; logs?: MissionLog[] }
     | { success: false; isBlocked: true; message: string; nativeReply: string; interactionId?: string; logs?: MissionLog[] }
     | { success: false; error: string; logs?: MissionLog[] }
 > {
@@ -158,7 +173,8 @@ export async function processMultimodalIntent(params: {
             isSabotageMode: Math.random() < 0.2,
             fileUri: params.fileUri,
             isSaboteurReply: params.isSaboteurReply ?? false,
-            previousInteractionId: params.previousInteractionId
+            previousInteractionId: params.previousInteractionId,
+            interactionState: params.interactionState
         });
 
         if (result.status === 'BLOCKED') {
@@ -167,6 +183,15 @@ export async function processMultimodalIntent(params: {
                 isBlocked: true,
                 message: String(result.message || ''),
                 nativeReply: String(result.nativeReply || ''),
+                interactionId: result.interactionId,
+                logs: mapLogs(result.logs)
+            };
+        }
+
+        if (result.mutation) {
+            return {
+                success: true,
+                mutation: result.mutation,
                 interactionId: result.interactionId,
                 logs: mapLogs(result.logs)
             };

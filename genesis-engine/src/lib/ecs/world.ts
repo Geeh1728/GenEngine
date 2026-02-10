@@ -124,3 +124,39 @@ export function batchAddEntities(entities: ECSEntity[]): void {
         ecsWorld.add(entity);
     }
 }
+
+/**
+ * Helper: Add a simple renderable entity.
+ */
+export function addRenderableEntity(
+    id: string,
+    position: { x: number; y: number; z: number },
+    rotation: { x: number; y: number; z: number; w: number },
+    shape: 'cube' | 'box' | 'sphere' | 'cylinder' | 'plane' | 'fluid' | 'softbody',
+    color = '#ffffff'
+): ECSEntity {
+    const entity: ECSEntity = {
+        id,
+        position,
+        rotation,
+        physics: {
+            mass: 1,
+            friction: 0.5,
+            restitution: 0.3,
+            isStatic: false
+        },
+        renderable: {
+            shape,
+            color
+        }
+    };
+    ecsWorld.add(entity);
+    return entity;
+}
+
+/**
+ * Helper: Get an entity by ID.
+ */
+export function getEntity(id: string): ECSEntity | undefined {
+    return ecsWorld.entities.find(e => e.id === id);
+}

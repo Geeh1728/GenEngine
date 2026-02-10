@@ -42,8 +42,13 @@ async function testFullLoop() {
             }
 
             console.log("\n✅ TEST SUCCESSFUL: Reality successfully compiled.");
+        } else if (result.mutation) {
+            console.log("\n5. COMPILED MUTATION:");
+            console.log(`   Type: ${result.mutation.type}`);
+            console.log(`   Explanation: ${result.mutation.explanation}`);
+            console.log("\n✅ TEST SUCCESSFUL: Mutation successfully compiled.");
         } else {
-            console.log("\n❌ TEST FAILED: No world state generated.");
+            console.log("\n❌ TEST FAILED: No world state or mutation generated.");
         }
 
     } catch (error) {

@@ -4,9 +4,18 @@ import { SkillNodeSchema, StructuralHeatmapSchema } from '@/lib/genkit/schemas';
 import { Quest } from '@/lib/gamification/questEngine';
 import { z } from 'zod';
 import { sentinel } from '@/lib/simulation/sentinel';
+import { BIOME_PRESETS } from '@/lib/simulation/biomes';
 
 type SkillNode = z.infer<typeof SkillNodeSchema>;
 type StructuralHeatmap = z.infer<typeof StructuralHeatmapSchema>;
+
+export const SimulationMutationSchema = z.object({
+    type: z.enum(['ENTITY_UPDATE', 'ENVIRONMENT_UPDATE', 'JOINT_REMOVE', 'ENTITY_ADD']),
+    targetId: z.string().optional().describe('ID of the entity or joint to mutate'),
+    patch: z.record(z.string(), z.any()).optional().describe('The delta to apply'),
+    biome: z.enum(['SPACE', 'EARTH', 'OCEAN', 'FACTORY', 'JUPITER']).optional(),
+    explanation: z.string().optional().describe('AI explanation of why this change was made')
+});
 
 export interface PlayerState {
     id: string;
@@ -84,7 +93,9 @@ export type GameAction =
     | { type: 'SET_HEATMAP'; payload: StructuralHeatmap | null }
     | { type: 'UNLOCK_HUD' }
     | { type: 'RECORD_INSTRUMENT_ACTIVITY' }
-    | { type: 'SET_LATENT_CONTEXT'; payload: string };
+    | { type: 'SET_LATENT_CONTEXT'; payload: string }
+    | { type: 'MUTATE_WORLD'; payload: z.infer<typeof SimulationMutationSchema> }
+    | { type: 'SHATTER_ENTITY'; payload: { id: string, position: { x: number, y: number, z: number }, color: string } };
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
@@ -277,6 +288,81 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return { ...state, lastInstrumentActivity: Date.now() };
         case 'SET_LATENT_CONTEXT':
             return { ...state, latentContext: action.payload };
+        case 'MUTATE_WORLD': {
+            if (!state.worldState) return state;
+            const mutation = action.payload;
+            const nextWorldState = { ...state.worldState };
+
+            if (mutation.type === 'ENVIRONMENT_UPDATE' && mutation.biome) {
+                const biomeConfig = BIOME_PRESETS[mutation.biome];
+                nextWorldState.environment = {
+                    ...nextWorldState.environment,
+                    biome: mutation.biome,
+                    gravity: biomeConfig.physics.gravity,
+                    timeScale: biomeConfig.physics.timeScale
+                };
+            }
+
+            if (mutation.type === 'ENTITY_UPDATE' && mutation.targetId && mutation.patch) {
+                nextWorldState.entities = nextWorldState.entities?.map(e => {
+                    if (e.id !== mutation.targetId) return e;
+                    
+                    // Specific handling for physics patch
+                    const physicsPatch = mutation.patch!.physics;
+                    const nextPhysics = physicsPatch ? { ...e.physics, ...physicsPatch } : e.physics;
+                    
+                    return { 
+                        ...e, 
+                        ...mutation.patch,
+                        physics: nextPhysics
+                    };
+                });
+            }
+
+            if (mutation.type === 'ENTITY_ADD' && mutation.patch) {
+                const newEntity = mutation.patch as any;
+                nextWorldState.entities = [...(nextWorldState.entities || []), newEntity];
+            }
+
+            if (mutation.type === 'JOINT_REMOVE' && mutation.targetId) {
+                nextWorldState.joints = nextWorldState.joints?.filter(j => j.id !== mutation.targetId);
+            }
+
+            return {
+                ...state,
+                worldState: nextWorldState
+            };
+        }
+        case 'SHATTER_ENTITY': {
+            if (!state.worldState) return state;
+            const entities = (state.worldState.entities || []).filter(e => e.id !== action.payload.id);
+
+            // Generate fragments (voxels)
+            const fragments = [];
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    for (let k = -1; k <= 1; k++) {
+                        fragments.push({
+                            x: action.payload.position.x + i * 0.2,
+                            y: action.payload.position.y + j * 0.2,
+                            z: action.payload.position.z + k * 0.2,
+                            color: action.payload.color
+                        });
+                    }
+                }
+            }
+
+            const existingVoxels = state.worldState.voxels || [];
+
+            return {
+                ...state,
+                worldState: {
+                    ...state.worldState,
+                    entities,
+                    voxels: [...existingVoxels, ...fragments].slice(-1000) // Performance cap
+                }
+            };
+        }
         default:
             return state;
     }

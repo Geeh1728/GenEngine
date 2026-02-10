@@ -25,7 +25,8 @@ vi.mock('@dimforge/rapier3d', () => ({
 }));
 
 // Import after mock
-import { syncFromWorldState, clearWorld, addRenderableEntity, getEntity, getRenderTransforms } from '../lib/ecs/world';
+import { clearWorld, addRenderableEntity, getEntity } from '../lib/ecs/world';
+import { syncFromWorldState, getRenderTransforms } from '../lib/ecs/systems';
 import { WorldState, Entity } from '../lib/simulation/schema';
 
 describe('ECS Integration', () => {
@@ -69,7 +70,7 @@ describe('ECS Integration', () => {
                 shape: 'sphere',
                 position: { x: 0, y: 1, z: 0 },
                 rotation: { x: 0, y: 0, z: 0, w: 1 },
-                physics: { mass: 2 },
+                physics: { mass: 2, friction: 0.5, restitution: 0.3 },
                 visual: { color: '#00ff00' }
             },
             {
@@ -77,7 +78,7 @@ describe('ECS Integration', () => {
                 shape: 'cube',
                 position: { x: 3, y: 2, z: 1 },
                 rotation: { x: 0, y: 0, z: 0, w: 1 },
-                physics: { mass: 5 },
+                physics: { mass: 5, friction: 0.5, restitution: 0.3 },
                 visual: { color: '#0000ff' }
             }
         ];
@@ -92,10 +93,10 @@ describe('ECS Integration', () => {
         addRenderableEntity('render-test', { x: 10, y: 20, z: 30 }, { x: 0, y: 0, z: 0, w: 1 }, 'cylinder');
 
         const transforms = getRenderTransforms();
-        const testTransform = transforms.find(t => t.id === 'render-test');
+        const testTransform = transforms.find((t: any) => t.id === 'render-test');
 
         expect(testTransform).toBeDefined();
-        expect(testTransform?.position).toEqual({ x: 10, y: 20, z: 30 });
+        expect(testTransform?.position).toEqual([10, 20, 30]);
         expect(testTransform?.shape).toBe('cylinder');
     });
 

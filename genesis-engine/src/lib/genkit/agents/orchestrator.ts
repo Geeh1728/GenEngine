@@ -10,7 +10,7 @@ import { researcherAgent } from './researcher';
 import { reviewerAgent } from './reviewer';
 import { librarianAgent } from './librarian';
 
-import { WorldStateSchema, StructuralAnalysisSchema, StructuralAnalysis } from '../schemas';
+import { WorldStateSchema, StructuralAnalysisSchema, StructuralAnalysis, SimulationMutationSchema, EntitySchema, Entity } from '../schemas';
 import { normalizeEntities } from '../../simulation/normalizer';
 import { QuestSchema } from './questAgent';
 import { blackboard } from '../context';
@@ -105,6 +105,7 @@ export const OrchestratorOutputSchema = z.object({
     message: z.string().optional(),
     nativeReply: z.string().optional().describe('Reply in user\'s native language if audio was used'),
     worldState: WorldStateSchema.optional(),
+    mutation: SimulationMutationSchema.optional().describe('Partial update for Vibe Coding'),
     visionData: StructuralAnalysisSchema.optional(),
     quest: QuestSchema.nullable().optional(),
     interactionId: z.string().optional().describe('Unique ID for this interaction.'),
@@ -209,6 +210,42 @@ export const orchestratorFlow = ai.defineFlow(
             };
         }
         logs.push({ agent: 'Aegis', message: 'Concept verified safe for simulation.', type: 'SUCCESS' });
+
+        // --- VIBE CODER INTERCEPTOR (v23.0) ---
+        if (interactionState === 'PLAYING' && !processedInput.toLowerCase().includes('simulate new') && !isYouTube) {
+            logs.push({ agent: 'VibeCoder', message: 'Intercepting intent as Simulation Mutation...', type: 'THINKING' });
+            
+            try {
+                const mutationRes = await executeApexLoop({
+                    prompt: `
+                    USER INTENT: "${processedInput}"
+                    CURRENT BLACKBOARD: ${blackboardFragment}
+                    
+                    TASK: You are the "Vibe Coder". Instead of building a new world, MUTATE the current one.
+                    1. If the user wants to change gravity/environment -> ENVIRONMENT_UPDATE (set biome: SPACE, OCEAN, etc).
+                    2. If the user wants to change an object property (mass, color, bounce) -> ENTITY_UPDATE.
+                    3. If the user wants to remove a connection -> JOINT_REMOVE.
+                    4. If the user wants to add a single object -> ENTITY_ADD.
+                    
+                    Return JSON matching SimulationMutationSchema.
+                    `,
+                    schema: SimulationMutationSchema,
+                    task: 'REFLEX' // Use reflex for speed
+                });
+
+                if (mutationRes.output) {
+                    logs.push({ agent: 'VibeCoder', message: `Mutation Applied: ${mutationRes.output.explanation}`, type: 'SUCCESS' });
+                    return {
+                        status: 'SUCCESS' as const,
+                        mutation: mutationRes.output,
+                        logs,
+                        nextState: 'PLAYING' as const
+                    };
+                }
+            } catch (err) {
+                console.warn("[VibeCoder] Mutation parsing failed, falling back to full build.", err);
+            }
+        }
 
         // PHASE 1.5: The Researcher & Oracle (Autonomous Grounding)
         const urlMatch = processedInput.match(/https?:\/\/[^\s]+/);
@@ -469,7 +506,7 @@ export const orchestratorFlow = ai.defineFlow(
                             status: 'SUCCESS' as const,
                             worldState: correctedState,
                             visionData,
-                            quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT' })).output ?? null,
+                            quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT' })).output ?? undefined,
                             interactionId: correctionRes.interactionId || interactionId,
                             nativeReply,
                             logs,
@@ -486,7 +523,7 @@ export const orchestratorFlow = ai.defineFlow(
                 schema: QuestSchema,
                 system: `Design a mastery quest for this simulation.`,
                 task: 'CHAT',
-                fallback: null
+                fallback: undefined
             });
             const quest = questRes.output;
 
@@ -497,9 +534,9 @@ export const orchestratorFlow = ai.defineFlow(
 
             return {
                 status: 'SUCCESS' as const,
-                worldState,
+                worldState: worldState ?? undefined,
                 visionData,
-                quest: quest || null,
+                quest: quest ?? undefined,
                 interactionId,
                 nativeReply,
                 logs,

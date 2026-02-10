@@ -20,6 +20,7 @@ interface PhysicsEntity {
     };
     dimensions?: { x: number, y: number, z: number };
     shape?: string;
+    texture?: string;
 }
 
 interface WorkerPayload {
@@ -67,12 +68,12 @@ self.onmessage = async (e) => {
 
         case 'STEP':
             if (!isPhysicsInitialized) return;
-            
+
             // PHYSICS STABILITY GATING: Prevent kinetic explosions
             const bodies = world.bodies.getAll();
             bodies.forEach((body: any) => {
                 const vel = body.linvel();
-                const speed = Math.sqrt(vel.x**2 + vel.y**2 + vel.z**2);
+                const speed = Math.sqrt(vel.x ** 2 + vel.y ** 2 + vel.z ** 2);
                 if (speed > 1000) {
                     body.setLinvel({ x: vel.x * 0.1, y: vel.y * 0.1, z: vel.z * 0.1 }, true);
                 }
@@ -94,6 +95,39 @@ self.onmessage = async (e) => {
             break;
     }
 };
+
+const MATERIAL_LUT: Record<string, { friction: number, restitution: number, massScale: number }> = {
+    glass: { friction: 0.1, restitution: 0.8, massScale: 1.0 },
+    rubber: { friction: 0.9, restitution: 0.9, massScale: 0.8 },
+    steel: { friction: 0.4, restitution: 0.3, massScale: 2.0 },
+    rock: { friction: 0.7, restitution: 0.2, massScale: 1.5 },
+    ice: { friction: 0.01, restitution: 0.1, massScale: 0.9 },
+    wood: { friction: 0.6, restitution: 0.4, massScale: 0.7 },
+    bouncy: { friction: 0.5, restitution: 1.2, massScale: 1.0 }, // Over-unity for fun
+    sticky: { friction: 1.5, restitution: 0.0, massScale: 1.0 },
+    heavy: { friction: 0.5, restitution: 0.1, massScale: 5.0 }
+};
+
+function resolveMaterialProps(description: string = '', basePhysics: any) {
+    const desc = description.toLowerCase();
+    let props = {
+        friction: basePhysics.friction,
+        restitution: basePhysics.restitution,
+        mass: basePhysics.mass
+    };
+
+    for (const [key, value] of Object.entries(MATERIAL_LUT)) {
+        if (desc.includes(key)) {
+            console.log(`[NeuralMaterial] Semantic Match: '${key}' detected in '${description}'`);
+            props.friction = value.friction;
+            props.restitution = value.restitution;
+            props.mass *= value.massScale;
+            break; // First match wins
+        }
+    }
+
+    return props;
+}
 
 function updateWorldFromState(state: WorkerPayload) {
     // 1. Rebuild world if needed or just sync bodies. 
@@ -117,6 +151,8 @@ function updateWorldFromState(state: WorkerPayload) {
     state.entities.forEach(entity => {
         entityIds.push(entity.id);
 
+        const materialProps = resolveMaterialProps(entity.texture, entity.physics);
+
         if (bodyMap.has(entity.id)) {
             // Update existing (Teleport if needed, or just skip if logic handles it)
             // For now, we assume initial sync or massive state change
@@ -133,7 +169,7 @@ function updateWorldFromState(state: WorkerPayload) {
             if (entity.rotation) {
                 bodyDesc.setRotation(entity.rotation);
             }
-            bodyDesc.setMass(entity.physics.mass);
+            bodyDesc.setMass(materialProps.mass);
             bodyDesc.setLinearDamping(0.5);
             bodyDesc.setAngularDamping(0.5);
 
@@ -154,8 +190,8 @@ function updateWorldFromState(state: WorkerPayload) {
                     colliderDesc = RAPIER.ColliderDesc.cuboid(dims.x / 2, dims.y / 2, dims.z / 2);
             }
 
-            colliderDesc.setFriction(entity.physics.friction);
-            colliderDesc.setRestitution(entity.physics.restitution);
+            colliderDesc.setFriction(materialProps.friction);
+            colliderDesc.setRestitution(materialProps.restitution);
 
             world.createCollider(colliderDesc, body);
             bodyMap.set(entity.id, body);
@@ -188,7 +224,7 @@ function writeStateToBuffer() {
 
     sharedBuffer[0] = (sharedBuffer[0] + 1) % 100000;
 
-    
+
 
     // SAFETY: Cap count to buffer capacity
 

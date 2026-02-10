@@ -148,7 +148,8 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
                 rotation: e.rotation,
                 physics: e.physics,
                 dimensions: e.dimensions,
-                shape: e.renderable.shape
+                shape: e.renderable.shape,
+                texture: e.renderable.texturePrompt
             })),
             joints: jointEntities.entities.map(j => j.joint)
         };
@@ -158,10 +159,25 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
     const handleCollision = (id: string, impactMagnitude: number, position?: { x: number, y: number, z: number }) => {
         if (onCollision && impactMagnitude > 5) {
             onCollision(impactMagnitude);
-            
+
+            // FRACTURE CHECK
+            const entity = ecsWorld.entities.find(e => e.id === id);
+            const fractureThreshold = entity?.renderable?.isUnstable ? 200 : 800;
+            if (impactMagnitude > fractureThreshold) {
+                dispatch({
+                    type: 'SHATTER_ENTITY',
+                    payload: {
+                        id,
+                        position: position || { x: 0, y: 0, z: 0 },
+                        color: entity?.renderable?.color || '#ffffff'
+                    }
+                });
+                return;
+            }
+
             // MODULE A-S: Acoustic Sync & Interrupt Sensitivity
             dispatch({ type: 'RECORD_INSTRUMENT_ACTIVITY' });
-            
+
             // Broadcast Visual Event (Ripple)
             p2p.broadcastVisualEvent({
                 type: 'IMPACT_RIPPLE',

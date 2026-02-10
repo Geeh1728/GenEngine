@@ -1,17 +1,16 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
-import { OrbitControls, Environment, Sky, Float, ContactShadows, Html, AdaptiveDpr } from '@react-three/drei';
+import { OrbitControls, Environment, Sky, Float, ContactShadows, Html, AdaptiveDpr, Stars } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { UniversalRenderer } from './Renderer';
 import { SentinelManager } from './SentinelManager';
-import { z } from 'zod';
+import { BIOME_PRESETS, BiomeType } from '@/lib/simulation/biomes';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { bridgeScenario } from '@/lib/scenarios/bridge';
 import { LSystemTree } from './LSystemTree';
-import { useGenesisStore } from '@/lib/store/GenesisContext';
-// SoundManager decoupled
 
 interface HolodeckProps {
     debug?: boolean;
@@ -24,7 +23,7 @@ interface HolodeckProps {
 /**
  * THE HOLODECK (Titan v3.5 - 100% Potential)
  * Logic: Renders the simulation using R3F and Rapier.
- * Performance: Optimized for low-end devices by keeping Main Thread clear.
+ * Upgraded with Dynamic Biomes (v23.0).
  */
 export const Holodeck: React.FC<HolodeckProps> = ({
     debug = true,
@@ -41,6 +40,21 @@ export const Holodeck: React.FC<HolodeckProps> = ({
         event.preventDefault();
         console.error("CRITICAL: WebGL Context Lost! The GPU has crashed or reset. Restarting renderer...", event);
     }, []);
+
+    // --- BIOME LOGIC (v23.0) ---
+    const currentBiomeId = activeState.environment?.biome as BiomeType;
+    const biomeConfig = BIOME_PRESETS[currentBiomeId];
+
+    const gravity = useMemo(() => {
+        if (biomeConfig) {
+            return [biomeConfig.physics.gravity.x, biomeConfig.physics.gravity.y, biomeConfig.physics.gravity.z] as [number, number, number];
+        }
+        return [
+            activeState.environment?.gravity.x ?? 0,
+            activeState.environment?.gravity.y ?? -9.81,
+            activeState.environment?.gravity.z ?? 0
+        ] as [number, number, number];
+    }, [biomeConfig, activeState.environment?.gravity]);
 
     return (
         <div className="w-full h-full relative overflow-hidden">
@@ -61,7 +75,7 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                 dpr={[1, 1.5]} // Lowered for stability on mobile
             >
                 <AdaptiveDpr pixelated />
-                <color attach="background" args={['#020205']} />
+                <color attach="background" args={[biomeConfig?.visuals.fogColor || '#020205']} />
 
                 <Suspense fallback={<Html><div className="text-white">Loading Holodeck...</div></Html>}>
                     {!backgroundMode && <SentinelManager />}
@@ -71,23 +85,25 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                         </Float>
                     ) : (
                         <Physics
-                            gravity={[
-                                activeState.environment?.gravity.x ?? 0,
-                                activeState.environment?.gravity.y ?? -9.81,
-                                activeState.environment?.gravity.z ?? 0
-                            ]}
+                            gravity={gravity}
                             debug={debug}
                             paused={isPaused}
                         >
                             <UniversalRenderer
                                 onCollision={onCollision}
+                                biomeDamping={biomeConfig?.physics.wrapperDamping}
                             />
                         </Physics>
                     )}
 
                     {/* High-Fidelity Environment */}
-                    <Sky sunPosition={[100, 20, 100]} />
-                    <Environment preset="night" />
+                    {biomeConfig?.visuals.skybox === 'stars' ? (
+                        <Stars radius={100} depth={50} count={biomeConfig.visuals.starCount || 5000} factor={4} saturation={0} fade speed={1} />
+                    ) : (
+                        <Sky sunPosition={[100, 20, 100]} />
+                    )}
+                    
+                    <Environment preset={currentBiomeId === 'SPACE' ? 'night' : (currentBiomeId === 'OCEAN' ? 'city' : 'night')} />
                     <ContactShadows opacity={0.4} scale={20} blur={24} far={10} resolution={256} color="#000000" />
                     <OrbitControls makeDefault />
 

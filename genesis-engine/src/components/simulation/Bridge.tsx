@@ -34,8 +34,13 @@ export const Bridge: React.FC = () => {
             const result = await compileHypothesis(hypothesis, context, fileUri || undefined);
 
             if (result.success) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setWorldState(result.worldState as any);
+                if ('worldState' in result && result.worldState) {
+                    setWorldState(result.worldState as any);
+                } else if ('mutation' in result && result.mutation) {
+                    // For now, components like Bridge that expect a full world state 
+                    // will just ignore mutations or we could handle them via dispatch
+                    // since setWorldState is an alias for syncing the full world.
+                }
                 setHypothesis(''); // Clear input on success
             } else {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any

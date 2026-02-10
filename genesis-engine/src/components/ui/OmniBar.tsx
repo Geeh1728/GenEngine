@@ -38,7 +38,7 @@ interface OmniBarProps {
 
 export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, externalPrompt, onPromptChange, handleIngest }) => {
     const { state, dispatch } = useGenesisStore();
-    const { worldState, isSabotaged, isProcessing, fileUri } = state;
+    const { worldState, isSabotaged, isProcessing, fileUri, interactionState } = state;
 
     // Internal state is fallback if no external control provided
     const [internalPrompt, setInternalPrompt] = useState('');
@@ -156,15 +156,22 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                     contextText + (cachedResult ? `\nPRE-GENERATED ASSETS: ${JSON.stringify(cachedResult)}` : ""),
                     currentState,
                     fileUri || undefined,
-                    state.lastInteractionId || undefined
+                    state.lastInteractionId || undefined,
+                    interactionState
                 ),
                 timeoutPromise
             ]);
 
             if (result.success) {
                 sfx.playSuccess();
-                dispatch({ type: 'SYNC_WORLD', payload: { ...result.worldState, interactionId: result.interactionId } });
-                dispatch({ type: 'SET_SABOTAGED', payload: result.isSabotaged || false });
+
+                if (result.mutation) {
+                    dispatch({ type: 'MUTATE_WORLD', payload: result.mutation });
+                } else if (result.worldState) {
+                    dispatch({ type: 'SYNC_WORLD', payload: { ...result.worldState, interactionId: result.interactionId } });
+                    dispatch({ type: 'SET_SABOTAGED', payload: result.isSabotaged || false });
+                }
+
                 dispatch({ type: 'SET_HYPOTHESIS', payload: prompt });
 
                 if (result.logs) {
@@ -335,6 +342,12 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                             <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Instrument Forge: 🎸 🥁 🎷 🎹</span>
                         </motion.div>
                     )}
+                    {state.missionLogs.filter(l => l.agent === 'VibeCoder').slice(-1).map(log => (
+                        <motion.div key={log.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white text-[10px] font-bold shadow-2xl">
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                            <span>{log.message}</span>
+                        </motion.div>
+                    ))}
                 </AnimatePresence>
             </div>
 
@@ -401,7 +414,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={isThinking ? "Consulting the Council..." : "Manifest Intent..."}
+                        placeholder={isThinking ? "Consulting the Council..." : (worldState ? "Vibe with the physics..." : "Manifest Intent...")}
                         disabled={isThinking}
                         className="flex-1 w-full bg-transparent border-none outline-none text-white placeholder:text-white/30 text-sm md:text-base font-medium py-2 md:py-3 px-2 resize-none max-h-32 md:max-h-48 scrollbar-none font-inter tracking-tight"
                     />

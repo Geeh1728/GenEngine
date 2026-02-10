@@ -19,12 +19,14 @@ interface DynamicShaderMaterialProps {
     isManifesting?: boolean;
     isTransparent?: boolean;
     domain?: 'SCIENCE' | 'HISTORY' | 'MUSIC' | 'TRADE' | 'ABSTRACT';
+    drift?: number;
 }
 
 // Default vertex shader - standard position transformation + Neural Bowing
 const DEFAULT_VERTEX_SHADER = `
     uniform float uTime;
     uniform float uStress;
+    uniform float uDrift;
     varying vec2 vUv;
     varying vec3 vPosition;
     varying vec3 vNormal;
@@ -41,6 +43,12 @@ const DEFAULT_VERTEX_SHADER = `
             displacedPosition.x += bow * normal.x;
             displacedPosition.z += bow * normal.z;
         }
+
+        // MODULE D: Drift Glitch (Vertex jitter)
+        if (uDrift > 0.5) {
+            float jitter = sin(uTime * 50.0 + position.y * 100.0) * (uDrift - 0.5) * 0.1;
+            displacedPosition.x += jitter;
+        }
         
         vNormal = normalize(normalMatrix * normal);
         vec4 worldPosition = modelMatrix * vec4(displacedPosition, 1.0);
@@ -55,6 +63,7 @@ const FALLBACK_FRAGMENT_SHADER = `
     uniform vec3 uColor;
     uniform float uDensity;
     uniform float uStress;
+    uniform float uDrift;
     uniform float uIsManifesting;
     uniform int uDomain; // 0: SCIENCE, 1: HISTORY, 2: MUSIC, 3: TRADE, 4: ABSTRACT
     varying vec2 vUv;
@@ -62,6 +71,9 @@ const FALLBACK_FRAGMENT_SHADER = `
     varying vec3 vEyeVector;
     
     void main() {
+        // MODULE D: Drift Effect (Neon Red Glitch)
+        vec3 driftColor = vec3(1.0, 0.1, 0.4); // Scientific Dissent Pink/Red
+        
         // MODULE V: Google Magic Manifestation Glow
         vec3 manifestColor = vec3(0.0);
         if (uIsManifesting > 0.5) {
@@ -81,6 +93,11 @@ const FALLBACK_FRAGMENT_SHADER = `
 
         // DOMAIN EFFECTS
         vec3 finalBaseColor = uColor;
+        if (uDrift > 0.3) {
+            float flicker = step(0.5, sin(uTime * 30.0));
+            finalBaseColor = mix(finalBaseColor, driftColor, uDrift * flicker);
+        }
+
         if (uDomain == 1) { // HISTORY: Parchment/Sepia
             finalBaseColor = mix(uColor, vec2(0.8, 0.7).xyx, 0.5);
         } else if (uDomain == 2) { // MUSIC: Frequency Ripple
@@ -184,7 +201,7 @@ function validateShaderCode(code: string): boolean {
     return true;
 }
 
-export function DynamicShaderMaterial({ shaderCode, color = '#3b82f6', time = 0, density = 0.5, stress = 0.0, isManifesting = false, isTransparent = false, domain = 'SCIENCE' }: DynamicShaderMaterialProps) {
+export function DynamicShaderMaterial({ shaderCode, color = '#3b82f6', time = 0, density = 0.5, stress = 0.0, isManifesting = false, isTransparent = false, domain = 'SCIENCE', drift = 0.0 }: DynamicShaderMaterialProps) {
     const domainMap = { SCIENCE: 0, HISTORY: 1, MUSIC: 2, TRADE: 3, ABSTRACT: 4 };
     const material = useMemo(() => {
         // Convert hex color to THREE.Color
@@ -202,6 +219,7 @@ export function DynamicShaderMaterial({ shaderCode, color = '#3b82f6', time = 0,
                     uColor: { value: threeColor },
                     uDensity: { value: density },
                     uStress: { value: stress },
+                    uDrift: { value: drift },
                     uIsManifesting: { value: isManifesting ? 1.0 : 0.0 },
                     uDomain: { value: domainMap[domain] }
                 }
@@ -220,6 +238,7 @@ export function DynamicShaderMaterial({ shaderCode, color = '#3b82f6', time = 0,
                     uColor: { value: threeColor },
                     uDensity: { value: density },
                     uStress: { value: stress },
+                    uDrift: { value: drift },
                     uIsManifesting: { value: isManifesting ? 1.0 : 0.0 },
                     uDomain: { value: domainMap[domain] }
                 }
@@ -236,6 +255,7 @@ export function DynamicShaderMaterial({ shaderCode, color = '#3b82f6', time = 0,
                     uColor: { value: threeColor },
                     uDensity: { value: density },
                     uStress: { value: stress },
+                    uDrift: { value: drift },
                     uIsManifesting: { value: isManifesting ? 1.0 : 0.0 },
                     uDomain: { value: domainMap[domain] }
                 }
@@ -248,9 +268,10 @@ export function DynamicShaderMaterial({ shaderCode, color = '#3b82f6', time = 0,
         if (material.uniforms.uTime) material.uniforms.uTime.value = time;
         if (material.uniforms.uDensity) material.uniforms.uDensity.value = density;
         if (material.uniforms.uStress) material.uniforms.uStress.value = stress;
+        if (material.uniforms.uDrift) material.uniforms.uDrift.value = drift || 0.0;
         if (material.uniforms.uIsManifesting) material.uniforms.uIsManifesting.value = isManifesting ? 1.0 : 0.0;
         if (material.uniforms.uDomain) material.uniforms.uDomain.value = domainMap[domain];
-    }, [material, time, density, stress, isManifesting, domain]);
+    }, [material, time, density, stress, drift, isManifesting, domain]);
 
     return <primitive object={material} attach="material" />;
 }

@@ -528,26 +528,31 @@ export function useGenesisEngine() {
             if (result.success) {
                 sfx.playSuccess();
 
-                let finalWorldState = result.worldState;
-                if (result.worldState.python_code) {
-                    dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Executing Python verification...', type: 'THINKING' } });
-                    try {
-                        finalWorldState = await applyMathOverride(result.worldState, result.worldState.python_code);
-                        dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Math verification applied. Computed values are now the Source of Truth.', type: 'SUCCESS' } });
-                    } catch (mathErr) {
-                        console.warn('[Engine] Math Override failed, using AI values:', mathErr);
-                        dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Math verification failed. Using AI-generated values.', type: 'ERROR' } });
+                if ('worldState' in result && result.worldState) {
+                    let finalWorldState = result.worldState;
+                    if (result.worldState.python_code) {
+                        dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Executing Python verification...', type: 'THINKING' } });
+                        try {
+                            finalWorldState = await applyMathOverride(result.worldState, result.worldState.python_code);
+                            dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Math verification applied. Computed values are now the Source of Truth.', type: 'SUCCESS' } });
+                        } catch (mathErr) {
+                            console.warn('[Engine] Math Override failed, using AI values:', mathErr);
+                            dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Math verification failed. Using AI-generated values.', type: 'ERROR' } });
+                        }
                     }
+
+                    dispatch({
+                        type: 'SYNC_WORLD',
+                        payload: {
+                            ...finalWorldState,
+                            interactionId: result.interactionId
+                        }
+                    });
+                    dispatch({ type: 'SET_SABOTAGED', payload: !!finalWorldState.sabotage_reveal });
+                } else if ('mutation' in result && result.mutation) {
+                    dispatch({ type: 'MUTATE_WORLD', payload: result.mutation });
                 }
 
-                dispatch({
-                    type: 'SYNC_WORLD',
-                    payload: {
-                        ...finalWorldState,
-                        interactionId: result.interactionId
-                    }
-                });
-                dispatch({ type: 'SET_SABOTAGED', payload: !!finalWorldState.sabotage_reveal });
                 dispatch({ type: 'SET_HYPOTHESIS', payload: userAnswer });
 
                 if (result.logs) {

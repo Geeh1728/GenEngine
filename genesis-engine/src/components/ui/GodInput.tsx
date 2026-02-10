@@ -57,29 +57,24 @@ export const GodInput: React.FC = () => {
             const contextText = contextResults.map((r) => (r as { content: string }).content).join('\n---\n');
 
             // 3. Trigger Compiler Agent
-
-            const result = await generateSimulationLogic(prompt, contextText, null, fileUri || undefined);
+            const result = await generateSimulationLogic(prompt, contextText, null, fileUri || undefined, undefined, interactionState);
 
             if (result.success) {
-
                 // ADD MISSION LOGS
-
                 if (result.logs) {
-
                     result.logs.forEach((log: any) => dispatch({ type: 'ADD_MISSION_LOG', payload: log }));
-
                 }
 
-                setWorldState(result.worldState);
-
-                setIsSabotaged(result.isSabotaged || false); // Trigger Glitch if sabotaged
+                if ('worldState' in result && result.worldState) {
+                    setWorldState(result.worldState);
+                    setIsSabotaged(result.isSabotaged || false); // Trigger Glitch if sabotaged
+                } else if ('mutation' in result && result.mutation) {
+                    dispatch({ type: 'MUTATE_WORLD', payload: result.mutation });
+                }
 
                 setLastHypothesis(prompt);
-
                 setPrompt('');
-
                 setStatus('idle');
-
             } else {
 
                 // ADD MISSION LOGS on failure
