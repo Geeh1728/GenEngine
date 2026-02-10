@@ -55,6 +55,7 @@ export function RealityLens({ onTeleport, onClose }: RealityLensProps) {
             id: `reality-${index}-${Date.now()}`,
             shape: box.label.toLowerCase().includes('ball') ? 'sphere' : 'cube',
             position: { x: (box.x - 0.5) * 20, y: (0.5 - box.y) * 20, z: 0 },
+            rotation: { x: 0, y: 0, z: 0, w: 1 },
             dimensions: { x: box.width * 10, y: box.height * 10, z: 1 },
             visual: {
                 color: '#22d3ee',
@@ -62,7 +63,8 @@ export function RealityLens({ onTeleport, onClose }: RealityLensProps) {
             physics: {
                 mass: 1,
                 restitution: 0.5,
-                friction: 0.5
+                friction: 0.5,
+                isStatic: false
             },
             name: box.label
         }));
