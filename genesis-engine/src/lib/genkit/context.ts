@@ -1,7 +1,12 @@
 import { WorldState } from '../simulation/schema';
+import { z } from 'zod';
+import { WorldRuleSchema } from './schemas';
+
+type WorldRule = z.infer<typeof WorldRuleSchema>;
 
 export interface BlackboardContext {
     currentWorldState?: WorldState;
+    worldRules: WorldRule[];
     currentPhysics: {
         gravity: { x: number; y: number; z: number };
         timeScale: number;
@@ -27,16 +32,34 @@ export interface BlackboardContext {
     }>;
     streamingProgress: number; // 0-100
     manifestedEntities: string[]; // List of IDs/names already manifested in logs
-    swarmTelemetry?: {
-        peerId: string;
-        power: number;
+    swarmTelemetry?: Record<string, {
+        gpuTier: 'LOW' | 'MEDIUM' | 'HIGH' | 'RAY_TRACING';
+        cpuCores: number;
+        ram: number; // in GB
+    }>;
+    userVibe: {
+        intensity: number; // 0-1 (Smoothness to Jerkiness)
+        velocity: number;  // 0-1 (Speed of interaction)
+        focus: { x: number; y: number }; // Normalized screen coords
     };
+    xRayMode: boolean;
+    latentHistory: string[]; // MODULE MLA: Compressed context (v21.5)
+    consensusScore: number; // v33.0 (0-100)
+    activeCitations: Array<{
+        entityId: string;
+        rule: string;
+        status: 'VERIFIED' | 'VIOLATION';
+        timestamp: number;
+    }>;
+    livingExamActive: boolean; // v32.5 Competitive Exams
 }
 
 class Blackboard {
     private static instance: Blackboard;
     private listeners: Set<(ctx: BlackboardContext) => void> = new Set();
+    private logCounter = 0;
     private context: BlackboardContext = {
+        worldRules: [],
         currentPhysics: { gravity: { x: 0, y: -9.81, z: 0 }, timeScale: 1 },
         globalTemperature: 25,
         environmentalState: 'STANDARD',
@@ -53,6 +76,12 @@ class Blackboard {
         missionLogs: [],
         streamingProgress: 0,
         manifestedEntities: [],
+        userVibe: { intensity: 0, velocity: 0, focus: { x: 0.5, y: 0.5 } },
+        xRayMode: false,
+        latentHistory: [],
+        consensusScore: 100,
+        activeCitations: [],
+        livingExamActive: false
     };
 
     private constructor() { }
@@ -72,11 +101,49 @@ class Blackboard {
             type,
             timestamp: Date.now()
         });
+
+        // v32.0 SWARM MIND: Broadcast thought streams if we are the host
+        if (type === 'THOUGHT') {
+            try {
+                const { p2p } = require('../multiplayer/P2PConnector');
+                p2p.broadcastThought(agent, message);
+            } catch (e) {
+                // P2P not initialized yet, skip
+            }
+        }
+
+        // v21.5 CONTEXT COMPACTOR (Module MLA)
+        this.logCounter++;
+        if (this.logCounter >= 10) {
+            this.logCounter = 0;
+            this.compactContext();
+        }
+
         // Keep only last 100 logs in context
         if (this.context.missionLogs.length > 100) {
             this.context.missionLogs.shift();
         }
         this.notify();
+    }
+
+    private async compactContext() {
+        if (this.context.missionLogs.length < 5) return;
+        
+        console.log("[MLA] Triggering Context Compaction...");
+        const { summarizeLogsLocally } = require('../ai/local-nano');
+        const recentLogs = this.context.missionLogs.slice(-10).map(l => `${l.agent}: ${l.message}`);
+        
+        try {
+            const summary = await summarizeLogsLocally(recentLogs);
+            if (summary.success && summary.text) {
+                this.context.latentHistory.push(summary.text);
+                // Keep latent history manageable
+                if (this.context.latentHistory.length > 20) this.context.latentHistory.shift();
+                console.log("[MLA] Context compressed into latent space.");
+            }
+        } catch (e) {
+            console.warn("[MLA] Compaction failed.", e);
+        }
     }
 
     public updateStreaming(progress: number, entities: string[]) {
@@ -132,8 +199,25 @@ class Blackboard {
         this.notify();
     }
 
+    /**
+     * MODULE HUD: Register a living citation (v32.5)
+     */
+    public addCitation(entityId: string, rule: string, status: 'VERIFIED' | 'VIOLATION') {
+        const citation = { entityId, rule, status, timestamp: Date.now() };
+        this.context.activeCitations.push(citation);
+        
+        // Auto-purge citations after 10 seconds
+        setTimeout(() => {
+            this.context.activeCitations = this.context.activeCitations.filter(c => c !== citation);
+            this.notify();
+        }, 10000);
+        
+        this.notify();
+    }
+
     public getSystemPromptFragment(): string {
         const ctx = this.context;
+        const activeRules = ctx.worldRules.filter(r => r.isActive);
         return `
             SHARED CONTEXT (BLACKBOARD):
             - Current Gravity: x:${ctx.currentPhysics.gravity.x}, y:${ctx.currentPhysics.gravity.y}, z:${ctx.currentPhysics.gravity.z}
@@ -144,6 +228,8 @@ class Blackboard {
             - Active Metaphor: ${ctx.currentMetaphor || 'None'}
             - Last Error: ${ctx.lastUserError || 'None'}
             - Complexity Level: ${ctx.complexity.toUpperCase()}
+            - COMPRESSED HISTORY: ${ctx.latentHistory.join(' | ')}
+            - ACTIVE WORLD RULES: ${activeRules.length > 0 ? activeRules.map(r => `[Rule ${r.id}: ${r.rule}]`).join(', ') : 'None'}
         `;
     }
 }

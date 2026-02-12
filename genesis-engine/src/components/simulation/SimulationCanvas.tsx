@@ -3,24 +3,29 @@
 import React, { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics, RigidBody, RigidBodyProps } from '@react-three/rapier';
-import { OrbitControls, PerspectiveCamera, Stars, Environment, Cloud } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Stars, Environment, Cloud, ContactShadows } from '@react-three/drei';
 import { WorldState, Entity } from '@/lib/simulation/schema';
 import * as THREE from 'three';
 import { BIOME_PRESETS, BiomeType } from '@/lib/simulation/biomes';
-// import { useTextureGen } from '@/lib/simulation/useTextureGen';
 
-const EntityMaterial = ({ color, shape }: { color?: string, shape: string, texturePrompt?: string }) => {
-    // texturePrompt logic can be re-enabled when useTextureGen is fully implemented
-    // const material = useTextureGen({
-    //     prompt: texturePrompt,
-    //     color,
-    //     fallbackColor: shape === 'plane' ? '#444' : '#fff'
-    // });
-    // return <primitive object={material} attach="material" />;
-    return <meshStandardMaterial color={color || (shape === 'plane' ? '#444' : '#fff')} />;
+// MODULE C: IRON MAN HUD (WebXR Placeholder - v31.0)
+// To enable, install @react-three/xr
+// import { XR, VRButton, ARButton, Hands } from '@react-three/xr';
+
+const EntityMaterial = ({ color, shape, isGhost }: { color?: string, shape: string, texturePrompt?: string, isGhost?: boolean }) => {
+    return (
+        <meshStandardMaterial
+            color={color || (shape === 'plane' ? '#444' : '#fff')}
+            transparent={isGhost}
+            opacity={isGhost ? 0.3 : 1.0}
+            wireframe={isGhost}
+            metalness={isGhost ? 0.8 : 0.2}
+            roughness={0.1}
+        />
+    );
 };
 
-const PhysicsEntity = ({ entity, biomeDamping = 0 }: { entity: Entity, biomeDamping?: number }) => {
+const PhysicsEntity = ({ entity, biomeDamping = 0, isGlobalGhost = false }: { entity: Entity, biomeDamping?: number, isGlobalGhost?: boolean }) => {
     const { shape, position, rotation, dimensions = { x: 1, y: 1, z: 1 }, physics, id, isRemote } = entity;
     const { mass, friction, restitution, isStatic } = physics;
 
@@ -72,8 +77,16 @@ const PhysicsEntity = ({ entity, biomeDamping = 0 }: { entity: Entity, biomeDamp
         >
             <mesh castShadow receiveShadow>
                 {renderGeometry()}
-                <EntityMaterial color={entity.visual.color} shape={shape} texturePrompt={entity.visual.texture} />
+                <EntityMaterial color={entity.visual.color} shape={shape} texturePrompt={entity.visual.texture} isGhost={isGlobalGhost || isRemote} />
             </mesh>
+
+            {/* Trajectory Trails (Neural Sympathy / Echo) */}
+            {entity._predictedTrajectories?.[0]?.path && (
+                <line>
+                    <bufferGeometry attach="geometry" {...new THREE.BufferGeometry().setFromPoints(entity._predictedTrajectories[0].path.map(p => new THREE.Vector3(p.x, p.y, p.z)))} />
+                    <lineBasicMaterial attach="material" color={entity.visual.color} transparent opacity={0.2} />
+                </line>
+            )}
         </RigidBody>
     );
 };
@@ -153,7 +166,12 @@ export const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ worldState, 
                 {/* Physics World */}
                 <Physics gravity={gravity} debug={debug}>
                     {worldState?.entities?.map((entity) => (
-                        <PhysicsEntity key={entity.id} entity={entity} biomeDamping={biomeConfig?.physics.wrapperDamping} />
+                        <PhysicsEntity
+                            key={entity.id}
+                            entity={entity}
+                            biomeDamping={biomeConfig?.physics.wrapperDamping}
+                            isGlobalGhost={worldState._renderingStage === 'GHOST'}
+                        />
                     ))}
 
                     {/* Fallback Floor if no state - helpful for dev */}
@@ -190,6 +208,20 @@ export const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ worldState, 
                         <span className="text-xs text-emerald-400 font-mono">BIOME: {currentBiomeId}</span>
                     </div>
                 )}
+                {worldState?._renderingStage === 'GHOST' && (
+                    <div className="mt-2 text-[10px] text-blue-300 font-mono animate-pulse bg-blue-500/10 p-2 rounded border border-blue-500/20">
+                        [GHOST KERNEL ACTIVE] PREDICTIVE MANIFESTATION IN PROGRESS...
+                    </div>
+                )}
+                                {worldState?._resonanceBalance !== undefined && (
+                                <div className="mt-2 w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-blue-400 transition-all duration-300"
+                                        style={{ width: `${(worldState?._resonanceBalance || 0) * 100}%`, opacity: 0.5 + Math.random() * 0.5 }}
+                                    />
+                                </div>
+                                )}
+                
             </div>
         </div>
     );

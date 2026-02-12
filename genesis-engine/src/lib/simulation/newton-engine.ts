@@ -57,6 +57,27 @@ class NewtonEngine {
     }
 
     /**
+     * MODULE T-A: TEMPORAL ARCHAEOLOGY (v33.0)
+     * Logs a physical failure event for causal proof generation.
+     */
+    public async logFailure(entityId: string, reason: string, data: any) {
+        blackboard.log('Newton', `Physical failure detected: ${entityId} (${reason}). Initiating Causal Probe...`, 'RESEARCH');
+        
+        // 1. Generate Causal Proof via AI
+        const proofRes = await fetch('/api/simulation/causal-proof', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entityId, reason, data }),
+        });
+
+        if (proofRes.ok) {
+            const { proof } = await proofRes.json();
+            // Store the proof in the blackboard mission logs as a SYMBOLIC type
+            blackboard.log('Newton', `CAUSAL PROOF [${entityId}]: ${proof}`, 'SYMBOLIC');
+        }
+    }
+
+    /**
      * Discovers the formula using AI and verifies it with Pyodide.
      */
     public async analyze(entityId: string) {

@@ -17,12 +17,28 @@ class AstraAudioProcessor extends AudioWorkletProcessor {
             const channelData = input[0]; // Take first channel (Mono)
 
             for (let i = 0; i < channelData.length; i++) {
-                this.buffer[this.ptr++] = channelData[i];
+                const sample = channelData[i];
+                this.buffer[this.ptr++] = sample;
 
                 if (this.ptr >= this.bufferSize) {
+                    // NEURAL-VIBE: Calculate Volume (RMS) and Pitch (ZCR)
+                    let sumSq = 0;
+                    let zeroCrossings = 0;
+                    for (let j = 0; j < this.buffer.length; j++) {
+                        sumSq += this.buffer[j] * this.buffer[j];
+                        if (j > 0 && ((this.buffer[j] >= 0 && this.buffer[j - 1] < 0) || (this.buffer[j] < 0 && this.buffer[j - 1] >= 0))) {
+                            zeroCrossings++;
+                        }
+                    }
+                    const volume = Math.sqrt(sumSq / this.buffer.length);
+                    const pitchIndex = zeroCrossings / (this.buffer.length / 2); // Relative pitch 0-1
+
                     // Convert to 16-bit PCM
                     const pcmData = this.floatTo16BitPCM(this.buffer);
-                    this.port.postMessage(pcmData.buffer, [pcmData.buffer]);
+                    this.port.postMessage({
+                        audio: pcmData.buffer,
+                        metadata: { volume, pitchIndex }
+                    }, [pcmData.buffer]);
                     this.ptr = 0;
                 }
             }

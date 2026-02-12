@@ -34,6 +34,7 @@ export interface PhysicsComponent {
     restitution: number;
     isStatic: boolean;
     isRemote?: boolean;
+    velocity?: { x: number; y: number; z: number };
 }
 
 export interface RenderableComponent {
@@ -44,6 +45,29 @@ export interface RenderableComponent {
     analogyLabel?: string;
     truthSource?: 'GROUNDED' | 'CALCULATED' | 'METAPHOR';
     isUnstable?: boolean;
+    isGhost?: boolean;
+}
+
+export interface PersonalityComponent {
+    linearDamping?: number;
+    isNervous?: boolean;
+    isSoftBody?: boolean;
+    pressure?: number;
+    // v29.0 Consciousness
+    evolutionaryStatus?: {
+        blessed: number;
+        cursed: number;
+    };
+    timeDilation?: number;
+    egregorId?: string;
+    isEgregor?: boolean;
+}
+
+export interface BehaviorComponent {
+    type?: 'ATTRACT' | 'REPULSE' | 'VORTEX' | 'WANDER';
+    targetId?: string;
+    strength?: number;
+    radius?: number;
 }
 
 export interface RigidBodyRefComponent {
@@ -69,10 +93,23 @@ export interface JointComponent {
     anchorB: { x: number; y: number; z: number };
 }
 
+export interface HarmonicComponent {
+    phase: number;
+    frequency: number;
+    amplitude: number;
+    vibeGroup?: string;
+}
+
 // The Entity Type - Union of all possible components
 export interface ECSEntity {
     // Core ID
     id: string;
+
+    // Visibility (v29.0)
+    isHidden?: boolean;
+
+    // v40.0 Red-Line Protocol
+    stress_intensity?: number;
 
     // Transform
     position: PositionComponent;
@@ -83,11 +120,29 @@ export interface ECSEntity {
     physics: PhysicsComponent;
     rigidBodyRef?: RigidBodyRefComponent;
 
+    // Visual (v29.0)
+    visual: {
+        color: string;
+        texture?: string;
+    };
+
+    // Cognitive Synthesis (v30.0)
+    certainty?: number;
+    disagreementScore?: number;
+    probabilitySnapshots?: Array<{
+        position: PositionComponent;
+        rotation: RotationComponent;
+        timestamp: number;
+    }>;
+
     // Rendering
     renderable: RenderableComponent;
     selectable?: SelectableComponent;
     citation?: CitationComponent;
     joint?: JointComponent;
+    harmonic?: HarmonicComponent;
+    personality?: PersonalityComponent;
+    behavior?: BehaviorComponent;
 }
 
 // Create the ECS World
@@ -99,6 +154,7 @@ export const physicsEntities = ecsWorld.with('position', 'physics');
 export const selectableEntities = ecsWorld.with('selectable');
 export const dynamicEntities = ecsWorld.with('position', 'physics', 'rigidBodyRef');
 export const jointEntities = ecsWorld.with('joint');
+export const harmonicEntities = ecsWorld.with('harmonic', 'position');
 
 /**
  * Get entity count for performance monitoring.
@@ -139,6 +195,10 @@ export function addRenderableEntity(
         id,
         position,
         rotation,
+        visual: {
+            color
+        },
+        certainty: 1.0,
         physics: {
             mass: 1,
             friction: 0.5,

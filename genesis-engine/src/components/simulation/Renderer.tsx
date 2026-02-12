@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
+import * as THREE from 'three';
 import { RigidBody, CuboidCollider, BallCollider, RapierRigidBody, useFixedJoint, useSphericalJoint, useRevoluteJoint, usePrismaticJoint, CollisionEnterPayload } from '@react-three/rapier';
 import { Html } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,6 +18,7 @@ import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { ECSRenderer } from './ECSRenderer';
 import { syncFromWorldState } from '@/lib/ecs/systems';
 import { z } from 'zod';
+import { useSynesthesia } from '@/hooks/useSynesthesia';
 
 import { p2p } from '@/lib/multiplayer/P2PConnector';
 
@@ -80,20 +82,24 @@ interface EntityRendererProps {
     biomeDamping?: number;
 }
 
-const EntityRenderer: React.FC<EntityRendererProps> = ({ 
-    entity, 
-    onRegister, 
-    onCollision, 
-    onSelect, 
-    blackboardContext, 
-    isSelected, 
-    domain = 'SCIENCE', 
+const EntityRenderer: React.FC<EntityRendererProps> = ({
+    entity,
+    onRegister,
+    onCollision,
+    onSelect,
+    blackboardContext,
+    isSelected,
+    domain = 'SCIENCE',
     drift = 0,
     biomeDamping = 0
 }) => {
     const { dispatch } = useGenesisStore();
     const rbRef = useRef<RapierRigidBody>(null);
     const [showCitation, setShowCitation] = useState(false);
+
+    // MODULE P: Reactive Softbody State
+    const [softScale, setSoftScale] = useState({ x: 1, y: 1, z: 1 });
+    const originalDimensions = useRef(entity.dimensions || { x: 1, y: 1, z: 1 });
     const [shaderTime, setShaderTime] = useState(0);
     const material = useTextureGen({
         prompt: entity.visual.texture,
@@ -135,12 +141,12 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
         const dims = entity.dimensions || { x: 1, y: 1, z: 1 };
         if (entity.shape === 'sphere') {
             return {
-                geometry: <sphereGeometry args={[dims.x, 32, 32]} />,
+                geometry: new THREE.SphereGeometry(dims.x, 32, 32),
                 collider: <BallCollider args={[dims.x]} />
             };
         }
         return {
-            geometry: <boxGeometry args={[dims.x, dims.y, dims.z]} />,
+            geometry: new THREE.BoxGeometry(dims.x, dims.y, dims.z),
             collider: <CuboidCollider args={[dims.x / 2, dims.y / 2, dims.z / 2]} />
         };
     }, [entity.shape, entity.dimensions]);
@@ -162,6 +168,23 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
         const impulse = event.totalForceMagnitude || 0;
         if (impulse > 50) {
             onCollision(impulse);
+
+            // MODULE P: Reactive Energy Absorption (Bio-Softbody)
+            if (entity.personality?.isSoftBody) {
+                const pressure = entity.personality.pressure || 0.5;
+                const squashFactor = Math.min(impulse / (500 * pressure), 0.5);
+                const k = 1.0 - squashFactor;
+
+                // Volume Preservation: k * (1/sqrt(k)) * (1/sqrt(k)) = 1
+                setSoftScale({
+                    x: 1 / Math.sqrt(k),
+                    y: k,
+                    z: 1 / Math.sqrt(k)
+                });
+
+                // Elastic snap-back
+                setTimeout(() => setSoftScale({ x: 1, y: 1, z: 1 }), 150);
+            }
 
             // FRACTURE CHECK
             const fractureThreshold = entity.neuralPhysics?.fracturePoint || 500;
@@ -190,6 +213,46 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
         }
     };
 
+    useEffect(() => {
+        if (!entity.softbody) return;
+
+        const interval = setInterval(() => {
+            const rb = rbRef.current;
+            if (!rb) return;
+
+            const vel = rb.linvel();
+            const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+            const volumePres = entity.softbody?.volumePreservation ?? 0.5;
+
+            // Squash & Stretch based on velocity direction
+            if (speed > 0.1) {
+                const stretch = 1 + (speed * 0.05 * (entity.softbody?.pressure || 1));
+                const squash = 1 / Math.sqrt(stretch); // Simplified volume preservation
+
+                // Align stretch with velocity direction (simplified for now: mainly Y bias)
+                const isVertical = Math.abs(vel.y) > Math.abs(vel.x) && Math.abs(vel.y) > Math.abs(vel.z);
+
+                if (isVertical) {
+                    setSoftScale({
+                        x: squash * (1 - volumePres) + volumePres,
+                        y: stretch,
+                        z: squash * (1 - volumePres) + volumePres
+                    });
+                } else {
+                    setSoftScale({
+                        x: stretch,
+                        y: squash * (1 - volumePres) + volumePres,
+                        z: squash * (1 - volumePres) + volumePres
+                    });
+                }
+            } else {
+                setSoftScale({ x: 1, y: 1, z: 1 });
+            }
+        }, 16); // 60fps local update
+
+        return () => clearInterval(interval);
+    }, [entity.softbody, entity.id]);
+
     return (
         <RigidBody
             ref={rbRef}
@@ -200,17 +263,23 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
             mass={entity.physics.mass}
             friction={friction}
             restitution={restitution}
-            linearDamping={biomeDamping}
+            linearDamping={biomeDamping + (entity.personality?.linearDamping || 0)}
             onCollisionEnter={handleCollision}
         >
             <mesh
+                geometry={geometry}
                 material={entity.shaderCode ? undefined : material}
+                position={entity.personality?.isNervous ? [
+                    Math.sin(shaderTime * 50) * 0.02,
+                    Math.cos(shaderTime * 50) * 0.02,
+                    Math.sin(shaderTime * 40) * 0.02
+                ] : [0, 0, 0]}
+                scale={[softScale.x, softScale.y, softScale.z]}
                 onClick={(e) => {
                     e.stopPropagation();
                     onSelect?.(entity.id);
                 }}
             >
-                {geometry}
                 {/* OMNI-SHADER ENGINE: Use dynamic shader if provided */}
                 {entity.shaderCode && (
                     <DynamicShaderMaterial
@@ -218,22 +287,45 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
                         color={entity.visual.color || '#3b82f6'}
                         time={shaderTime}
                         density={entity.neuralPhysics?.elasticity || 0.5}
-                        stress={entity.physics.mass > 50 ? 0.8 : (entity.isUnstable ? 0.5 : 0.0)}
-                        drift={drift}
+                        stress={Math.max(
+                            entity.physics.mass > 50 ? 0.8 : (entity.isUnstable ? 0.5 : 0.0),
+                            blackboardContext?.userVibe.intensity || 0
+                        )}
+                        drift={drift + (blackboardContext?.userVibe.intensity || 0) * 0.5}
                         isManifesting={entity.truthSource === 'METAPHOR'} // MOCK: Generative objects glow
                         isTransparent={entity.visual.texture?.toLowerCase().includes('glass') || entity.visual.texture?.toLowerCase().includes('transparent')}
                         domain={domain}
+                        velocity={rbRef.current?.linvel() || { x: 0, y: 0, z: 0 }}
+                        elasticity={entity.neuralPhysics?.elasticity || 0.1}
+                        certainty={entity.certainty}
+                        shimmer={entity.disagreementScore}
                     />
                 )}
                 {truthColor && (
-                    <mesh position={[0, 0, 0]} scale={1.05}>
-                        {geometry}
+                    <mesh geometry={geometry} position={[0, 0, 0]} scale={1.05}>
                         <meshBasicMaterial color={truthColor} transparent opacity={0.2} wireframe />
                     </mesh>
                 )}
             </mesh>
             {truthColor && <pointLight color={truthColor} intensity={0.5} distance={2} />}
             {collider}
+
+            {/* PROBABILITY CLOUDS (v30.0) */}
+            {blackboardContext?.xRayMode && entity.probabilitySnapshots && entity.probabilitySnapshots.length > 0 && (
+                <group>
+                    {entity.probabilitySnapshots.map((snap, idx) => (
+                        <mesh
+                            key={`prob-${idx}`}
+                            geometry={geometry}
+                            position={[snap.position.x - entity.position.x, snap.position.y - entity.position.y, snap.position.z - entity.position.z]}
+                            quaternion={[snap.rotation.x, snap.rotation.y, snap.rotation.z, snap.rotation.w]}
+                            scale={0.9}
+                        >
+                            <meshBasicMaterial color={entity.visual.color} transparent opacity={0.05} wireframe />
+                        </mesh>
+                    ))}
+                </group>
+            )}
 
             {/* ANALOGY LABEL */}
             {entity.analogyLabel && (
@@ -292,6 +384,53 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
                 </Html>
             )}
         </RigidBody>
+    );
+};
+
+const GhostRenderer = ({ entities }: { entities: any[] }) => {
+    // Shared time for all ghosts
+    const [time, setTime] = useState(0);
+
+    useEffect(() => {
+        let animationId: number;
+        const startTime = performance.now();
+        const animate = () => {
+            setTime((performance.now() - startTime) / 1000);
+            animationId = requestAnimationFrame(animate);
+        };
+        animationId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationId);
+    }, []);
+
+    return (
+        <group>
+            {entities.map((entity, i) => (
+                <mesh
+                    key={`ghost-${entity.id}-${i}`}
+                    position={[entity.position.x, entity.position.y, entity.position.z]}
+                    quaternion={entity.rotation ? [entity.rotation.x, entity.rotation.y, entity.rotation.z, entity.rotation.w] : [0, 0, 0, 1]}
+                >
+                    <boxGeometry args={[1, 1, 1]} />
+                    {/* GHOST SHADER (v27.0): Ethereal trail effect */}
+                    <DynamicShaderMaterial
+                        shaderCode={`
+                            void main() {
+                                float alpha = 0.3 - (vPosition.y * 0.1);
+                                float streak = sin(vPosition.z * 10.0 - uTime * 5.0);
+                                float speed = length(uVelocity);
+                                vec3 ghostColor = vec3(0.2, 0.4, 1.0);
+                                gl_FragColor = vec4(ghostColor, alpha * streak * 0.5 * (1.0 + speed));
+                            }
+                        `}
+                        color="#3b82f6"
+                        isTransparent={true}
+                        domain="ABSTRACT"
+                        time={time}
+                        velocity={entity.velocity || { x: 0, y: 0, z: 0 }}
+                    />
+                </mesh>
+            ))}
+        </group>
     );
 };
 
@@ -370,6 +509,9 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
     const [visualEvents, setVisualEvents] = useState<any[]>([]);
     const { state, dispatch } = useGenesisStore();
     const { worldState, activeNode, selectedEntityId } = state;
+
+    // MODULE S: Synesthesia (Physics-to-Audio)
+    useSynesthesia(worldState._kineticEnergy || 0, state.isProcessing ? 0.8 : 0);
 
     useEffect(() => {
         const unsubscribe = blackboard.subscribe(setBbCtx);
@@ -496,14 +638,14 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
     const hasGround = entities.some(e => e.id === 'ground' || e.name?.toLowerCase().includes('ground'));
 
     // MODULE E: Environment Presets (Atmospheric Context)
-    const domain = worldState.domain || 'SCIENCE';
+    const domain = (worldState.domain || 'SCIENCE') as keyof typeof presets;
     const presets = {
         SCIENCE: { ambient: 1.5, point: 2, fogColor: '#020617', fogNear: 10, fogFar: 50 },
         HISTORY: { ambient: 0.8, point: 1.5, fogColor: '#2d1b0e', fogNear: 5, fogFar: 30 },
         MUSIC: { ambient: 1.2, point: 3, fogColor: '#1e0b36', fogNear: 15, fogFar: 60 },
         ABSTRACT: { ambient: 0.5, point: 5, fogColor: '#000000', fogNear: 2, fogFar: 20 },
         TRADE: { ambient: 2.0, point: 1, fogColor: '#111827', fogNear: 20, fogFar: 100 }
-    };
+    } as const;
     const currentPreset = presets[domain] || presets.SCIENCE;
 
     return (
@@ -594,6 +736,7 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
                                 color: '#3b82f6',
                                 texture: 'glowing obsidian with neon blue circuits'
                             },
+                            certainty: 1.0,
                             name: 'Quantum Obelisk'
                         }}
                         onRegister={registerRb}
@@ -615,7 +758,10 @@ export const UniversalRenderer: React.FC<UniversalRendererProps> = ({ onCollisio
 
             ))}
 
-
+            {/* OMEGA LOOP: Ghost Projections of the Future */}
+            {worldState.omegaPoint && (
+                <GhostRenderer entities={worldState.omegaPoint} />
+            )}
 
             <ambientLight intensity={currentPreset.ambient} />
 

@@ -11,6 +11,15 @@ export function cleanModelOutput(rawText: string): string {
     return cleaned.trim();
 }
 
+/**
+ * Extracts the content between <think> tags for the Neural Trace UI.
+ */
+export function extractReasoningTrace(rawText: string): string | null {
+    if (!rawText) return null;
+    const match = rawText.match(/<think>([\s\S]*?)<\/think>/i);
+    return match ? match[1].trim() : null;
+}
+
 // 2. Input Sanitization (The "Iron Shield")
 // Prevents Prompt Injection on local/client-side models
 export function sanitizeInput(userInput: string): string {

@@ -1,4 +1,4 @@
-import { titanDisk } from './opfs-manager';
+import { titanDisk } from './titan-disk';
 
 /**
  * THE EXOBRAIN (Module E - Persistent Persona)
@@ -33,10 +33,9 @@ export class Exobrain {
     public async load(): Promise<UserProfile> {
         if (this.profile) return this.profile;
 
-        const file = await titanDisk.readFile(EXOBRAIN_KEY);
-        if (file) {
-            const text = await file.text();
-            this.profile = JSON.parse(text);
+        const data = await titanDisk.load(EXOBRAIN_KEY);
+        if (data) {
+            this.profile = data as UserProfile;
         } else {
             // Initialize default profile
             this.profile = {
@@ -55,7 +54,7 @@ export class Exobrain {
         if (!this.profile) return;
         this.profile.lastActive = Date.now();
         const data = new TextEncoder().encode(JSON.stringify(this.profile));
-        await titanDisk.saveFile(EXOBRAIN_KEY, data.buffer);
+        await titanDisk.save(EXOBRAIN_KEY, data.buffer);
     }
 
     public async updateMastery(points: number) {

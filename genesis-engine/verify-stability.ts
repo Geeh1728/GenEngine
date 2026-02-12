@@ -9,6 +9,8 @@ const mockWorldState: WorldState = {
     explanation: "Two spheres: one light and stable, one heavy and unstable.",
     constraints: ["Gravity is active"],
     successCondition: "Observe the red vs blue entities",
+    _renderingStage: 'SOLID',
+    _resonanceBalance: 0.5,
     entities: [
         {
             id: "stable-entity",

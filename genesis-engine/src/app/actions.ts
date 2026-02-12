@@ -9,6 +9,7 @@ import { architectFlow } from '@/lib/genkit/agents/architect';
 import { sanitizeInput } from '@/lib/utils/text';
 import { z } from 'genkit';
 
+import { librarianAgent } from '@/lib/genkit/agents/librarian';
 import { SkillTree } from '@/lib/genkit/schemas';
 
 function mapLogs(logs: any[] | undefined): MissionLog[] | undefined {
@@ -24,6 +25,33 @@ export async function generateCurriculum(userGoal: string): Promise<SkillTree | 
     try {
         // This runs the EXACT logic you tested in the CLI
         const result = await architectFlow({ userGoal });
+
+        // THE 'UNKNOWN' HANDLER (Oracle Integration v25.0)
+        if (result && result.nodes) {
+            const oraclePromises = result.nodes
+                .filter(node => node.needs_oracle)
+                .map(async (node) => {
+                    console.log(`[Oracle] Triggering deep research for unknown subject: ${node.label}`);
+                    try {
+                        const research = await librarianAgent({
+                            userQuery: `Research the structural mechanics of [${node.label}]. Return a mapping of entities and forces.`,
+                            isGrounding: true
+                        });
+
+                        // Enrich the node with Oracle findings
+                        node.description = `${node.description}\n\n[ORACLE INSIGHT]: ${research.summary}\n\nONTOLOGY: ${research.reasoning}`;
+                        if (research.constants) {
+                            node.data = { ...(node.data || {}), constants: research.constants };
+                        }
+                        node.needs_oracle = false; // Research complete
+                    } catch (e) {
+                        console.error(`Oracle research failed for ${node.label}:`, e);
+                    }
+                });
+
+            await Promise.all(oraclePromises);
+        }
+
         return result;
     } catch (error) {
         console.error("Architect failed:", error);
@@ -45,9 +73,9 @@ import { StructuralAnalysis, SimulationMutationSchema } from '@/lib/genkit/schem
 import { MissionLog, InteractionState } from '@/lib/multiplayer/GameState';
 
 export async function generateSimulationLogic(
-    hypothesis: string, 
-    context: string, 
-    currentWorldState?: WorldState | null, 
+    hypothesis: string,
+    context: string,
+    currentWorldState?: WorldState | null,
     fileUri?: string,
     previousInteractionId?: string,
     interactionState?: InteractionState
@@ -233,6 +261,32 @@ export async function getEmbedding(text: string): Promise<{ success: true; embed
     } catch (error) {
         console.error('Embedding Error:', error);
         return { success: false, error: 'Failed to generate embedding' };
+    }
+}
+
+import { analyzeRealWorldImage } from './actions/vision'; // assuming this is where it might be or just import it below
+
+import { queryResidue, ArchitecturalResidue } from '@/lib/db/residue';
+
+export async function queryResiduesAction(keywords: string): Promise<ArchitecturalResidue[]> {
+    try {
+        return await queryResidue(keywords);
+    } catch (error) {
+        console.error("Failed to query residues:", error);
+        return [];
+    }
+}
+
+/**
+ * v40.0 Pre-Cognition: Trigger background grounding via Librarian.
+ */
+export async function preFetchKnowledgeAction(query: string) {
+    try {
+        // Fire and forget (Server-side side effect)
+        librarianAgent({ userQuery: query, isGrounding: true });
+        return { success: true };
+    } catch (e) {
+        return { success: false };
     }
 }
 

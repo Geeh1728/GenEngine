@@ -4,8 +4,9 @@ import { genkit } from 'genkit';
 import fs from 'fs';
 import path from 'path';
 import { MODELS, LEGACY_MODELS, LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL } from './models';
+import { quotaOracle } from '../utils/quota-oracle';
 
-export { LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL };
+export { MODELS, LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL };
 
 /**
  * ENVIRONMENT LOADER (Iron Shield)
@@ -43,6 +44,7 @@ if (process.env.NODE_ENV === 'development') {
 // 1. Force-load the key from ANY possible name (Resilience)
 const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
 const openRouterKey = process.env.OPENROUTER_API_KEY;
+const groqKey = process.env.GROQ_API_KEY;
 
 // satisfy openai plugin validation
 if (openRouterKey && !process.env.OPENAI_API_KEY) {
@@ -56,6 +58,10 @@ if (!apiKey) {
     console.log("✅ Genkit API Key Detected.");
 }
 
+if (groqKey) {
+    console.log("⚡ Groq LPU Key Detected.");
+}
+
 // 2. Initialize Genkit
 export const ai = genkit({
     plugins: [
@@ -66,6 +72,66 @@ export const ai = genkit({
             baseURL: 'https://openrouter.ai/api/v1',
         }),
     ],
+});
+
+/**
+ * MODULE G-R: GROQ DIRECT ADAPTER (v32.0)
+ * Objective: Direct LPU integration for <200ms latency.
+ */
+const groqModels = [
+    { id: 'meta-llama/llama-4-scout-17b-instruct', name: 'meta-llama/llama-4-scout-17b-instruct' },
+    { id: 'openai/gpt-oss-120b', name: 'openai/gpt-oss-120b' },
+    { id: 'moonshotai/kimi-k2-instruct', name: 'moonshotai/kimi-k2-instruct' },
+    { id: 'llama-3.1-8b-instant', name: 'llama-3.1-8b-instant' },
+    { id: 'llama-3.3-70b-versatile', name: 'llama-3.3-70b-versatile' },
+    { id: 'qwen-3-72b', name: 'qwen-3-72b' }
+];
+
+groqModels.forEach(model => {
+    ai.defineModel(
+        {
+            name: `groq/${model.name}`,
+            label: `Groq LPU ${model.id}`,
+        },
+        async (req) => {
+            const startTime = Date.now();
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${groqKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: model.id,
+                    messages: req.messages.map(m => ({
+                        role: m.role === 'model' ? 'assistant' : m.role,
+                        content: m.content[0].text
+                    })),
+                    temperature: req.config?.temperature,
+                    max_tokens: req.config?.maxOutputTokens,
+                })
+            });
+
+            const data = await response.json();
+            const latency = Date.now() - startTime;
+
+            if (!response.ok) throw new Error(`Groq Error: ${JSON.stringify(data)}`);
+
+            // TELEMETRY: Record LPU usage and rate limits
+            quotaOracle.recordTelemetry(`groq/${model.id}`, response.headers);
+            
+            return {
+                message: {
+                    role: 'model',
+                    content: [{ text: data.choices[0].message.content }]
+                },
+                custom: {
+                    latency,
+                    remainingRequests: response.headers.get('x-ratelimit-remaining-requests')
+                }
+            };
+        }
+    );
 });
 
 /**
@@ -122,13 +188,13 @@ openRouterModels.forEach(model => {
 // --- TIER 1: THE ELITE COUNCIL (20 RPD) ---
 export const gemini3Flash = {
     name: MODELS.BRAIN_FLASH_3,
-    label: 'Gemini 3 Flash',
+    label: 'Gemini 2.0 Flash',
 };
 
 // --- TIER 2: THE NUCLEAR WORKHORSE (14,400 RPD!) ---
 export const geminiFlash = {
     name: MODELS.BRAIN_FLASH_25,
-    label: 'Gemini 2.5 Flash'
+    label: 'Groq Llama 3.3 70B'
 };
 
 export const gemma3_4b = {
@@ -144,18 +210,18 @@ export const BRAIN_REFLEX = gemma3_4b;
 // THE UNLIMITED CHANNEL (Native Audio) - 1M RPD / Unlimited
 export const geminiAudio = {
     name: MODELS.BRAIN_AUDIO,
-    label: 'Gemini Audio'
+    label: 'Gemini 2.0 Audio'
 };
 
 // --- TIER 3: OPENROUTER FREE SPECIALISTS ---
 export const OPENROUTER_FREE_MODELS = {
-    MATH: MODELS.LOGIC_DEEPSEEK,
-    VISION: MODELS.BRAIN_FLASH_3, 
+    MATH: MODELS.BRAIN_PRO, // DeepSeek R1 via OpenRouter
+    VISION: MODELS.VISION_GEMINI, 
     VISION_PRO: MODELS.ROBOTICS_ER,
-    DEAN: MODELS.BRAIN_FLASH_3,
+    DEAN: MODELS.BRAIN_ELITE,
     LIBRARIAN: MODELS.BRAIN_LITE,
     DYNAMIC: MODELS.PHYSICS_LIQUID,
-    REFLEX: MODELS.REFLEX_NVIDIA,
+    REFLEX: MODELS.GROQ_LLAMA_4_SCOUT,
     GENERAL: MODELS.LOGIC_FREE_ROUTER,
     CHAT: 'openai/mistralai/mistral-7b-instruct:free',
     CODE: MODELS.LOGIC_QWEN_CODER,
@@ -172,3 +238,4 @@ export const ROBOTICS_MODEL_NAME = LEGACY_MODELS.BRAIN_ROBOTICS;
 export const ROBOTICS_FALLBACK_MODEL = OPENROUTER_FREE_MODELS.VISION;
 export const DEEPSEEK_LOGIC_MODEL = OPENROUTER_FREE_MODELS.MATH;
 export const KIMI_DEAN_MODEL = LEGACY_MODELS.SWARM_REVIEWER; // Use Kimi for heavy logic review
+export const QWEN3_MODEL = MODELS.GROQ_QWEN_3;

@@ -15,7 +15,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Genesis Engine // Neural Operating System",
-  description: "High-fidelity physical simulation and autonomous learning platform. Manifest your reality.",
+  description: "The Music Theory of Reality. AI-Powered Physics & Knowledge Synthesis.",
+  manifest: "/manifest.json",
+  openGraph: {
+    title: "Genesis Engine",
+    description: "Compose your own reality using the world's first Physical Music Theory simulation.",
+    images: ["/globe.svg"]
+  }
 };
 
 export default function RootLayout({

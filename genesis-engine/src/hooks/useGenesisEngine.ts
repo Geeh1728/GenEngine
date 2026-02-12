@@ -20,7 +20,17 @@ import { normalizeEntities } from '@/lib/simulation/normalizer';
 import { reflexPredictor } from '@/lib/simulation/reflex-predictor';
 import { visualEcho } from '@/lib/vision/echo-buffer';
 import { exobrain } from '@/lib/storage/exobrain';
+import { neuralMap } from '@/lib/storage/neural-map';
 import { MasteryLogic } from '@/lib/gamification/mastery-logic';
+import { synestheticAudio } from '@/lib/audio/synesthetic-audio';
+import { generateSessionReport } from '@/app/actions/reporting';
+import { useLiveAudio } from './useLiveAudio';
+import { SecondOrderDynamics } from '@/lib/multiplayer/SecondOrderDynamics';
+import { useIntentionMonitor } from './useIntentionMonitor';
+import { useDreamingScientist } from './useDreamingScientist';
+import { semanticUndo } from '@/app/actions/temporal';
+import { graftOntologies } from '@/lib/simulation/ontology-graft';
+import { useAstraGlobalContext } from './useAstraGlobalContext';
 
 
 // (Kept for compatibility if exported, though now inferred from sub-hooks)
@@ -75,6 +85,18 @@ interface GhostBuffer {
 export function useGenesisEngine() {
     const { state, dispatch } = useGenesisStore();
     const [ghostBuffer] = useState<GhostBuffer>({ predictedPos: {} });
+    // MODULE P: Persistent solvers for second-order motion
+    const [solvers] = useState<Map<string, SecondOrderDynamics>>(new Map());
+
+    // MODULE B: Intention Monitoring (v28.0)
+    useIntentionMonitor();
+
+    // MODULE Δ: Dreaming Scientist (v30.0)
+    useDreamingScientist();
+
+    // MODULE Σ: Astra Global Context (v55.0)
+    useAstraGlobalContext();
+
     const {
         worldState,
         selectedEntityId,
@@ -125,10 +147,96 @@ export function useGenesisEngine() {
     const [gardenState, setGardenState] = useState({ nodes: [] });
 
     const [isVerifyingLogic, setIsVerifyingLogic] = useState(false);
+    const [chaosIntensity, setChaosIntensity] = useState(1.0); // v35.0
 
-    // --- MODULE T: TEMPORAL HISTORY ---
-    const [history, setHistory] = useState<WorldState[]>([]);
-    const [historyIndex, setHistoryIndex] = useState(-1);
+    // --- MODULE T: TEMPORAL HISTORY (v50.0 updated) ---
+    const { recordHistory, history, currentIndex } = useTimeline();
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (worldState && !isPaused && !isProcessing) {
+                recordHistory();
+            }
+        }, 2000); // Snapshot every 2 seconds
+        return () => clearInterval(interval);
+    }, [worldState, isPaused, isProcessing, recordHistory]);
+
+    // --- MODULE A: ASTRA LIVE ---
+    const { status: astraStatus, astraVolume, isSpeaking: isAstraSpeaking } = useLiveAudio({
+        initialWorldState: worldState || undefined,
+        currentWorldState: worldState || undefined,
+        onPhysicsUpdate: (delta) => dispatch({ type: 'SYNC_WORLD', payload: { ...worldState, ...delta } })
+    });
+
+    // MODULE Σ: BIOMETRIC FLOW CONTROL (v35.0)
+    useEffect(() => {
+        const vibe = blackboard.getContext().userVibe;
+        
+        // Inverse relationship: High intensity (frustration) = Lower chaos
+        // Low intensity (boredom/calm) = Higher chaos
+        const targetChaos = 1.0 - (vibe.intensity * 0.8); // Scale between 0.2 and 1.0
+        setChaosIntensity(THREE.MathUtils.lerp(chaosIntensity, targetChaos, 0.05));
+
+        // Apply to environment forces if active
+        if (state.vectorWind.x !== 0 || state.vectorWind.y !== 0 || state.vectorWind.z !== 0) {
+            dispatch({
+                type: 'SET_WIND',
+                payload: {
+                    x: state.vectorWind.x * chaosIntensity,
+                    y: state.vectorWind.y * chaosIntensity,
+                    z: state.vectorWind.z * chaosIntensity
+                }
+            });
+        }
+    }, [state.vectorWind, state.interactionState, chaosIntensity, dispatch]);
+
+    // MODULE N-S: NEURAL SYMPATHY (Audio -> Physics)
+    useEffect(() => {
+        if (!worldState || !isAstraSpeaking || astraVolume === 0) return;
+
+        // Modulate environment based on Astra's voice energy
+        const stiffness = 1.0 + (astraVolume * 2); // More voice energy = stiffer world
+        const damping = 0.5 + (astraVolume * 0.5);
+
+        dispatch({
+            type: 'SYNC_WORLD',
+            payload: {
+                ...worldState,
+                environment: {
+                    ...worldState.environment!,
+                    stiffness,
+                    damping
+                },
+                _resonanceBalance: Math.max(0, 1 - astraVolume) // Astra's energy creates 'dissonance' or 'impact'
+            }
+        });
+    }, [astraVolume, isAstraSpeaking, dispatch]);
+
+    // MODULE S-R: SEMANTIC RESONANCE (Physics -> Audio)
+    useEffect(() => {
+        if (!worldState || isPaused) return;
+
+        // Update the synesthetic audio manager with system state
+        const totalKE = worldState._kineticEnergy || 0;
+        const resonance = worldState._resonanceBalance || 0.5;
+        const biome = worldState.environment?.biome || 'EARTH';
+
+        synestheticAudio.updatePhysicsState(totalKE, resonance, biome);
+
+        // v31.0: NEURAL PULSE (REWARD SIGNAL)
+        if (totalKE > 500 && resonance > 0.8) {
+            dispatch({ type: 'SET_REWARD_SIGNAL', payload: 'EFFICIENT' });
+        } else if (resonance < 0.4) {
+            dispatch({ type: 'SET_REWARD_SIGNAL', payload: 'UNSTABLE' });
+        } else {
+            dispatch({ type: 'SET_REWARD_SIGNAL', payload: 'NONE' });
+        }
+
+        // TRIGGER CLASH: If energy spikes suddenly
+        if (totalKE > 1000) {
+            synestheticAudio.triggerClash(totalKE / 100, resonance);
+        }
+    }, [worldState?._kineticEnergy, worldState?._resonanceBalance, isPaused]);
 
     // --- MODULE E: EXOBRAIN ---
     useEffect(() => {
@@ -186,6 +294,23 @@ export function useGenesisEngine() {
                         // If it's a critical structural warning, trigger visual pulse
                         if (data.isCritical) {
                             sfx.playWarning();
+
+                            // v32.0 AUTONOMOUS IMMUNE SYSTEM: Auto-Repair
+                            dispatch({
+                                type: 'ADD_MISSION_LOG',
+                                payload: { agent: 'Astra', message: "Structural weakness detected. Initiating auto-evolution.", type: 'THINKING' }
+                            });
+
+                            const repairResult = await processMultimodalIntent({
+                                text: "Reinforce any unstable structures identified by the Sentinel.",
+                                interactionState: 'PLAYING',
+                                previousInteractionId: state.lastInteractionId || undefined
+                            });
+
+                            if (repairResult.success && 'mutation' in repairResult) {
+                                dispatch({ type: 'MUTATE_WORLD', payload: repairResult.mutation });
+                                sfx.playSuccess();
+                            }
                         }
                     }
                 }
@@ -219,14 +344,6 @@ export function useGenesisEngine() {
     useEffect(() => {
         if (worldState && Object.keys(worldState).length > 0) {
             blackboard.updateFromWorldState(worldState);
-
-            // Record History
-            setHistory(prev => {
-                const next = [...prev, JSON.parse(JSON.stringify(worldState))];
-                if (next.length > 50) next.shift(); // Limit buffer
-                return next;
-            });
-            setHistoryIndex(prev => Math.min(prev + 1, 49));
         }
     }, [worldState]);
 
@@ -251,27 +368,22 @@ export function useGenesisEngine() {
                     const nextEntities = ctx.currentWorldState.entities?.map((e: any) => {
                         if (!e.isRemote) return e;
 
-                        const predicted = ghostBuffer.predictedPos[e.id];
-                        if (predicted) {
-                            const dx = Math.abs(e.position.x - predicted.x);
-                            const dy = Math.abs(e.position.y - predicted.y);
-
-                            // IF divergence is small (<5%), keep predicted for smoothness
-                            if (dx < 0.05 && dy < 0.05) {
-                                return { ...e, position: predicted };
-                            }
-
-                            // IF divergence is large, smoothly LERP to real data
-                            return {
-                                ...e,
-                                position: {
-                                    x: predicted.x * 0.5 + e.position.x * 0.5,
-                                    y: predicted.y * 0.5 + e.position.y * 0.5,
-                                    z: predicted.z * 0.5 + e.position.z * 0.5
-                                }
-                            };
+                        // MODULE P: SECOND ORDER DYNAMICS (t3ssel8r Algorithm)
+                        let solver = solvers.get(e.id);
+                        if (!solver) {
+                            // Initialize solver with default 'Alive' personality constants
+                            // Frequency: 2.0, Damping: 0.5 (expressive overshoot), Response: 2.0 (kick)
+                            solver = new SecondOrderDynamics(2.0, 0.5, 2.0, e.position);
+                            solvers.set(e.id, solver);
                         }
-                        return e;
+
+                        const evolvedPos = solver.update(1 / 15, e.position);
+                        const evolvedVel = solver.getVelocity();
+                        return {
+                            ...e,
+                            position: evolvedPos,
+                            velocity: evolvedVel
+                        };
                     });
 
                     // Trigger prediction for next frame
@@ -279,6 +391,11 @@ export function useGenesisEngine() {
                         if (e.isRemote) {
                             const prediction = await reflexPredictor.predictTrajectory(e);
                             ghostBuffer.predictedPos[e.id] = prediction.points[0];
+                        }
+                        
+                        // MODULE C: Probability Clouds (v30.0)
+                        if (blackboard.getContext().xRayMode) {
+                            e.probabilitySnapshots = reflexPredictor.predictProbabilityCloud(e, 5);
                         }
                     });
 
@@ -323,24 +440,28 @@ export function useGenesisEngine() {
                 const validState = validation.data as WorldState;
 
                 // Ensure entities are normalized (The Rosetta Protocol)
-                if (validState.entities) {
-                    validState.entities = normalizeEntities(validState.entities);
-                }
-
-                // Hydrate the ECS world
-                dispatch({ type: 'SYNC_WORLD', payload: validState });
-
-                // Astra Event
-                dispatch({
-                    type: 'ADD_MISSION_LOG',
-                    payload: {
-                        agent: 'Astra',
-                        message: "Reality transmission received. Reconstituting the digital twin now.",
-                        type: 'SUCCESS'
+                const hydrate = async () => {
+                    if (validState.entities) {
+                        validState.entities = await normalizeEntities(validState.entities);
                     }
-                });
 
-                sfx.playSuccess();
+                    // Hydrate the ECS world
+                    dispatch({ type: 'SYNC_WORLD', payload: validState });
+
+                    // Astra Event
+                    dispatch({
+                        type: 'ADD_MISSION_LOG',
+                        payload: {
+                            agent: 'Astra',
+                            message: "Reality transmission received. Reconstituting the digital twin now.",
+                            type: 'SUCCESS'
+                        }
+                    });
+
+                    sfx.playSuccess();
+                };
+
+                hydrate();
 
                 // Clean up URL to avoid re-hydration on refresh if desired, 
                 // but usually we keep it for bookmarking. 
@@ -366,7 +487,7 @@ export function useGenesisEngine() {
         }
     }, [dispatch]);
 
-    const fetchWorldState = useCallback(async (rules: WorldRule[]) => {
+    const fetchWorldState = useCallback(async (rules: WorldRule[], simulationConfig?: any) => {
         try {
             const response = await fetch('/api/world-state', {
                 method: 'POST',
@@ -374,9 +495,11 @@ export function useGenesisEngine() {
                 body: JSON.stringify({
                     topic: sourceTitle || 'Quantum Physics',
                     rules,
+                    simulationConfig, // ADDED: Pass the compiled ECS config
                     complexity: godModeState.complexity,
                     fileUri: state.fileUri,
-                    previousInteractionId: state.lastInteractionId
+                    previousInteractionId: state.lastInteractionId,
+                    chronesthesia: { year: state.discoveryYear, enabled: state.chronesthesiaEnabled }
                 }),
             });
             if (response.ok) {
@@ -386,6 +509,13 @@ export function useGenesisEngine() {
                     ...prev,
                     constants: { ...data.constants, timeScale: 1 }
                 }));
+
+                // MODULE N: NEURALMAP REGISTRATION
+                const registryTopic = sourceTitle || "Quantum Physics";
+                if (data.consensus_score && data.consensus_score >= 90) {
+                    console.log(`[NeuralMap] Registering High-Consensus Reality: ${registryTopic}`);
+                    neuralMap.register(registryTopic, data);
+                }
             }
         } catch (err) {
             console.error('Failed to fetch world state', err);
@@ -401,6 +531,53 @@ export function useGenesisEngine() {
             const response = await fetch('/api/ingest', { method: 'POST', body: formData });
             if (!response.ok) throw new Error('Ingestion failed');
             const data = await response.json();
+
+            // REALITY COMPILER NOTIFICATION
+            if (data.simulationConfig) {
+                dispatch({ 
+                    type: 'ADD_MISSION_LOG', 
+                    payload: { 
+                        agent: 'Conductor', 
+                        message: `Reality Compiler: ${data.simulationConfig.entities.length} entities and ${Object.keys(data.simulationConfig.globalParameters || {}).length} physical constants extracted.`, 
+                        type: 'SUCCESS' 
+                    } 
+                });
+            }
+
+            // v32.5 STREAMING MANIFESTATION (Scout Result)
+            if (data.scoutResult && data.scoutResult.entities?.length > 0) {
+                dispatch({ 
+                    type: 'ADD_MISSION_LOG', 
+                    payload: { 
+                        agent: 'Scout', 
+                        message: `LPU Scout detected ${data.scoutResult.entities.length} core entities. Manifesting instantly...`, 
+                        type: 'INFO' 
+                    } 
+                });
+                
+                // Convert SimConfig to partial WorldState and sync
+                const scoutWorld: WorldState = {
+                    scenario: data.metadata?.title || "Streaming Reality",
+                    mode: 'PHYSICS',
+                    domain: 'SCIENCE',
+                    entities: await normalizeEntities(data.scoutResult.entities.map((e: any) => ({
+                        ...e,
+                        truthSource: 'GROUNDED'
+                    }))),
+                    environment: {
+                        gravity: data.scoutResult.globalParameters?.gravity ? { x: 0, y: -data.scoutResult.globalParameters.gravity, z: 0 } : { x: 0, y: -9.81, z: 0 },
+                        timeScale: 1
+                    },
+                    constraints: [],
+                    description: "First-pass streaming reality.",
+                    explanation: "LPU-accelerated scout pass completed.",
+                    _renderingStage: 'SOLID',
+                    _resonanceBalance: 0.5
+                };
+                
+                dispatch({ type: 'SYNC_WORLD', payload: scoutWorld });
+                sfx.playSuccess();
+            }
 
             if (data.chunks) {
                 dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Librarian', message: 'Summarizing curriculum for high-fidelity indexing...', type: 'THINKING' } });
@@ -432,13 +609,15 @@ export function useGenesisEngine() {
             }));
 
             setWorldRules(rulesWithIds);
+            blackboard.update({ worldRules: rulesWithIds });
             setSourceTitle(data.metadata?.title || 'Unknown Source');
             setIsIngested(true);
             if (data.fileUri) {
                 dispatch({ type: 'SET_FILE_URI', payload: data.fileUri });
             }
 
-            await fetchWorldState(rulesWithIds);
+            // Pass the compiled ECS config to the physicist
+            await fetchWorldState(rulesWithIds, data.simulationConfig);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Ingestion failed');
         } finally {
@@ -446,10 +625,95 @@ export function useGenesisEngine() {
         }
     }, [fetchWorldState, setError, setIsProcessing, dispatch]);
 
+    const handleGraft = useCallback(async (file: File) => {
+        setIsProcessing(true);
+        setError(null);
+        dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Conductor', message: 'Initiating Semantic Grafting sequence...', type: 'THINKING' } });
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('existingRules', JSON.stringify(worldRules)); // Pass active rules for server-side grafting
+
+            const response = await fetch('/api/ingest', { method: 'POST', body: formData });
+            if (!response.ok) throw new Error('Grafting ingestion failed');
+            const data = await response.json();
+
+            // The API now returns grafted rules if existingRules were provided
+            const graftedRules = data.rules || [];
+            setWorldRules(graftedRules);
+            blackboard.update({ worldRules: graftedRules });
+
+            dispatch({ 
+                type: 'ADD_MISSION_LOG', 
+                payload: { 
+                    agent: 'Conductor', 
+                    message: `Ontology Grafted: "${data.metadata?.title}" merged with active reality. ${graftedRules.length} rules now active.`, 
+                    type: 'SUCCESS' 
+                } 
+            });
+
+            await fetchWorldState(graftedRules, data.simulationConfig);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Grafting failed');
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [worldRules, fetchWorldState, setError, setIsProcessing, dispatch]);
+
+    const startExamLevel = useCallback(async (examText: string) => {
+        setIsProcessing(true);
+        dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Mastery', message: 'Compiling interactive exam level...', type: 'THINKING' } });
+        
+        try {
+            const response = await fetch('/api/mastery/exam', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ examText })
+            });
+
+            if (response.ok) {
+                const { levelConfig } = await response.json();
+                
+                // Now compile this config into a WorldState
+                const worldResponse = await fetch('/api/world-state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        topic: levelConfig.levelName,
+                        context: `Scenario: ${levelConfig.questionText}. Win Condition: ${levelConfig.winCondition}`,
+                        simulationConfig: levelConfig.initialState,
+                        complexity: godModeState.complexity
+                    }),
+                });
+
+                if (worldResponse.ok) {
+                    const worldData = await worldResponse.json();
+                    dispatch({ type: 'SYNC_WORLD', payload: { ...worldData, scenario: levelConfig.levelName } });
+                    dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Mastery', message: `Level Loaded: ${levelConfig.levelName}. Objective: ${levelConfig.winCondition}`, type: 'SUCCESS' } });
+                }
+            }
+        } catch (err) {
+            console.error('Failed to start exam level', err);
+            setError('Failed to generate interactive exam level.');
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [godModeState.complexity, dispatch, setIsProcessing, setError]);
+
     const startSimulation = useCallback(async (node: SkillNode) => {
         setActiveNode(node);
         setIsProcessing(true);
         try {
+            // MODULE N: NEURALMAP REGISTRY LOOKUP
+            const cachedReality = await neuralMap.lookup(node.label);
+            if (cachedReality) {
+                dispatch({ type: 'SYNC_WORLD', payload: cachedReality });
+                dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Librarian', message: `Manifesting stabilized reality: "${node.label}" from NeuralMap.`, type: 'SUCCESS' } });
+                setIsProcessing(false);
+                return;
+            }
+
             const response = await fetch('/api/world-state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -472,8 +736,41 @@ export function useGenesisEngine() {
         }
     }, [godModeState.complexity, state.fileUri, state.lastInteractionId, dispatch, setActiveNode, setIsProcessing]);
 
+    const generateCurriculum = useCallback(async (goal: string) => {
+        setIsProcessing(true);
+        dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Architect', message: `Manifesting Skill Tree for: ${goal}`, type: 'THINKING' } });
+        try {
+            const response = await fetch('/api/mastery/curriculum', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goal, fileUri: state.fileUri }),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setSkillTree(data);
+                
+                // Module Spider: Dispatch Knowledge Graph if available
+                if (data.knowledgeGraph) {
+                    dispatch({ type: 'SET_KNOWLEDGE_GRAPH', payload: data.knowledgeGraph });
+                    dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Librarian', message: 'Knowledge Spider has spun a 3D conceptual web. Reality is ready for navigation.', type: 'SUCCESS' } });
+                    sfx.playSuccess();
+                }
+
+                dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Architect', message: 'Neural Curriculum manifested. What is our first milestone?', type: 'SUCCESS' } });
+            }
+        } catch (err) {
+            console.error('Failed to generate curriculum', err);
+            setError('Failed to manifest curriculum.');
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [state.fileUri, dispatch, setIsProcessing, setError]);
+
     const toggleRule = useCallback((id: string) => {
-        setWorldRules(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));
+        const nextRules = worldRules.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r);
+        setWorldRules(nextRules);
+        blackboard.update({ worldRules: nextRules });
+        
         setGodModeState(prev => {
             const isOverridden = prev.overrides.includes(id);
             return {
@@ -483,7 +780,7 @@ export function useGenesisEngine() {
                     : [...prev.overrides, id]
             };
         });
-    }, []);
+    }, [worldRules]);
 
     const handleConstantChange = useCallback((name: string, value: number) => {
         setGodModeState(prev => ({
@@ -533,7 +830,12 @@ export function useGenesisEngine() {
                     if (result.worldState.python_code) {
                         dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Executing Python verification...', type: 'THINKING' } });
                         try {
-                            finalWorldState = await applyMathOverride(result.worldState, result.worldState.python_code);
+                            finalWorldState = await applyMathOverride(
+                                result.worldState, 
+                                result.worldState.python_code, 
+                                undefined, 
+                                { year: state.discoveryYear, enabled: state.chronesthesiaEnabled }
+                            );
                             dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Pyodide', message: 'Math verification applied. Computed values are now the Source of Truth.', type: 'SUCCESS' } });
                         } catch (mathErr) {
                             console.warn('[Engine] Math Override failed, using AI values:', mathErr);
@@ -630,6 +932,66 @@ export function useGenesisEngine() {
         }
     }, [history, dispatch]);
 
+    // --- MODULE CHAOS (v28.0 - Socratic Adversary) ---
+    const triggerChaosEvent = useCallback((vector: 'WIND' | 'ENTROPY' | 'DISSONANCE') => {
+        dispatch({ type: 'TRIGGER_CHAOS', payload: { vector } });
+        sfx.playWarning();
+    }, [dispatch]);
+
+    // --- ORACLE FUNCTIONS (v24.0) ---
+
+    const temporalUndo = useCallback(async (intent: string) => {
+        if (!worldState || history.length === 0) return;
+        setIsProcessing(true);
+        try {
+            const result = await semanticUndo(intent, history, worldState);
+            if (result.success && result.worldState) {
+                dispatch({ type: 'SYNC_WORLD', payload: result.worldState });
+                sfx.playSuccess();
+            }
+        } catch (e) {
+            console.error("Temporal Undo Failed:", e);
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [worldState, history, dispatch, setIsProcessing]);
+
+    const manifestReport = useCallback(async () => {
+        if (!worldState) return;
+
+        // Collect transcript from mission logs
+        const transcript = state.missionLogs.map(l => `${l.agent}: ${l.message}`);
+
+        setIsProcessing(true);
+        try {
+            const result = await generateSessionReport(transcript, worldState);
+            if (result.success && result.report) {
+                console.log("[Author] Scientific Paper Manifested:", result.report.title);
+                // Trigger download or show modal
+                const blob = new Blob([result.report.markdown], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${result.report.title.replace(/\s+/g, '_')}.md`;
+                a.click();
+
+                dispatch({
+                    type: 'ADD_MISSION_LOG',
+                    payload: {
+                        agent: 'Conductor',
+                        message: `Scientific Paper Manifested: "${result.report.title}". Knowledge stabilized.`,
+                        type: 'SUCCESS'
+                    }
+                });
+                sfx.playSuccess();
+            }
+        } catch (e) {
+            console.error("Report Generation Failed:", e);
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [worldState, state.missionLogs, dispatch, setIsProcessing]);
+
     return {
         isIngested,
         isProcessing,
@@ -657,6 +1019,7 @@ export function useGenesisEngine() {
         unlockedHUD: state.unlockedHUD,
 
         handleIngest,
+        handleGraft,
         toggleRule,
         handleConstantChange,
         setComplexity,
@@ -681,7 +1044,10 @@ export function useGenesisEngine() {
         activeChallenge,
         setActiveChallenge,
         isVerifyingLogic,
-        mode,
-        scrubHistory
-    };
-}
+                mode,
+                scrubHistory,
+                startExamLevel,
+                generateCurriculum
+            };
+        }
+        

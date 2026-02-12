@@ -13,7 +13,8 @@ vi.mock('../lib/genkit/config', () => {
         },
         geminiFlash: { name: 'googleai/gemini-2.5-flash-lite' },
         geminiPro: { name: 'googleai/gemini-2.5-flash' },
-        DEEPSEEK_LOGIC_MODEL: 'openai/deepseek/deepseek-r1'
+        DEEPSEEK_LOGIC_MODEL: 'openai/deepseek/deepseek-r1',
+        QWEN3_MODEL: 'groq/qwen-3-72b'
     };
 });
 
@@ -53,14 +54,14 @@ describe('Multi-Model Ingestion Flow', () => {
         expect(result.rules[0].id).toBe('deepseek-rule');
     });
 
-    it('should execute Qwen2.5-VL in parallel when images are present', async () => {
+    it('should execute Qwen 3 in parallel when images are present', async () => {
         const generateMock = ai.generate as any;
 
         generateMock.mockImplementation(async (params: any) => {
             const modelName = typeof params.model === 'string' ? params.model : params.model?.name;
 
             // Task 2: Qwen
-            if (modelName === 'openai/qwen/qwen-2.5-vl-72b-instruct') {
+            if (modelName === 'groq/qwen-3-72b') {
                 return {
                     output: {
                         rules: [{ id: 'qwen-rule', rule: 'Visual Rule', description: 'Seen in diagram', grounding_source: 'Image' }],

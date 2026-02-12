@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateSimulationLogic, getEmbedding } from '@/app/actions';
+import { generateSimulationLogic, getEmbedding, preFetchKnowledgeAction } from '@/app/actions';
 import { queryKnowledge } from '@/lib/db/pglite';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 import { Terminal, Cpu, AlertCircle, Zap, Brain, ShieldAlert } from 'lucide-react';
@@ -22,6 +22,16 @@ export const GodInput: React.FC = () => {
         dispatch
     } = useGenesisEngine();
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // v40.0: Aggressive Pre-Fetch (Oracle Spider)
+    useEffect(() => {
+        if (prompt.length > 10 && interactionState !== 'BUILDING') {
+            const timer = setTimeout(() => {
+                preFetchKnowledgeAction(prompt);
+            }, 500); // Debounce
+            return () => clearTimeout(timer);
+        }
+    }, [prompt, interactionState]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

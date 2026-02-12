@@ -3,7 +3,7 @@ import { simulationFlow } from '@/lib/genkit/simulation';
 import { z } from 'genkit';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // SECURITY: Define a strict schema for input validation
 const InputSchema = z.object({

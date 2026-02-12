@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Shield, AlertTriangle, Sliders, Activity, Target, Box, Weight, Move } from 'lucide-react';
+import { Zap, Shield, AlertTriangle, Sliders, Activity, Target, Box, Weight, Move, History, Clock } from 'lucide-react';
 import { Entity } from '@/lib/simulation/schema';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 
@@ -30,7 +30,7 @@ export const GodModePanel: React.FC<GodModePanelProps> = ({
     entities = [],
 }) => {
     const { state, dispatch } = useGenesisStore();
-    const { selectedEntityId } = state;
+    const { selectedEntityId, discoveryYear, chronesthesiaEnabled } = state;
 
     const selectedEntity = entities.find(e => e.id === selectedEntityId);
 
@@ -76,6 +76,66 @@ export const GodModePanel: React.FC<GodModePanelProps> = ({
             </div>
 
             <div className="space-y-10 overflow-y-auto pr-2 custom-scrollbar flex-1 relative z-10">
+                {/* MODULE SPIDER: Chronesthesia (v35.0) */}
+                <section>
+                    <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-2">
+                            <History className="w-3 h-3 text-purple-400" />
+                            <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Chronesthesia</h4>
+                        </div>
+                        <button
+                            onClick={() => dispatch({ type: 'TOGGLE_CHRONESTHESIA' })}
+                            className={`px-2 py-1 rounded-lg border text-[8px] font-black uppercase transition-all ${chronesthesiaEnabled ? 'bg-purple-500/20 border-purple-500/40 text-purple-400' : 'bg-white/5 border-white/5 text-gray-500'}`}
+                        >
+                            {chronesthesiaEnabled ? 'Active' : 'Disabled'}
+                        </button>
+                    </div>
+                    
+                    {chronesthesiaEnabled && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center px-1">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-3 h-3 text-purple-400/60" />
+                                    <span className="text-[8px] font-black text-gray-500 uppercase tracking-[0.2em]">Historical Era</span>
+                                </div>
+                                <span className="text-xs font-black font-mono text-purple-400">{discoveryYear}</span>
+                            </div>
+                            <input 
+                                type="range" min="1600" max="2026" step="1" 
+                                value={discoveryYear}
+                                onChange={(e) => dispatch({ type: 'SET_DISCOVERY_YEAR', payload: parseInt(e.target.value) })}
+                                className="w-full h-1 bg-white/5 rounded-full appearance-none accent-purple-500 cursor-pointer"
+                            />
+                            <p className="text-[7px] text-gray-500 uppercase font-bold text-center leading-relaxed">
+                                Reality is filtered by concepts discovered before {discoveryYear}.
+                            </p>
+                        </div>
+                    )}
+                </section>
+
+                {/* v50.0 TESSERACT: AETHERIC RECALL */}
+                <section>
+                    <div className="flex items-center gap-2 mb-5">
+                        <Move className="w-3 h-3 text-cyan-400" />
+                        <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Tesseract W-Axis</h4>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center px-1">
+                            <span className="text-[8px] font-black text-gray-500 uppercase tracking-[0.2em]">4D Rotation</span>
+                            <span className="text-xs font-black font-mono text-cyan-400">{(state.wRotation * (180/Math.PI)).toFixed(0)}°</span>
+                        </div>
+                        <input 
+                            type="range" min="0" max={Math.PI * 2} step="0.01" 
+                            value={state.wRotation}
+                            onChange={(e) => dispatch({ type: 'SET_W_ROTATION', payload: parseFloat(e.target.value) })}
+                            className="w-full h-1 bg-white/5 rounded-full appearance-none accent-cyan-500 cursor-pointer"
+                        />
+                        <p className="text-[7px] text-gray-500 uppercase font-bold text-center leading-relaxed">
+                            Rotate through the W-axis to peel back layers of time.
+                        </p>
+                    </div>
+                </section>
+
                 {/* Entity Inspector (New - Audit Requirement) */}
                 <AnimatePresence>
                     {selectedEntity && (

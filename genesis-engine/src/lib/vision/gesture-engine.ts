@@ -6,6 +6,7 @@
 
 export interface GestureState {
     isPinching: boolean;
+    isDoublePinching: boolean; // v50.0 Consensus Collapse
     position: { x: number, y: number, z: number };
     velocity: number;
 }
@@ -14,6 +15,8 @@ class GestureEngine {
     private static instance: GestureEngine;
     private handLandmarker: any = null; // @mediapipe/tasks-vision
     private lastPinchState: boolean = false;
+    private lastPinchTime: number = 0;
+    private isDoublePinching: boolean = false;
 
     public static getInstance() {
         if (!GestureEngine.instance) {
@@ -35,9 +38,25 @@ class GestureEngine {
     public processFrame(videoElement: HTMLVideoElement): GestureState {
         // MOCK: Simulate pinch detection
         // In reality, we compare index and thumb tip landmarks (4 and 8)
+        const isPinching = false;
+        const now = Date.now();
+
+        if (isPinching && !this.lastPinchState) {
+            if (now - this.lastPinchTime < 300) {
+                this.isDoublePinching = true;
+            }
+            this.lastPinchTime = now;
+        }
+
+        if (!isPinching) {
+            this.isDoublePinching = false;
+        }
+
+        this.lastPinchState = isPinching;
         
         return {
             isPinching: false,
+            isDoublePinching: this.isDoublePinching,
             position: { x: 0, y: 0, z: 0 },
             velocity: 0
         };

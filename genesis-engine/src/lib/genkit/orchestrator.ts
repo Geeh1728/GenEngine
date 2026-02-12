@@ -1,8 +1,10 @@
 import { z } from 'genkit';
 import { ai } from './config';
-import { WorldState } from '../simulation/schema';
+import { WorldState, WorldStateSchema } from '../simulation/schema';
 import { simulationFlow } from './simulation';
 import { inferBiomeFromText } from '../simulation/biomes';
+import { MODELS } from './models';
+import { blackboard } from './context';
 
 // --- MUTATION SCHEMA ---
 // We only need a partial schema for updates
@@ -11,7 +13,9 @@ const MutationSchema = z.object({
     environment: z.object({
         gravity: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional(),
         biome: z.string().optional(),
-        timeScale: z.number().optional()
+        timeScale: z.number().optional(),
+        damping: z.number().optional(),
+        stiffness: z.number().optional()
     }).optional(),
     camera: z.any().optional(),
     userFeedback: z.string().optional() // Orchestrator might talk back
@@ -43,8 +47,12 @@ export const mutationFlow = ai.defineFlow(
             RULES:
             1. DO NOT reset the world. Only return properties that CHANGE.
             2. If the user asks for a physics change (gravity, bounce, friction), update the specific entities or global environment.
-            3. If the user asks for a visual change (color, shape), update the entities.
-            4. If the user's request corresponds to a BIOME (Space, Ocean, etc.), set 'environment.biome'.
+            3. PARAMETER INJECTION (v23.5):
+               - "More friction" / "sluggish" -> Increase 'environment.damping'.
+               - "More tension" / "stiff" -> Increase 'environment.stiffness'.
+               - "Make it chaotic" -> Increase 'environment.timeScale' or randomize 'environment.gravity'.
+            4. If the user asks for a visual change (color, shape), update the entities.
+            5. If the user's request corresponds to a BIOME (Space, Ocean, etc.), set 'environment.biome'.
             
             Return JSON matching the schema.
         `;
@@ -54,6 +62,7 @@ export const mutationFlow = ai.defineFlow(
         }
 
         const result = await ai.generate({
+            model: MODELS.GEMMA_3_4B,
             prompt: systemPrompt,
             output: { schema: MutationSchema }
         });
@@ -74,29 +83,131 @@ export const mutationFlow = ai.defineFlow(
     }
 );
 
+// --- GRAFT FLOW (v26.0) ---
+export const graftFlow = ai.defineFlow(
+    {
+        name: 'graftFlow',
+        inputSchema: z.object({
+            logicSubject: z.string(),
+            physicsSubject: z.string(),
+        }),
+        outputSchema: WorldStateSchema,
+    },
+    async (input) => {
+        const { logicSubject, physicsSubject } = input;
+
+        blackboard.log('Architect', `Grafting logic of ${logicSubject} onto physics of ${physicsSubject}...`, 'THINKING');
+
+        const systemPrompt = `
+            You are the Genesis Grafting Engine.
+            TASK: Deep Ontological Hybridization.
+            1. Extract the LOGIC/RELATIONS of '${logicSubject}'.
+            2. Extract the PHYSICAL ENVIRONMENT of '${physicsSubject}'.
+            3. Fuse them. (e.g. If logic is 'Revolution' and physics is 'Jupiter', the actors of the revolution are heavy, slow, and crushed by 2.4g gravity).
+            
+            Return a complete WorldState JSON.
+        `;
+
+        const result = await ai.generate({
+            model: MODELS.BRAIN_FLASH_3,
+            prompt: systemPrompt,
+            output: { schema: WorldStateSchema }
+        });
+
+        if (!result.output) throw new Error("Grafting failed.");
+
+        // Tag it as a graft
+        result.output._graftSource = { logicSubject, physicsSubject };
+        return result.output;
+    }
+);
+
+// --- COLLABORATIVE MUTATION FLOW (v45.0 Neural Hegemony) ---
+export const collaborativeMutationFlow = ai.defineFlow(
+    {
+        name: 'collaborativeMutationFlow',
+        inputSchema: z.object({
+            intents: z.array(z.string()),
+            currentWorldState: z.custom<WorldState>(),
+        }),
+        outputSchema: MutationSchema,
+    },
+    async (input) => {
+        const { intents, currentWorldState } = input;
+
+        blackboard.log('Arbitrator', `Synthesizing ${intents.length} conflicting intents into a unified compromise...`, 'THINKING');
+
+        const systemPrompt = `
+            You are the Genesis Intent Arbitrator. 
+            Multiple users are 'Vibe Coding' the same simulation simultaneously.
+            
+            CONFLICTING INTENTS:
+            ${intents.map((intent, i) => `${i + 1}. "${intent}"`).join('\n')}
+
+            CURRENT SCENARIO: ${currentWorldState.scenario || 'Unknown'}
+
+            TASK: Deep Semantic Synthesis (Collaborative Vibe).
+            1. Perform 'Semantic Weighted Averaging' on the intents.
+            2. Find a creative physical compromise that respects the essence of all inputs.
+            3. (e.g. If "Make it hot" and "Make it cold" are sent, the result is "Thermally Volatile").
+            
+            Return JSON matching the MutationSchema. Only include properties that CHANGE.
+        `;
+
+        const result = await ai.generate({
+            model: MODELS.GROQ_LLAMA_4_SCOUT, // Use LPU for near-instant arbitration
+            prompt: systemPrompt,
+            output: { schema: MutationSchema }
+        });
+
+        if (!result.output) throw new Error("Intent Synthesis failed.");
+
+        return result.output;
+    }
+);
+
 // --- MAIN ORCHESTRATOR ---
-// This is the entry point for the OmniBar
 export const orchestrateFlow = async (
     userIntent: string,
     currentWorldState: WorldState | null,
     context?: string
 ) => {
-    // 1. DECISION LOGIC: Create vs Mutate
-    // If we have a valid worldState and the intent is NOT explicitly "reset" or "new", we try to mutate.
+    // 1. ADVANCED ROUTING (Graft Detection)
+    if (userIntent.toLowerCase().includes('graft') || userIntent.toLowerCase().includes('combine')) {
+        console.log("[Orchestrator] Path: GRAFTING");
+        // Simplified parsing - in production we'd use an LLM router
+        const match = userIntent.match(/graft (.*) onto (.*)/i) || userIntent.match(/combine (.*) and (.*)/i);
+        if (match) {
+            return {
+                type: 'GRAFT',
+                data: await graftFlow({ logicSubject: match[1], physicsSubject: match[2] })
+            };
+        }
+    }
+
+    // 2. DECISION LOGIC: Create vs Mutate
     const isCreation = !currentWorldState ||
         userIntent.toLowerCase().startsWith('create') ||
         userIntent.toLowerCase().startsWith('new') ||
         userIntent.toLowerCase().includes('reset');
 
     if (isCreation) {
-        // --- CREATION PATH ---
-        console.log("[Orchestrator] Path: CREATION");
-        // We reuse the existing simulationFlow
-        // We might need to map arguments to match what simulationFlow expects
+        // --- GHOST KERNEL (v26.0) ---
+        // We trigger a fast-path 'Ghost' world using Gemma-3-Flash before the heavy architect call
+        console.log("[Orchestrator] Path: CREATION (Ghost Kernel Active)");
+
+        // Optional: Return a Ghost State if we had a streaming mechanism. 
+        // For now, we simulate by ensuring the FIRST call is as fast as possible.
+
         const result = await simulationFlow({
-            pdfContent: context || "User Prompt: " + userIntent, // simulationFlow expects PDF/Context
+            pdfContent: context || "User Prompt: " + userIntent,
             userIntent: userIntent
         });
+
+        if (result && result.title) {
+            // We can augment the result with Ghost metadata if needed
+            // result._renderingStage = 'GHOST';
+        }
 
         return {
             type: 'CREATION',

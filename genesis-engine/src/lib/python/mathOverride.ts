@@ -76,15 +76,42 @@ export async function executeMathVerification(pythonCode: string): Promise<MathR
  */
 export async function applyMathOverride(
     worldState: WorldState,
-    pythonCode: string
+    pythonCode: string,
+    customAxioms?: { PI?: number; C?: number; G?: number },
+    chronesthesia?: { year: number; enabled: boolean }
 ): Promise<WorldState> {
     if (!pythonCode || typeof window === 'undefined') {
         return worldState;
     }
 
+    // AXIOM BREAKER (v23.5): Inject User-Defined Constants
+    let effectiveCode = pythonCode;
+    
+    // v35.5: HISTORICAL KERNEL OVERRIDE
+    if (chronesthesia?.enabled) {
+        let historicalHeader = "# CHRONESTHESIA KERNEL ACTIVE:\n";
+        if (chronesthesia.year < 1905) {
+            historicalHeader += "# Era: Pre-Einsteinian. Disabling Relativistic effects.\n";
+            historicalHeader += "def calculate_lorentz(v, c): return 1.0 # Override to 1.0 (No contraction)\n";
+            historicalHeader += "C = 999999999 # Treat C as effectively infinite for Newtonian math\n";
+            blackboard.log('Astra', `Historical kernel active: ${chronesthesia.year}. Enforcing Newtonian absolutes.`, 'INFO');
+        }
+        effectiveCode = historicalHeader + "\n" + effectiveCode;
+    }
+
+    if (customAxioms) {
+        let axiomHeader = "# AXIOM OVERRIDES:\n";
+        if (customAxioms.PI) axiomHeader += `import math\nmath.pi = ${customAxioms.PI}\nPI = ${customAxioms.PI}\n`;
+        if (customAxioms.C) axiomHeader += `C = ${customAxioms.C} # Speed of Light\n`;
+        if (customAxioms.G) axiomHeader += `G = ${customAxioms.G} # Gravitational Constant\n`;
+
+        effectiveCode = axiomHeader + "\n" + pythonCode;
+        console.log("[AxiomBreaker] Injected custom constants into Python kernel.");
+    }
+
     // AlphaGeometry Heist: Split code into potential hypotheses if delimited
     const hypotheses = pythonCode.split('### HYPOTHESIS').filter(h => h.trim().length > 0);
-    
+
     let bestResult: MathResult | null = null;
 
     if (hypotheses.length > 1) {
@@ -92,19 +119,22 @@ export async function applyMathOverride(
         blackboard.log('Solver', `🔍 AlphaGeometry: Proof Search initiated (${hypotheses.length} paths)...`, 'THINKING');
 
         for (let i = 0; i < hypotheses.length; i++) {
-            const hCode = hypotheses[i];
+            const hCode = customAxioms ?
+                `# AXIOM INJECTION\nimport math\n${customAxioms.PI ? `math.pi=${customAxioms.PI}` : ''}\n` + hypotheses[i]
+                : hypotheses[i];
+
             const res = await executeMathVerification(hCode);
-            
+
             // SYMBOLIC PROOF: If the hypothesis outputs a valid result without error, select it
             if (res && !res.raw?.includes('Error')) {
-                console.log(`[AlphaGeometry] Hypothesis ${i+1} verified.`);
-                blackboard.log('Solver', `✅ Hypothesis ${i+1} verified via Symbolic Proof.`, 'SUCCESS');
+                console.log(`[AlphaGeometry] Hypothesis ${i + 1} verified.`);
+                blackboard.log('Solver', `✅ Hypothesis ${i + 1} verified via Symbolic Proof.`, 'SUCCESS');
                 bestResult = res;
                 break;
             }
         }
     } else {
-        bestResult = await executeMathVerification(pythonCode);
+        bestResult = await executeMathVerification(effectiveCode);
     }
 
     if (!bestResult) {

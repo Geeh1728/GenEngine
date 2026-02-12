@@ -97,6 +97,8 @@ export function createStreamingPlaceholder(): WorldState {
         explanation: 'Please wait while we translate your hypothesis into physics.',
         constraints: ['Reality is loading...'],
         successCondition: 'Observation pending',
+        _renderingStage: 'GHOST',
+        _resonanceBalance: 0.5,
         entities: [],
         environment: {
             gravity: { x: 0, y: -9.81, z: 0 },

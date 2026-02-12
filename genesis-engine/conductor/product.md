@@ -26,7 +26,7 @@ The system is managed by a **Hive Orchestrator** issuing parallel work orders to
 
 ### MODULE G: THE VISION AGENT (Eyes)
 **Goal:** Robotics-grade spatial understanding.
-1.  **Input:** Reality Lens (Molmo 2 / Qwen-2.5-VL).
+1.  **Input:** Reality Lens (Molmo 2 / Qwen 3).
 2.  **Processing:** 1000x1000 normalized grid + Kinematic Ancestry mapping.
 
 ### MODULE B/K: THE PHYSICIST AGENT (The Brain)

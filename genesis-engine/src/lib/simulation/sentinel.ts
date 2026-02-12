@@ -42,14 +42,9 @@ class CollisionSentinel {
         const entities = world.entities || [];
         const nextEntities = [...entities];
 
-        // 1. Detect Glitches (Explosions / High Velocity)
-        const glitchDetected = entities.some(e => 
-            e.physics.mass > 0 && (Math.abs(e.position.x) > 1000 || Math.abs(e.position.y) > 1000)
-        );
-
-        if (glitchDetected) {
-            this.runNeuralTrace();
-        }
+        // 1. INPUT SANITIZATION (The Filter)
+        // Sentinel now focuses on pre-stabilizing AI/P2P artifacts.
+        // Runtime glitches (velocity spikes) are handled by the Ghost Kernel Worker.
 
         // 2. Detect High-Velocity Overlaps (Potential Glitches)
         for (let i = 0; i < entities.length; i++) {

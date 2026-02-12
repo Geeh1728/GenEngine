@@ -1,0 +1,34 @@
+- [x] Define the audit scope.
+- [x] SAST Recon on `genesis-engine/src/app/actions.ts`
+  - [ ] Investigate data flow from `userGoal` on line 21
+  - [ ] Investigate data flow from `hypothesis` on line 65
+  - [ ] Investigate data flow from `context` on line 66
+  - [ ] Investigate data flow from `params.text` on line 156
+  - [ ] Investigate data flow from `params.image` on line 156
+  - [ ] Investigate data flow from `params.audioTranscript` on line 156
+  - [ ] Investigate data flow from `text` on line 241
+  - [ ] Investigate data flow from `keywords` on line 271
+  - [ ] Investigate data flow from `query` on line 283
+  - [ ] Investigate data flow from `imageBase64` on line 295
+- [x] SAST Recon on `genesis-engine/src/app/api/commentary/route.ts`
+  - [ ] Investigate data flow from `body` on line 9
+- [x] SAST Recon on `genesis-engine/src/app/api/embeddings/route.ts`
+  - [ ] Investigate data flow from `text` on line 10
+- [x] SAST Recon on `genesis-engine/src/app/api/ingest/route.ts`
+  - [ ] Investigate data flow from `file` on line 16
+  - [ ] Investigate data flow from `existingRulesJson` on line 17
+- [x] SAST Recon on `genesis-engine/src/app/api/ingest/summarize/route.ts`
+  - [ ] Investigate data flow from `chunks` on line 12
+- [x] SAST Recon on `genesis-engine/src/app/api/mastery/route.ts`
+  - [ ] Investigate data flow from `body` on line 9
+- [x] SAST Recon on `genesis-engine/src/app/api/world-state/route.ts`
+  - [ ] Investigate data flow from `body` on line 12
+- [x] SAST Recon on `genesis-engine/src/components/simulation/DynamicShaderMaterial.tsx`
+  - [ ] Investigate `shaderCode` prop flow to `new THREE.ShaderMaterial`.
+- [x] SAST Recon on `genesis-engine/src/components/simulation/RealityLens.tsx`
+  - [ ] Investigate data flow from `base64` on line 31
+- [x] SAST Recon on `genesis-engine/src/hooks/useGenesisEngine.ts`
+  - [ ] Investigate `wormholeData` hydration on line 429
+- [x] SAST Recon on `genesis-engine/src/lib/genkit/orchestrator.ts`
+  - [ ] Investigate `worldState.python_code` execution sink.
+- [ ] Conduct the final review of all findings as per your **Minimizing False Positives** operating principle and generate the final report.

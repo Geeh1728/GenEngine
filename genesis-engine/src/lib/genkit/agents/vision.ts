@@ -14,7 +14,7 @@ export const VisionOutputSchema = StructuralAnalysisSchema;
 
 /**
  * THE VISUAL CORTEX (v8.0 Apex Swarm)
- * Model: Molmo 2 8B (Precision Mapping) + Qwen-2.5-VL (OCR)
+ * Model: Molmo 2 8B (Precision Mapping) + Qwen 3 (OCR)
  */
 export const visionFlow = ai.defineFlow(
     {
@@ -27,7 +27,7 @@ export const visionFlow = ai.defineFlow(
 
         let extractedText = "";
 
-        // STEP 1: OCR with Qwen-2.5-VL (Best at handwriting)
+        // STEP 1: OCR with Qwen 3 (Best at handwriting)
         try {
             const qwenResponse = await ai.generate({
                 model: OPENROUTER_FREE_MODELS.VISION,

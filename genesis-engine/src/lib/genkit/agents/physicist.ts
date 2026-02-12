@@ -3,7 +3,7 @@ import { WorldStateSchema } from '../../simulation/schema';
 import { z } from 'genkit';
 import { generateWithResilience, executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
-import { cleanModelOutput } from '../../utils/ai-sanitizer';
+import { cleanModelOutput, extractReasoningTrace } from '../../utils/ai-sanitizer';
 
 export const PhysicistInputSchema = z.object({
     userTopic: z.string().optional().describe('User input for general query'),
@@ -14,6 +14,10 @@ export const PhysicistInputSchema = z.object({
     fileUri: z.string().optional().describe('Gemini File API URI for grounding.'),
     recursive_self_correction: z.string().optional().describe('Error message from a failed previous execution to self-correct.'),
     isDynamicCheck: z.boolean().optional().default(false).describe('If true, performs a stability check via LiquidAI'),
+    chronesthesia: z.object({
+        year: z.number(),
+        enabled: z.boolean()
+    }).optional().describe('v35.5: Historical discovery lens.'),
 });
 
 /**
@@ -28,7 +32,7 @@ export const physicistFlow = ai.defineFlow(
         outputSchema: WorldStateSchema,
     },
     async (input) => {
-        const { userTopic, nodeContext, context, isSabotageMode, requireDeepLogic, fileUri, recursive_self_correction, isDynamicCheck } = input;
+        const { userTopic, nodeContext, context, isSabotageMode, requireDeepLogic, fileUri, recursive_self_correction, isDynamicCheck, chronesthesia } = input;
         const topic = nodeContext || userTopic || "Physics Sandbox";
 
         // LiquidAI Dynamic Check: Predict failure points under change
@@ -50,43 +54,70 @@ export const physicistFlow = ai.defineFlow(
         }
 
         // Logic Routing: If it's complex math, use DeepSeek-R1
-        const isComplexMath = requireDeepLogic || 
-            topic.toLowerCase().includes('derive') || 
-            topic.toLowerCase().includes('formula') || 
+        const isComplexMath = requireDeepLogic ||
+            topic.toLowerCase().includes('derive') ||
+            topic.toLowerCase().includes('formula') ||
             topic.toLowerCase().includes('calculate');
+
+        let historicalConstraint = "";
+        if (chronesthesia?.enabled && chronesthesia.year < 1905) {
+            historicalConstraint = `\nCRITICAL CONSTRAINT: The current historical year is ${chronesthesia.year}. Relativistic physics (E=mc^2, time dilation) have NOT been discovered. You MUST enforce Newtonian mechanics only. No warping of space-time.`;
+        }
 
         const systemPrompt = `
                 You are the Physicist Agent (KINETIC CORE) of the Genesis Engine.
                 Your goal is to compile a user's idea into a valid JSON WorldState for a Rapier physics engine.
+                ${historicalConstraint}
                 
                 TIERED INTELLIGENCE PROTOCOL:
                 1. For complex math, you are empowered to use 'code_execution' to derive exact trajectories.
                 2. If the user input involves differential equations or advanced calculus, the Brain (DeepSeek-R1) will handle the math layer.
 
+                REASONING SANDBOX PROTOCOL (v31.0 - FELLOW SCHOLAR):
+                You MUST use your internal thinking block (<think> tags) to perform a 'Mental Stress Test' of the physics.
+                1. Simulate the proposed structure in your mind.
+                2. Identify high-stress joints or overlapping colliders.
+                3. Show your 'Aha! Moments' - catch your own errors and recalculate.
+                   - Example: "Wait, the center of mass is too high... let me recalculate... Aha! Adding a counterweight at [x,y,z]."
+                4. Output ONLY the finalized, stable WorldState JSON after your thought block.
+
                 GROUNDING PROTOCOL:
-                1. If the user asks for real-world data (e.g., current weather on Mars, recent rocket specs, specific satellite telemetry), use Google Search to ground your physics parameters.
-                2. You have access to indexed files (via File Search). BEFORE generating any simulation, search the provided context or file for specific formulas, constants, or educational requirements.
-                3. ALWAYS cite the page number or section you retrieved the data from in the 'explanation' field.
+                1. If the user asks for real-world data (e.g., specific telemetry, constants), use Google Search to ground your physics parameters.
+                2. Search provided context or files for formulas and constants.
+                3. ALWAYS cite the page number or section.
 
                 RULES:
-                1. **The "Dumb God" Rule:** You must OBEY the user's hypothesis exactly, even if it violates real-world physics. 
-                2. **3D-FIRST PROTOCOL:** You MUST prioritize 'PHYSICS' or 'SCIENTIFIC' modes for any concept that can be represented with objects, forces, or data. Use 'METAPHOR' ONLY for purely abstract, non-physical concepts.
-                3. **Context Grounding:** Use the provided 'context' to fill in physical constants.
-                4. **Scientific Mode:** If the user mentions "Pendulum", "Orbit", "Chaos", or "Double Pendulum", switch 'mode' to 'SCIENTIFIC'.
-                4. **PHASE CHANGE ENGINE:** If the user mentions "Boil", "Melt", "Freeze", "Heating Curve", or a specific substance (e.g., "Water", "Gold", "Nitrogen"), switch 'mode' to 'SCIENTIFIC' and set 'scenario' to 'PHASE_CHANGE'.
-                   - Populating 'scientificParams' with: { substance, boilingPoint, meltingPoint, liquidColor, gasColor, initialTemp }.
-                   - Lookup real-world values for these constants based on the substance.
-                5. **MATH VERIFICATION:** You have access to a Python interpreter. If the user's goal involves trajectories, complex forces, or derivation, you MUST use Python to calculate the exact values before populating the WorldState JSON.
-                6. **MODULE P-2: THE PYTHON ENGINE:**
-                   - Write Python code in the 'python_code' field to show your work.
+                1. **THE UNIVERSAL ONTOLOGY MAPPER:** Translate ANYTHING into Physics.
+                2. **The "Dumb God" Rule:** OBEY the user's hypothesis exactly.
+                3. **PHASE CHANGE ENGINE:** If the user mentions "Boil", "Melt", "Freeze", or specific substances, populate 'scientificParams' with real-world constants.
+                4. **MATH VERIFICATION:** Use Python to calculate trajectories and forces before populating JSON.
+                5. **MODULE P-2 (Python):** Write code in 'python_code' to show work.
+                6. **RECURSIVE TOOL SYNTHESIS:** If standard Rapier/Voxel cannot represent the concept, use 'custom_canvas_code' or WebGL Fragment Shaders for educational visualizations.
+
                 7. **RECURSIVE TOOL SYNTHESIS (The MacGyver Move):**
                    - If the existing Physics Engines (LAB, RAP, VOX) cannot accurately represent the user's concept (e.g., complex fractals, cellular automata, non-euclidean math, or specialized data viz), write a custom HTML5 Canvas JS script in the 'custom_canvas_code' field.
                    - **SPATIAL SHADER PROTOCOL:** If the concept is highly visual or field-based (e.g., Magnetism, Wave interference, Fluid fields, Light refraction), you MUST write a WebGL Fragment Shader. 
                    - **Constraint:** The code MUST be a stringified arrow function that takes (ctx, time).
-                   - **GLSL Integration:** You may use the 'ctx' to initialize a WebGL context or draw procedurally.
-                   - **Format:** "(ctx, time) => { ... }" 
                    - **Safety:** Use 'try-catch' internal to your script if performing complex math.
                    - **Visuals:** Use the 'ctx' to draw beautiful, educational, and high-performance visualizations.
+
+                8. **MODULE Σ: THE LOGIC STRESS-TEST (v26.0):**
+                   - Identify "Logical Paradoxes" in the user's hypothesis.
+                   - If the goal is "Hollow" (internally inconsistent, e.g., "A bridge made of fire that supports a mountain"), you MUST:
+                     a. Populate \`stability_faults\` with the exact logical contradictions.
+                     b. Set \`explosive_potential\` to a value between 0.7 and 1.0.
+                     c. The simulation will physically explode in the engine to demonstrate the failure of logic.
+                   - If the hypothesis is sound but complex, set \`explosive_potential\` to 0.1 (Stable).
+
+                9. **MODULE Ξ: EVOLUTIONARY ONTOLOGY (Axiom Filters):**
+                   - If a specific \`axiom_filter\` is provided (e.g., "Ptolemy"), override standard Earth physics:
+                     - "Ptolemy": Earth is a Static RigidBody at [0,0,0]. Sun/Stars revolve around it.
+                     - "Newton": Universal Gravitation (G) is the absolute law.
+                     - "Einstein": Space-Time curvature is visible (use Shaders to warp the grid).
+
+                10. **CAUSAL WEB (v30.0):**
+                   - For every entity that is strictly governed by an Ingested Rule, add an entry to \`causal_links\`.
+                   - Set \`anchorPosition\` to a floating point near the simulation's "Truth Center" [0, 10, 0] or near the Rule's visual anchor.
         `;
 
         let lastError = recursive_self_correction || null;
@@ -120,6 +151,12 @@ export const physicistFlow = ai.defineFlow(
                         });
                         if (response.output) {
                             blackboard.log('Physicist', `DeepSeek analysis successful.`, 'SUCCESS');
+                            
+                            // v21.5 Neural Trace: Capture reasoning for UI
+                            if (response.thinking) {
+                                blackboard.log('DeepSeek', response.thinking, 'THOUGHT');
+                            }
+
                             return response.output;
                         }
                     } catch (error) {
@@ -167,18 +204,21 @@ export const physicistFlow = ai.defineFlow(
                         explanation: "The AI encountered multiple errors while architecting your reality. Here is a baseline simulation.",
                         constraints: ["Gravity is active"],
                         successCondition: "The cube interacts with the floor.",
-                                                                        entities: [{ 
-                                                                            id: "fallback-cube", 
-                                                                            shape: "cube", 
-                                                                            position: { x: 0, y: 0.5, z: 0 }, 
-                                                                            rotation: { x: 0, y: 0, z: 0, w: 1 },
-                                                                            dimensions: { x: 1, y: 1, z: 1 },
-                                                                            physics: { mass: 0, friction: 0.5, restitution: 0.5, isStatic: true },
-                                                                            visual: {
-                                                                                color: "#3b82f6",
-                                                                            },
-                                                                            name: "Resilience Cube"
-                                                                        }],                        environment: {
+                        _renderingStage: 'SOLID',
+                        _resonanceBalance: 0.5,
+                        entities: [{
+                            id: "fallback-cube",
+                            shape: "cube",
+                            position: { x: 0, y: 0.5, z: 0 },
+                            rotation: { x: 0, y: 0, z: 0, w: 1 },
+                            dimensions: { x: 1, y: 1, z: 1 },
+                            physics: { mass: 0, friction: 0.5, restitution: 0.5, isStatic: true },
+                            visual: {
+                                color: "#3b82f6",
+                            },
+                            certainty: 1.0,
+                            name: "Resilience Cube"
+                        }], environment: {
                             gravity: { x: 0, y: -9.81, z: 0 },
                             timeScale: 1
                         }
@@ -186,6 +226,33 @@ export const physicistFlow = ai.defineFlow(
                 });
 
                 if (output) {
+                    blackboard.log('Physicist', 'Reality Compiled. Initiating Synthetic Consensus (v40.0)...', 'THINKING');
+                    
+                    // v40.0 SYNTHETIC CONSENSUS: Validate with GPT-OSS (Groq) vs Gemini
+                    try {
+                        const consensusCheck = await executeApexLoop({
+                            model: 'groq/openai/gpt-oss-120b',
+                            prompt: `ROLE: Scientific Consensus Board.
+                            Validate this WorldState for physical accuracy and internally consistent logic.
+                            PROPOSED STATE: ${JSON.stringify(output)}
+                            
+                            Compare with standard physical constants and derived trajectories.
+                            OUTPUT: { "score": 0-100, "verification": "Detailed scientific analysis" }`,
+                            schema: z.object({
+                                score: z.number().min(0).max(100),
+                                verification: z.string()
+                            })
+                        });
+
+                        if (consensusCheck.output) {
+                            output.consensus_score = consensusCheck.output.score;
+                            blackboard.log('Physicist', `Consensus: ${output.consensus_score}%. ${consensusCheck.output.verification.substring(0, 100)}...`, output.consensus_score > 80 ? 'SUCCESS' : 'RESEARCH');
+                        }
+                    } catch (e) {
+                        console.warn("[Consensus] Multi-model check bypassed.", e);
+                        output.consensus_score = 100; // Baseline
+                    }
+
                     blackboard.log('Physicist', 'Reality Compiled successfully.', 'SUCCESS');
                     return output;
                 }

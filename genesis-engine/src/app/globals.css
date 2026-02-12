@@ -37,7 +37,23 @@
     @apply font-inter selection:bg-logic-cyan/30 selection:text-white;
     overflow-x: hidden;
     min-height: 100vh;
+    position: relative;
   }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(79, 70, 229, 0.05) 0%, transparent 100%);
+    animation: hegemony-pulse var(--hegemony-duration, 4s) ease-in-out infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+@keyframes hegemony-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
 }
 
 @layer components {
@@ -62,6 +78,28 @@
 @keyframes pulse {
   from { opacity: 0.1; transform: scale(1); }
   to { opacity: 0.3; transform: scale(1.05); }
+}
+
+/* v55.0 Hegemony Pulse: Collective Intelligence Heartbeat */
+@keyframes hegemony-ripple {
+  0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+  50% { box-shadow: 0 0 50px 10px rgba(79, 70, 229, 0.1); }
+  100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+}
+
+.hegemony-pulse {
+  animation: hegemony-ripple 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* v60.0 Hegemony Heartbeat */
+@keyframes intelligence-pulse {
+  0% { filter: brightness(1) contrast(1); }
+  50% { filter: brightness(1.1) contrast(1.05); }
+  100% { filter: brightness(1) contrast(1); }
+}
+
+.intelligence-pulse {
+  animation: intelligence-pulse var(--hegemony-duration, 4s) ease-in-out infinite;
 }
 
 .neural-glow {

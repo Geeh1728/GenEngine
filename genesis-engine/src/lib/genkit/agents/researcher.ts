@@ -1,4 +1,4 @@
-import { ai, LOGIC_WATERFALL } from '../config';
+import { ai, LOGIC_WATERFALL, MODELS } from '../config';
 import { z } from 'genkit';
 import { blackboard } from '../context';
 import { executeApexLoop } from '../resilience';
@@ -41,11 +41,14 @@ async function runRecursiveSearch(topic: string, context: string | undefined, de
         2. Extract RAW numerical values.
     `;
 
-    // STEP 1: Internal Knowledge Grounding (Using functioning GPT-4o mini)
+    // STEP 1: Internal Knowledge Grounding (Using Groq LPU for speed)
     let rawText = "";
     let success = false;
     
-    for (const modelName of LOGIC_WATERFALL) {
+    // v32.5 LPU-Accelerated First Pass
+    const lpuList = [MODELS.GROQ_LLAMA_4_SCOUT, ...LOGIC_WATERFALL];
+    
+    for (const modelName of lpuList) {
         blackboard.log('Researcher', `Generating research via ${modelName}...`, 'THINKING');
         try {
             const response = await ai.generate({

@@ -6,6 +6,8 @@ export const bridgeScenario: WorldState = {
     domain: "SCIENCE",
     description: "A high-fidelity gravitational playground featuring a central Singularity and orbiting monoliths.",
     explanation: "This simulation demonstrates the Genesis Engine's ability to handle complex orbital mechanics, custom shaders, and interactive structural anomalies.",
+    _renderingStage: 'SOLID',
+    _resonanceBalance: 0.5,
     entities: [
         // The Singularity (Event Horizon)
         {
@@ -19,7 +21,8 @@ export const bridgeScenario: WorldState = {
             visual: {
                 color: '#000000',
                 texture: 'black hole event horizon with glowing cyan edges'
-            }
+            },
+            certainty: 1.0
         },
         // The Orbiting Ring (Monoliths)
         ...Array.from({ length: 8 }).map((_, i) => {
@@ -40,7 +43,8 @@ export const bridgeScenario: WorldState = {
                 visual: {
                     color: i % 2 === 0 ? '#3b82f6' : '#8b5cf6',
                     texture: 'brushed obsidian with bioluminescent blue circuitry'
-                }
+                },
+                certainty: 0.9
             };
         }),
         // Floating Satellites
@@ -59,6 +63,7 @@ export const bridgeScenario: WorldState = {
             visual: {
                 color: '#06b6d4',
             },
+            certainty: 0.7,
             analogyLabel: 'Data Packet'
         })),
         // The Foundation
@@ -73,7 +78,8 @@ export const bridgeScenario: WorldState = {
             visual: {
                 color: '#020205',
                 texture: 'cyberpunk dark metal floor with hexagonal grid'
-            }
+            },
+            certainty: 1.0
         }
     ],
     constraints: [

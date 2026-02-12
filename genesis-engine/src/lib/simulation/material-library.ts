@@ -7,6 +7,8 @@ export const MATERIAL_PHYSICS: Record<string, { density: number; friction: numbe
     CONCRETE: { density: 2400, friction: 0.6, restitution: 0.1 },
     FOAM: { density: 50, friction: 0.8, restitution: 0.2 },
     FABRIC: { density: 300, friction: 0.7, restitution: 0.05 },
+    FLESH: { density: 1010, friction: 0.5, restitution: 0.1 },
+    MUSCLE: { density: 1060, friction: 0.4, restitution: 0.2 },
 };
 
 export function getPhysicsForMaterial(material?: string) {

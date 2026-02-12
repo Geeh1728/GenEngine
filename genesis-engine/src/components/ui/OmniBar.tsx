@@ -21,6 +21,8 @@ import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { routeIntentLocally, executeLocalTool } from '@/lib/ai/edgeRouter';
 import { generateSimulationLogic, getEmbedding } from '@/app/actions';
 import { queryKnowledge } from '@/lib/db/pglite';
+import { queryResidueSemantic } from '@/lib/db/residue';
+import { neuralMap } from '@/lib/storage/neural-map';
 import { sfx } from '@/lib/sound/SoundManager';
 import { useWormhole } from '@/hooks/useWormhole';
 import { speculator } from '@/lib/ai/speculator';
@@ -28,17 +30,23 @@ import { MasteryLogic } from '@/lib/gamification/mastery-logic';
 import { GameAction } from '@/lib/multiplayer/GameState';
 import { WorldState } from '@/lib/simulation/schema';
 
+import { p2p } from '@/lib/multiplayer/P2PConnector';
+
 interface OmniBarProps {
     onCameraClick: () => void;
     initialPrompt?: string; // Optional prompt from parent
     externalPrompt?: string; // Controlled prop
     onPromptChange?: (val: string) => void; // Controlled prop handler
     handleIngest: (file: File) => Promise<void>; // Logical function remains for now or move to action
+    engine?: any; // Added to access generateCurriculum
 }
 
-export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, externalPrompt, onPromptChange, handleIngest }) => {
+export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, externalPrompt, onPromptChange, handleIngest, engine: externalEngine }) => {
     const { state, dispatch } = useGenesisStore();
     const { worldState, isSabotaged, isProcessing, fileUri, interactionState } = state;
+
+    // Use external engine if provided (from GenesisShell)
+    const engine = externalEngine;
 
     // Internal state is fallback if no external control provided
     const [internalPrompt, setInternalPrompt] = useState('');
@@ -55,11 +63,35 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { generateWormholeURL } = useWormhole();
+    const [nearbyRealities, setNearbyRealities] = useState<Array<{ scenario: string, mode: string, peerId: number }>>([]);
 
     const isYouTube = /youtube\.com|youtu\.be/.test(prompt);
     const isURL = /https?:\/\/[^\s]+/.test(prompt) && !isYouTube;
     const isThinking = isProcessing; // Simplified logic without interactionState
     const showInstrumentHints = prompt.toLowerCase().startsWith('learn');
+
+    // v55.0 SOVEREIGN DISCOVERY
+    useEffect(() => {
+        const handleDiscovery = (event: any) => {
+            setNearbyRealities(prev => {
+                if (prev.some(r => r.peerId === event.peerId)) return prev;
+                return [...prev, { scenario: event.scenario, mode: event.mode, peerId: event.peerId }];
+            });
+        };
+        const unsubscribe = p2p.onEvent('REALITY_DISCOVERED', handleDiscovery);
+        
+        // Announce self occasionally
+        const announceInterval = setInterval(() => {
+            if (worldState) {
+                p2p.announceReality(worldState.scenario, worldState.mode);
+            }
+        }, 5000);
+
+        return () => {
+            unsubscribe();
+            clearInterval(announceInterval);
+        };
+    }, [worldState]);
 
     // Track Online Status
     useEffect(() => {
@@ -86,7 +118,50 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                 if (isAuth) speculator.speculativeProcess(prompt);
             });
         }
-    }, [prompt]);
+
+        // v40.0 LIQUID REALITY: Real-time partial intent processing
+        const debouncedMutation = setTimeout(async () => {
+            if (prompt.length > 15 && worldState && !isProcessing) {
+                console.log("[LiquidReality] Processing partial intent...");
+                
+                // v35.5: THE VECTOR WIND (Search-as-Force)
+                // If keywords are detected, apply a directional force to the graph
+                const keywords = prompt.toLowerCase().split(' ');
+                const hasPhysics = keywords.includes('physics') || keywords.includes('gravity');
+                const hasBiology = keywords.includes('biology') || keywords.includes('life');
+                const hasHistory = keywords.includes('history') || keywords.includes('time');
+
+                const wind = { x: 0, y: 0, z: 0 };
+                if (hasPhysics) wind.x = 2.0;
+                if (hasBiology) wind.z = 2.0;
+                if (hasHistory) wind.y = 2.0;
+
+                if (wind.x !== 0 || wind.y !== 0 || wind.z !== 0) {
+                    dispatch({ type: 'SET_VECTOR_WIND', payload: wind });
+                } else {
+                    dispatch({ type: 'SET_VECTOR_WIND', payload: { x: 0, y: 0, z: 0 } });
+                }
+
+                try {
+                    const result = await generateSimulationLogic(
+                        prompt,
+                        "Real-time partial intent mutation.",
+                        worldState,
+                        fileUri || undefined,
+                        state.lastInteractionId || undefined,
+                        'PLAYING'
+                    );
+                    if (result.success && 'mutation' in result && result.mutation) {
+                        dispatch({ type: 'MUTATE_WORLD', payload: result.mutation });
+                    }
+                } catch (e) {
+                    // Silently fail for partial intents
+                }
+            }
+        }, 1000);
+
+        return () => clearTimeout(debouncedMutation);
+    }, [prompt, worldState, isProcessing, fileUri, state.lastInteractionId, dispatch]);
 
     // Handle Long Running State
     useEffect(() => {
@@ -114,6 +189,35 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
             return;
         }
 
+        // MODULE SPIDER (v30.0): Deep Research Routing
+        const isDeepDive = prompt.toLowerCase().includes('research') || prompt.toLowerCase().includes('learn');
+        if (isDeepDive && !isURL && !isYouTube && engine?.generateCurriculum) {
+            engine.generateCurriculum(prompt);
+            setPrompt('');
+            return;
+        }
+
+        // v31.0 AKASHIC SEARCH (Semantic World Search)
+        if (prompt.toLowerCase().includes('give me a world') || prompt.toLowerCase().includes('find a world')) {
+            dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Hippocampus', message: 'Querying Akashic Records...', type: 'THINKING' } });
+            const results = await queryResidueSemantic(prompt);
+            if (results.length > 0) {
+                const bestMatch = results[0];
+                try {
+                    const structuralData = JSON.parse(bestMatch.structuralData);
+                    dispatch({ type: 'SYNC_WORLD', payload: { ...structuralData, scenario: `[RESTORED]: ${bestMatch.scenario}` } });
+                    dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Hippocampus', message: `Found matching historical frame: "${bestMatch.scenario}". Restoration complete.`, type: 'SUCCESS' } });
+                    sfx.playSuccess();
+                    setPrompt('');
+                    return;
+                } catch (e) {
+                    console.error("[OmniBar] Failed to restore Akashic Record:", e);
+                }
+            } else {
+                dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Hippocampus', message: 'No matching historical frames found in the Exobrain.', type: 'ERROR' } });
+            }
+        }
+
         // 2. Local Edge Routing (FunctionGemma Protocol)
         const localTool = await routeIntentLocally(prompt);
         if (localTool) {
@@ -131,6 +235,19 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         dispatch({ type: 'SET_ERROR', payload: null });
 
         try {
+            // MODULE N: NEURALMAP REGISTRY LOOKUP (Deterministic Generation)
+            const cachedReality = await neuralMap.lookup(prompt);
+            if (cachedReality) {
+                console.log("[OmniBar] Deterministic Match Found. Manifesting Stabilized Reality...");
+                dispatch({ type: 'SYNC_WORLD', payload: cachedReality });
+                dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Librarian', message: `Reality Fingerprint Matched: "${cachedReality.scenario}". Manifesting from NeuralMap...`, type: 'SUCCESS' } });
+                sfx.playSuccess();
+                setPrompt('');
+                setStatus('idle');
+                dispatch({ type: 'SET_PROCESSING', payload: false });
+                return;
+            }
+
             // MODULE N: Consume Speculative Result
             const isHiveAuth = await MasteryLogic.isFeatureAuthorized('HIVE');
             const cachedResult = isHiveAuth ? await speculator.consumeSpeculation(prompt) : null;
@@ -172,6 +289,18 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                     dispatch({ type: 'SET_SABOTAGED', payload: result.isSabotaged || false });
                 }
 
+                if (result.knowledgeGraph) {
+                    dispatch({ type: 'SET_KNOWLEDGE_GRAPH', payload: result.knowledgeGraph });
+                    dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Librarian', message: '3D Knowledge Graph manifested from web research.', type: 'SUCCESS' } });
+                }
+
+                if (result.chaosTrigger) {
+                    setTimeout(() => {
+                        dispatch({ type: 'TRIGGER_CHAOS', payload: { vector: result.chaosTrigger } });
+                        sfx.playWarning();
+                    }, 3000); // 3s delay for cinematic tension
+                }
+
                 dispatch({ type: 'SET_HYPOTHESIS', payload: prompt });
 
                 if (result.logs) {
@@ -206,6 +335,8 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                     scenario: "Resilience Voxel Grid",
                     mode: "VOXEL",
                     domain: "SCIENCE",
+                    _renderingStage: 'SOLID',
+                    _resonanceBalance: 0.5,
                     voxels: [
                         { x: 0, y: 0, z: 0, color: '#3b82f6' },
                         { x: 1, y: 0, z: 0, color: '#3b82f6' },
@@ -302,6 +433,30 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                         <motion.div key="offline-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-amber-600 rounded-full shadow-[0_0_20px_rgba(217,119,6,0.4)] border border-amber-400/50">
                             <ShieldAlert className="w-3 h-3 text-white animate-pulse" />
                             <span className="text-[10px] font-black uppercase text-white tracking-widest">Genesis: Offline Mode</span>
+                        </motion.div>
+                    )}
+                    {/* v55.0 GALAXY MAP (Nearby Realities) */}
+                    {nearbyRealities.length > 0 && (
+                        <motion.div key="galaxy-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 px-3 py-1 bg-indigo-600/30 border border-indigo-500/50 rounded-full backdrop-blur-md cursor-pointer hover:bg-indigo-600/50 transition-colors group relative">
+                            <Globe className="w-3 h-3 text-indigo-300 animate-pulse" />
+                            <span className="text-[10px] font-black uppercase text-indigo-300 tracking-widest">{nearbyRealities.length} Nearby Realities</span>
+                            
+                            {/* Dropdown for Realities */}
+                            <div className="absolute top-8 left-0 w-64 bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl p-2 hidden group-hover:block z-50 shadow-2xl">
+                                <div className="text-[9px] text-white/50 mb-2 uppercase tracking-widest">Ghost Mesh Discovery</div>
+                                {nearbyRealities.slice(0, 5).map((reality, i) => (
+                                    <div key={i} className="flex items-center justify-between p-2 hover:bg-white/10 rounded-lg cursor-pointer transition-colors" onClick={() => {
+                                        setPrompt(`Connect to reality: ${reality.scenario}`);
+                                        handleSubmit();
+                                    }}>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-white truncate max-w-[150px]">{reality.scenario}</span>
+                                            <span className="text-[8px] text-indigo-400">{reality.mode}</span>
+                                        </div>
+                                        <Share2 className="w-3 h-3 text-white/30" />
+                                    </div>
+                                ))}
+                            </div>
                         </motion.div>
                     )}
                     {isThinking && (

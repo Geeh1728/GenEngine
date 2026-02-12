@@ -14,9 +14,16 @@ interface SwarmMessage {
 
 class SwarmCompute {
     private static instance: SwarmCompute;
-    private myPower: number = 0;
-    private hostPeerId: string | null = null;
-    private isHost: boolean = false;
+    private capabilities = {
+        gpuTier: 'LOW' as 'LOW' | 'MEDIUM' | 'HIGH' | 'RAY_TRACING',
+        cpuCores: 4,
+        ram: 4
+    };
+
+    private roles = {
+        isPhysicsHost: false,
+        isVisualHost: false // e.g., for heavy shader dreaming
+    };
 
     public static getInstance() {
         if (!SwarmCompute.instance) {
@@ -28,54 +35,108 @@ class SwarmCompute {
     public async init() {
         if (typeof window === 'undefined') return;
 
-        // 1. Calculate Device Power (Simple metric: cores * clock proxy)
-        this.myPower = (navigator.hardwareConcurrency || 4) * 100;
-        
-        console.log(`[SwarmCompute] My Device Power: ${this.myPower}`);
+        // 1. Detect Hardware Capabilities
+        this.detectCapabilities();
 
-        // 2. Announce Power to Mesh via Blackboard (Synced to Yjs)
-        blackboard.update({ 
-            swarmTelemetry: { 
-                peerId: 'local', // In a real Yjs setup, we'd use the actual peerId
-                power: this.myPower 
-            } 
+        console.log(`[SwarmCompute] Device Telemetry: GPU=${this.capabilities.gpuTier} | CPU=${this.capabilities.cpuCores} | RAM=${this.capabilities.ram}GB`);
+        console.log('[SwarmCompute] Initializing Blackboard Telemetry...');
+
+        // 2. Announce to Mesh
+        const peerId = p2p.getPeerId() || 'local';
+        const currentTelemetry = blackboard.getContext().swarmTelemetry || {};
+        
+        blackboard.update({
+            swarmTelemetry: {
+                ...currentTelemetry,
+                [peerId]: this.capabilities
+            }
         });
 
         // 3. Listen for Swarm Hierarchy updates
         blackboard.subscribe((ctx) => {
             if (ctx.swarmTelemetry) {
-                this.negotiateHost(ctx);
+                this.negotiateRoles(ctx);
             }
         });
     }
 
-    private negotiateHost(ctx: any) {
-        // ACTUAL LOGIC: Compare local power with known remote peers
-        const remotePeers = ctx.manifestedEntities || []; // Temporary proxy for peer list if not explicitly in ctx
-        const maxPower = ctx.swarmTelemetry?.power || 0;
+    private detectCapabilities() {
+        // CPU
+        this.capabilities.cpuCores = navigator.hardwareConcurrency || 4;
 
-        if (this.myPower >= maxPower) {
-            if (!this.isHost) {
-                console.log("[SwarmCompute] Hierarchy Consensus: Local node is now the Swarm Host.");
-                this.isHost = true;
-                blackboard.log('Swarm', 'Consensus reached. This high-end device is now the primary compute node.', 'SUCCESS');
-            }
-        } else {
-            if (this.isHost) {
-                console.log("[SwarmCompute] Host Handover: Relinquishing compute host status to stronger peer.");
-                this.isHost = false;
+        // RAM
+        // @ts-ignore - deviceMemory is experimental but useful
+        this.capabilities.ram = (navigator as any).deviceMemory || 4;
+
+        // GPU Tier Estimation (Heuristic)
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl');
+        if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                if (/nvidia|radeon|geforce/i.test(renderer)) {
+                    this.capabilities.gpuTier = 'HIGH';
+                } else if (/intel iris|apple m/i.test(renderer)) {
+                    this.capabilities.gpuTier = 'MEDIUM';
+                }
             }
         }
     }
 
-    public broadcastTick(particleData: Float32Array) {
-        if (!this.isHost) return;
+    private negotiateRoles(ctx: any) {
+        const telemetry = ctx.swarmTelemetry as Record<string, any>;
+        if (!telemetry) return;
+
+        const myPeerId = p2p.getPeerId() || 'local';
+        let superiorCPUPeer = myPeerId;
+        let superiorGPUPeer = myPeerId;
+
+        const tiers = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'RAY_TRACING': 4 };
+
+        Object.entries(telemetry).forEach(([peerId, caps]) => {
+            // Physics Host Negotiation (CPU)
+            if (caps.cpuCores > telemetry[superiorCPUPeer].cpuCores) {
+                superiorCPUPeer = peerId;
+            }
+
+            // Visual Host Negotiation (GPU)
+            const peerTier = tiers[caps.gpuTier as keyof typeof tiers] || 1;
+            const currentLeaderTier = tiers[telemetry[superiorGPUPeer].gpuTier as keyof typeof tiers] || 1;
+            if (peerTier > currentLeaderTier) {
+                superiorGPUPeer = peerId;
+            }
+        });
+
+        const isPhysicsHost = superiorCPUPeer === myPeerId;
+        const isVisualHost = superiorGPUPeer === myPeerId;
+
+        if (isPhysicsHost && !this.roles.isPhysicsHost) {
+            console.log("[SwarmCompute] 🧠 I am now the PHYSICS HOST (Superior CPU).");
+            blackboard.log('Swarm', 'Local node assumed Physics control.', 'SUCCESS');
+        }
         
-        // Quantize and stream particle data to clients
-        // ... WebRTC DataChannel logic ...
+        if (isVisualHost && !this.roles.isVisualHost) {
+            console.log("[SwarmCompute] 👁️ I am now the VISUAL HOST (Superior GPU).");
+        }
+
+        this.roles.isPhysicsHost = isPhysicsHost;
+        this.roles.isVisualHost = isVisualHost;
     }
 
-    public getIsHost() { return this.isHost; }
+    public broadcastTick(particleData: Float32Array) {
+        if (!this.roles.isPhysicsHost) return;
+
+        // Quantize and stream particle data to clients via P2P
+        // Using ephemeral events to avoid doc bloat
+        p2p.broadcastVisualEvent({
+            type: 'PHYSICS_TICK',
+            payload: particleData.buffer // Sending raw buffer for performance
+        });
+    }
+
+    public getIsHost() { return this.roles.isPhysicsHost; } // Legacy compat
+    public getRoles() { return this.roles; }
 }
 
 export const swarmCompute = SwarmCompute.getInstance();

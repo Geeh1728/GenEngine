@@ -39,6 +39,12 @@ describe('ECS Integration', () => {
             scenario: 'Test Scenario',
             mode: 'PHYSICS',
             domain: 'SCIENCE',
+            explanation: 'Testing ECS sync',
+            description: 'Test simulation',
+            constraints: [],
+            successCondition: 'Test passes',
+            _renderingStage: 'SOLID',
+            _resonanceBalance: 0.5,
             entities: [
                 {
                     id: 'test-cube',
@@ -50,10 +56,6 @@ describe('ECS Integration', () => {
                     dimensions: { x: 1, y: 1, z: 1 }
                 }
             ],
-            constraints: [],
-            successCondition: 'Test passes',
-            description: 'Test simulation',
-            explanation: 'Testing ECS sync'
         };
 
         syncFromWorldState(mockWorld);

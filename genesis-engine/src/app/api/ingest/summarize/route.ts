@@ -5,7 +5,7 @@ import { executeApexLoop } from "@/lib/genkit/resilience";
 import { SummaryOutputSchema } from "@/lib/genkit/schemas";
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
     try {

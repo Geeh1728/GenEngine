@@ -37,6 +37,8 @@ import { TemporalHUD } from '@/components/ui/TemporalHUD';
 import { useTimeTurner, timeTurner } from '@/lib/store/TimeTurnerStore';
 import { swarmCompute } from '@/lib/p2p/SwarmCompute';
 import { shaderDreamer } from '@/lib/rendering/ShaderDreamer';
+import { blackboard, BlackboardContext } from '@/lib/genkit/context';
+import { MissionBriefing } from '@/components/ui/MissionBriefing';
 
 const NeuralBackground = dynamic(() => import('@/components/ui/NeuralBackground').then(mod => mod.NeuralBackground), { ssr: false });
 
@@ -54,6 +56,19 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
     
     // Time-Turner State
     const { historyLength, currentIndex, isPlaying } = useTimeTurner();
+    const [blackboardContext, setBlackboardContext] = React.useState<BlackboardContext>(blackboard.getContext());
+
+    React.useEffect(() => {
+        return blackboard.subscribe((ctx) => setBlackboardContext(ctx));
+    }, []);
+
+    // v60.0 Hegemony Heartbeat: Drive background pulse by consensus score
+    React.useEffect(() => {
+        const score = blackboardContext.consensusScore || 100;
+        // Map 0-100 to 10s-2s duration
+        const duration = 10 - (score / 100) * 8;
+        document.documentElement.style.setProperty('--hegemony-duration', `${duration}s`);
+    }, [blackboardContext.consensusScore]);
 
     React.useEffect(() => {
         // Load Exobrain
@@ -82,8 +97,16 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
         handleSimulationFailure, gardenState, startSimulation,
         omniPrompt, setOmniPrompt, activeChallenge,
         setActiveChallenge, toggleRule, handleConstantChange,
-        isVerifyingLogic, unlockedHUD, isProcessing
+        isVerifyingLogic, unlockedHUD, isProcessing, handleIngest: engineHandleIngest, handleGraft, isIngested
     } = engine;
+
+    const handleIngest = async (file: File) => {
+        if (isIngested) {
+            await handleGraft(file);
+        } else {
+            await engineHandleIngest(file);
+        }
+    };
 
     const {
         isListening, setIsListening, isRealityLensOpen, setIsRealityLensOpen,
@@ -106,9 +129,27 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
     const isActuallySimulating = hasActiveContent && mode !== 'IDLE' && mode !== null;
     const isPhysicsMode = mode === 'PHYSICS' || mode === 'VOXEL' || mode === 'SCIENTIFIC' || mode === 'ASSEMBLER';
 
+    const { rewardSignal } = engine.state;
+
     return (
-        <main className="fixed inset-0 w-screen h-screen overflow-hidden font-inter text-foreground flex flex-col">
+        <main className="fixed inset-0 w-screen h-screen overflow-hidden font-inter text-foreground flex flex-col intelligence-pulse">
             <NeuralBackground />
+
+            {/* --- REWARD SIGNAL HUD: Neural Pulse (v31.0) --- */}
+            <AnimatePresence>
+                {rewardSignal !== 'NONE' && (
+                    <motion.div
+                        key="reward-pulse"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: [0, 0.15, 0] }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className={`absolute inset-0 z-[1] pointer-events-none ${
+                            rewardSignal === 'EFFICIENT' ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                    />
+                )}
+            </AnimatePresence>
 
             {/* --- 1. THE CINEMATIC BACKGROUND --- */}
             <div className="absolute inset-0 z-0 overflow-hidden">
@@ -275,6 +316,7 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                                 externalPrompt={omniPrompt} 
                                 onPromptChange={setOmniPrompt} 
                                 handleIngest={engine.handleIngest} 
+                                engine={engine}
                             />
                         </div>
                     </div>
@@ -361,6 +403,7 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
 
             {unlockedHUD && <QuestOverlay />}
             <PerformanceMonitor />
+            <MissionBriefing />
         </main>
     );
 };

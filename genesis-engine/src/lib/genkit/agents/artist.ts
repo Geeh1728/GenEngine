@@ -53,6 +53,8 @@ export const artistAgent = ai.defineFlow(
                 explanation: "The primary engine is stabilizing. Observe the initial structural draft.",
                 constraints: ["Static voxel grid", "Fixed position"],
                 successCondition: "The sculpture is rendered.",
+                _renderingStage: 'SOLID',
+                _resonanceBalance: 0.5,
                 entities: [{ 
                     id: "fallback-voxel", 
                     shape: "cube", 
@@ -63,6 +65,7 @@ export const artistAgent = ai.defineFlow(
                     visual: {
                         color: "#a855f7"
                     },
+                    certainty: 1.0,
                     name: "Resilience Voxel"
                 }]
             }

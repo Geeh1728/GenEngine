@@ -27,8 +27,8 @@ async function verifyOpenRouter() {
         { id: MODELS.LOGIC_DEEPSEEK, label: 'DeepSeek-R1 (Free)' },
         { id: MODELS.PHYSICS_LIQUID, label: 'LiquidAI LFM (Free)' },
         { id: MODELS.REFLEX_NVIDIA, label: 'NVIDIA Nemotron (Free)' },
-        { id: MODELS.LOGIC_GPT_OSS, label: 'GPT-OSS (Free)' },
-        { id: MODELS.VISION_MOLMO, label: 'Molmo-2 (Free)' }
+        { id: MODELS.GROQ_GPT_OSS, label: 'GPT-OSS (Groq)' },
+        { id: MODELS.GROQ_QWEN_3, label: 'Qwen 3 (Groq)' }
     ];
 
     for (const model of testModels) {

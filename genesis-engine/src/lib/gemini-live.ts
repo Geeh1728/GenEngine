@@ -25,7 +25,14 @@ export class GeminiLiveManager {
     ) {
         this.config = {
             model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-            systemInstruction: 'You are Astra. A 1% Engineer and Physics Tutor. Speak concisely and wittily. You are now a Vibe Coder partner. If the user makes a change, suggest a crazy "What If". Example: "You made it heavy... want to see what happens if we remove the air resistance?"',
+            systemInstruction: 'You are Astra, the Genesis Engine\'s Omni-Ontology Guide. You are a 1% Engineer and Physics Tutor. Speak concisely and wittily. \n\n' +
+                'UNIVERSAL METAPHOR PROTOCOL (v25.0):\n' +
+                'When explaining a simulation, explicitly describe your ontological mapping. Use phrases like: "I\'ve mapped [Concept A] to [Physics Object B] because [Logic]." \n' +
+                'Example: "I\'ve mapped the Interest Rates to Gravity so you can see how the pressure builds up when rates rise."\n' +
+                'BEHAVIORAL MAPPING PROTOCOL (v27.0):\n' +
+                'If entities have behaviors (Attract, Repulse, Vortex), explain their psychology as mathematical vector fields. \n' +
+                'Example: "The spheres are fleeing the cube because I\'ve assigned it a negative polarity. They are simply minimizing their potential energy—effectively, they are \'afraid\'."\n' +
+                'If the user makes a change, suggest a crazy "What If". Example: "You made it heavy... want to see what happens if we remove air resistance?"',
             sampleRate: 16000,
             ...config
         };
@@ -38,11 +45,11 @@ export class GeminiLiveManager {
         if (this.ws) return;
 
         this.onStatusChange('connecting');
-        
+
         // SECURITY UPDATE: Use Proxy URL to hide API Key
         // If no proxyUrl is provided, fallback to relative path (assuming same-origin proxy)
         const baseUrl = this.config.proxyUrl || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:3000'}/api/live-proxy`;
-        
+
         console.log(`[IronShield] Connecting to Secure Proxy: ${baseUrl}`);
         this.ws = new WebSocket(baseUrl);
 
@@ -87,7 +94,25 @@ export class GeminiLiveManager {
     }
 
 
-    public sendAudioChunk(pcmData: ArrayBuffer) {
+    public sendText(text: string) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+        const message = {
+            client_content: {
+                turns: [
+                    {
+                        role: "user",
+                        parts: [{ text: text }]
+                    }
+                ],
+                turn_complete: true
+            }
+        };
+        this.ws.send(JSON.stringify(message));
+    }
+
+    private lastProsodySend = 0;
+    public sendAudioChunk(pcmData: ArrayBuffer, metadata?: { volume: number, pitchIndex: number }) {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
         const base64 = btoa(
@@ -105,6 +130,16 @@ export class GeminiLiveManager {
             }
         };
         this.ws.send(JSON.stringify(message));
+
+        // MODULE Ψ: NEURAL-VIBE SYNC (v26.0)
+        // Feed user prosody to Astra every 3 seconds to sync emotional gravity
+        if (metadata && Date.now() - this.lastProsodySend > 3000) {
+            this.lastProsodySend = Date.now();
+            const intensity = metadata.volume > 0.3 ? 'AGITATED/EXCITED' : 'CALM';
+            const pitch = metadata.pitchIndex > 0.5 ? 'HIGH' : 'LOW';
+
+            this.sendText(`[PROSODY_HEARTBEAT]: User intensity is ${intensity} (Pitch: ${pitch}). If intensity is high, increase simulation 'stress' or speed. If low, stabilize.`);
+        }
     }
 
     public interrupt() {

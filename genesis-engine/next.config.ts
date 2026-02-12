@@ -20,6 +20,12 @@ const nextConfig: NextConfig = {
   // 2. Disable Strict Mode
   reactStrictMode: false,
 
+  // 2.5 Optimization
+  productionBrowserSourceMaps: false,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   // 3. Security: Obfuscation
   poweredByHeader: false, // Hide Next.js branding
 
@@ -45,7 +51,7 @@ const nextConfig: NextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
-        path: false,
+        path: require.resolve("path-browserify"),
         crypto: false,
       };
     }

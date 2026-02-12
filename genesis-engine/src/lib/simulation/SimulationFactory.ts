@@ -16,6 +16,7 @@ export const SimulationFactory = {
         visual: {
             color: '#111115',
         },
+        certainty: 1.0,
         ...overrides
     }),
 
@@ -30,6 +31,7 @@ export const SimulationFactory = {
         visual: {
             color: '#3b82f6',
         },
+        certainty: 1.0,
         ...overrides
     }),
 
@@ -45,6 +47,8 @@ export const SimulationFactory = {
         },
         successCondition: "Exploration",
         description: "A blank slate for physical testing.",
-        explanation: "This world contains only a floor and standard gravity."
+        explanation: "This world contains only a floor and standard gravity.",
+        _renderingStage: 'SOLID',
+        _resonanceBalance: 0.5
     })
 };

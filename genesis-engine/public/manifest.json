@@ -1,0 +1,17 @@
+{
+  "name": "Genesis Engine",
+  "short_name": "GenEngine",
+  "description": "The Music Theory of Reality. AI-Powered Physics & Knowledge Synthesis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/globe.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

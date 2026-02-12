@@ -12,6 +12,10 @@ import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { bridgeScenario } from '@/lib/scenarios/bridge';
 import { LSystemTree } from './LSystemTree';
 
+// v29.0 Iron Man HUD: WebXR Support
+// To activate: npm install @react-three/xr
+// import { XR, ARButton, VRButton, Hands } from '@react-three/xr';
+
 interface HolodeckProps {
     debug?: boolean;
     isPaused?: boolean;
@@ -58,6 +62,11 @@ export const Holodeck: React.FC<HolodeckProps> = ({
 
     return (
         <div className="w-full h-full relative overflow-hidden">
+            {/* MODULE C: WebXR HUD (v29.0) */}
+            <div className="absolute top-6 left-6 z-[100] flex flex-col gap-2 pointer-events-auto">
+                <div id="xr-buttons" />
+            </div>
+
             <Canvas
                 shadows
                 camera={{ position: [0, 5, 12], fov: 50 }}
@@ -104,7 +113,14 @@ export const Holodeck: React.FC<HolodeckProps> = ({
                     )}
                     
                     <Environment preset={currentBiomeId === 'SPACE' ? 'night' : (currentBiomeId === 'OCEAN' ? 'city' : 'night')} />
-                    <ContactShadows opacity={0.4} scale={20} blur={24} far={10} resolution={256} color="#000000" />
+                    <ContactShadows 
+                        opacity={0.7} 
+                        scale={30} 
+                        blur={1.5} 
+                        far={10} 
+                        resolution={512} 
+                        color="#000000" 
+                    />
                     <OrbitControls makeDefault />
 
                     {/* Neural Post-Processing */}

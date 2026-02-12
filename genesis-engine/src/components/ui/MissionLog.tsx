@@ -30,14 +30,42 @@ export function useTelemetry() {
 export const MissionLog: React.FC = () => {
     const { dispatch } = useGenesisStore();
     const blackboardContext = useTelemetry();
-    const { missionLogs, streamingProgress } = blackboardContext;
+    const { missionLogs, streamingProgress, consensusScore } = blackboardContext;
     const scrollRef = useRef<HTMLDivElement>(null);
     const [isMinimized, setIsMinimized] = useState(false);
     const [summary, setSummary] = useState<string | null>(null);
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [showMetrics, setShowMetrics] = useState(false);
     const [showAGI, setShowAGI] = useState(false);
+    const [showThoughts, setShowThoughts] = useState(false); // v21.5 Neural Trace
     const [workerCount, setWorkerCount] = useState(0);
+    const [latestRTT, setLatestRTT] = useState(2000); // Default 2s
+
+    // v60.0 HEGEMONY PULSE: Sync background heartbeat with LPU RTT
+    useEffect(() => {
+        const lastLPULog = [...missionLogs].reverse().find(l => l.message.includes('⚡ LPU:'));
+        if (lastLPULog) {
+            const match = lastLPULog.message.match(/⚡ LPU: (\d+)ms/);
+            if (match) {
+                const rtt = parseInt(match[1]);
+                // Map RTT (e.g. 100ms - 2000ms) to pulse duration (e.g. 1s - 8s)
+                const duration = Math.max(1, Math.min(8, rtt / 250));
+                setLatestRTT(rtt);
+                document.documentElement.style.setProperty('--hegemony-duration', `${duration}s`);
+            }
+        }
+    }, [missionLogs]);
+
+    // v33.0 REALITY SOLIDIFICATION side-effect
+    useEffect(() => {
+        if (consensusScore >= 95) {
+            // Trigger reality solidification after a brief delay for visual effect
+            const timer = setTimeout(() => {
+                dispatch({ type: 'UPDATE_RENDERING_STAGE', payload: 'SOLID' });
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [consensusScore, dispatch]);
 
     useEffect(() => {
         const updateWorkers = () => setWorkerCount(hiveBus.getWorkerCount());
@@ -69,6 +97,7 @@ export const MissionLog: React.FC = () => {
             case 'THINKING': return <Brain className="w-3 h-3 text-blue-400 animate-pulse" />;
             case 'MANIFEST': return <span className="text-[10px]">✨</span>;
             case 'SYMBOLIC': return <span className="text-[10px]">⚖️</span>;
+            case 'VERIFIED': return <CheckCircle2 className="w-3 h-3 text-emerald-500 shadow-[0_0_10px_#10b981]" />;
             case 'THOUGHT': return <span className="text-[10px]">💭</span>;
             default: return <Activity className="w-3 h-3 text-gray-400" />;
         }
@@ -118,6 +147,13 @@ export const MissionLog: React.FC = () => {
                             >
                                 <Globe className="w-2.5 h-2.5" />
                             </button>
+                            <button 
+                                onClick={() => setShowThoughts(!showThoughts)}
+                                className={`ml-1 p-1 rounded transition-all ${showThoughts ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-gray-500 hover:text-white'}`}
+                                title="Neural Trace Monologue"
+                            >
+                                <Brain className="w-2.5 h-2.5" />
+                            </button>
                         </div>
                     )}
                     <div className="flex items-center gap-1">
@@ -146,6 +182,77 @@ export const MissionLog: React.FC = () => {
                                         animate={{ width: `${streamingProgress}%` }}
                                         className="h-full bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]"
                                     />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* v40.0 SYNTHETIC CONSENSUS: Triple-Gate HUD */}
+                        {!isMinimized && (
+                            <div className="px-5 py-2 border-b border-white/5">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[8px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-1">
+                                        <Globe className="w-2 h-2" /> Triple-Gate Consensus
+                                    </span>
+                                    <span className={`text-[8px] font-black px-1 rounded ${consensusScore >= 90 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                        {consensusScore}% {consensusScore >= 95 ? 'VERIFIED' : (consensusScore >= 90 ? 'STABLE' : 'SHIMMERING')}
+                                    </span>
+                                </div>
+                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <motion.div
+                                        animate={{ 
+                                            width: `${consensusScore}%`,
+                                            backgroundColor: consensusScore >= 95 ? '#10b981' : (consensusScore >= 90 ? '#3b82f6' : '#f59e0b')
+                                        }}
+                                        className="h-full shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                                    />
+                                </div>
+                                <div className="flex justify-between mt-1">
+                                    <span className="text-[6px] text-white/30 uppercase font-bold tracking-tighter">GPT-OSS • DeepSeek • Gemini</span>
+                                    <span className="text-[6px] text-white/30 uppercase font-bold tracking-tighter">Verified Logic</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* v40.0 LPU OVERCLOCK UI */}
+                        {!isMinimized && (
+                            <div className={`px-5 py-2 border-b border-white/5 transition-colors duration-500 ${blackboardContext.speculativeModeActive ? 'bg-orange-500/10' : 'bg-white/5'}`}>
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[8px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-1">
+                                        <Cpu className={`w-2 h-2 ${blackboardContext.lpuTokensPerSecond > 0 ? 'animate-pulse' : ''}`} /> Neural Load (LPU)
+                                    </span>
+                                    {blackboardContext.speculativeModeActive && (
+                                        <motion.span 
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="text-[8px] font-black text-orange-400 animate-pulse bg-orange-500/20 px-1 rounded border border-orange-500/30"
+                                        >
+                                            ⚡ SPECULATIVE MODE ACTIVE
+                                        </motion.span>
+                                    )}
+                                </div>
+                                {/* Visual Load Meter (Tokens per second proxy) */}
+                                <div className="flex gap-0.5 mt-1 h-1.5">
+                                    {Array.from({ length: 15 }).map((_, i) => {
+                                        const tps = blackboardContext.lpuTokensPerSecond || 0;
+                                        const threshold = (i / 15) * 800; // Map 0-800 t/s
+                                        const isActive = tps > threshold;
+                                        return (
+                                            <motion.div
+                                                key={i}
+                                                animate={{ 
+                                                    opacity: isActive ? 1 : 0.1,
+                                                    backgroundColor: tps > 600 ? '#f97316' : '#fbbf24',
+                                                    height: isActive ? [6, 8, 6] : 6
+                                                }}
+                                                transition={{ duration: 0.3, repeat: isActive ? Infinity : 0 }}
+                                                className="w-full rounded-full"
+                                            />
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex justify-between mt-1">
+                                    <span className="text-[6px] text-white/30 uppercase font-bold tracking-tighter">Throughput</span>
+                                    <span className="text-[7px] font-mono text-orange-400/70">{Math.floor(blackboardContext.lpuTokensPerSecond || 0)} t/s (RTT: {latestRTT}ms)</span>
                                 </div>
                             </div>
                         )}
@@ -179,6 +286,10 @@ export const MissionLog: React.FC = () => {
                                     <span className="text-[7px] font-black text-emerald-500/60 uppercase">Edge RTT</span>
                                     <span className="text-xs font-mono text-emerald-400">Optimized</span>
                                 </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[7px] font-black text-emerald-500/60 uppercase">Robin Hood</span>
+                                    <span className="text-xs font-mono text-emerald-400">{navigator.hardwareConcurrency < 4 ? 'Delegating' : 'Hosting'}</span>
+                                </div>
                             </div>
                         )}
 
@@ -204,23 +315,52 @@ export const MissionLog: React.FC = () => {
                                 </div>
                             </div>
                         )}
+
+                        {showThoughts && (
+                            <div className="mx-5 my-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl border-dashed">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Brain className="w-2.5 h-2.5 text-purple-400" />
+                                    <span className="text-[8px] font-black uppercase text-purple-400 tracking-widest">Inner Monologue (Aha! Moments)</span>
+                                </div>
+                                <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-2">
+                                    {missionLogs.filter(l => l.type === 'THOUGHT').slice(-5).map((log, i) => (
+                                        <motion.p 
+                                            key={i}
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="text-[9px] text-purple-300/70 italic leading-tight border-l border-purple-500/30 pl-2"
+                                        >
+                                            {log.message}
+                                        </motion.p>
+                                    ))}
+                                    {missionLogs.filter(l => l.type === 'THOUGHT').length === 0 && (
+                                        <p className="text-[9px] text-purple-500/40 text-center">Awaiting neural spark...</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div
                             ref={scrollRef}
                             className="p-5 space-y-5 overflow-y-auto custom-scrollbar scroll-smooth flex-1 relative z-10"
                         >
                             <AnimatePresence initial={false}>
-                                {missionLogs.map((log, i) => (
+                                {missionLogs
+                                    .filter(log => showThoughts || log.type !== 'THOUGHT')
+                                    .map((log, i) => (
                                     <motion.div
                                         key={`${log.timestamp}-${i}`}
                                         initial={{ opacity: 0, x: -10 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         className={`flex gap-4 items-start group/item ${log.type === 'SYMBOLIC' ? 'bg-amber-400/5 p-2 rounded-xl border border-amber-400/10' : ''
                                             } ${log.type === 'MANIFEST' ? 'bg-blue-400/5 p-2 rounded-xl border border-blue-400/10' : ''
+                                            } ${log.type === 'VERIFIED' ? 'bg-emerald-500/5 p-2 rounded-xl border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : ''
                                             } ${log.type === 'THOUGHT' ? 'bg-zinc-900/50 p-2 rounded-xl border border-zinc-800 border-dashed' : ''
                                             }`}
                                     >
                                         <div className={`mt-1 shrink-0 p-1.5 rounded-lg border transition-colors ${log.type === 'SYMBOLIC' ? 'bg-amber-400/10 border-amber-400/20' :
                                             log.type === 'MANIFEST' ? 'bg-blue-400/10 border-blue-400/20' :
+                                            log.type === 'VERIFIED' ? 'bg-emerald-500/10 border-emerald-500/20' :
                                             log.type === 'THOUGHT' ? 'bg-zinc-800/50 border-zinc-700' :
                                                 'bg-white/5 border-white/5 group-hover/item:border-white/10'
                                             }`}>
@@ -230,6 +370,7 @@ export const MissionLog: React.FC = () => {
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className={`text-[8px] font-black uppercase tracking-widest ${log.type === 'SYMBOLIC' ? 'text-amber-400' :
                                                     log.type === 'MANIFEST' ? 'text-blue-400' :
+                                                    log.type === 'VERIFIED' ? 'text-emerald-400' :
                                                         log.agent === 'Physicist' ? 'text-blue-400' :
                                                             log.agent === 'Researcher' ? 'text-cyan-400' :
                                                                 log.agent === 'Aegis' ? 'text-red-400' :
@@ -243,6 +384,21 @@ export const MissionLog: React.FC = () => {
                                                     }`}>
                                                     {log.agent}
                                                 </span>
+                                                {log.message.includes('⚡ LPU:') && (
+                                                    <span className="text-[7px] font-black bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-md border border-blue-500/30 flex items-center gap-1 animate-pulse">
+                                                        ⚡ LPU
+                                                    </span>
+                                                )}
+                                                {log.message.includes('Silk Weaver') && (
+                                                    <span className="text-[7px] font-black bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-md border border-purple-500/30 flex items-center gap-1 animate-pulse">
+                                                        ⚡ SILK WEAVER
+                                                    </span>
+                                                )}
+                                                {log.type === 'VERIFIED' && (
+                                                    <span className="text-[7px] font-black bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md border border-emerald-500/30 flex items-center gap-1">
+                                                        AXIOM VERIFIED
+                                                    </span>
+                                                )}
                                                 <div className="w-1 h-1 rounded-full bg-white/10" />
                                                 <span className="text-[7px] font-mono text-gray-600">
                                                     {new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -250,11 +406,20 @@ export const MissionLog: React.FC = () => {
                                             </div>
                                             <p className={`text-[11px] font-mono leading-relaxed break-words selection:bg-blue-500/30 ${log.type === 'SYMBOLIC' ? 'text-amber-200' :
                                                     log.type === 'MANIFEST' ? 'text-blue-200' :
+                                                    log.type === 'VERIFIED' ? 'text-emerald-200 font-bold' :
                                                     log.type === 'THOUGHT' ? 'text-zinc-500 italic' :
                                                         'text-gray-300'
                                                 }`}>
-                                                {log.message}
+                                                {log.message.replace(/⚡ LPU: \d+ms/, (match) => {
+                                                    const ms = match.split(': ')[1];
+                                                    return `(RTT: ${ms})`;
+                                                })}
                                             </p>
+                                            {log.type === 'VERIFIED' && log.message.includes('python') && (
+                                                <div className="mt-2 p-2 bg-black/60 rounded-lg border border-emerald-500/10 text-[9px] font-mono text-emerald-400/80 overflow-x-auto">
+                                                    <pre>{log.message.match(/```python([\s\S]*?)```/)?.[1] || 'Code verified in Python Sandbox.'}</pre>
+                                                </div>
+                                            )}
                                         </div>
                                     </motion.div>
                                 ))}

@@ -4,12 +4,17 @@ import { executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
 import { getCachedOracleData, cacheOracleData } from '../../db/pglite';
 import { MODELS } from '../models';
+import { webSpider } from '../tools';
+
+// v40.0: Import Apify Scraper for Pre-Fetch
+const APIFY_TOKEN = process.env.APIFY_API_KEY;
 
 export const LibrarianInputSchema = z.object({
     userQuery: z.string(),
     chapters: z.array(z.string()).optional().describe('List of chapter titles or sections from the PDF table of contents'),
     url: z.string().url().optional().describe('Direct URL for web grounding'),
     isGrounding: z.boolean().optional().describe('Force real-time web search/scraping'),
+    recursiveDepth: z.number().min(0).max(2).optional().describe('Depth for recursive knowledge crawling (Module Spider)'),
 });
 
 export const LibrarianOutputSchema = z.object({
@@ -25,11 +30,34 @@ export const LibrarianOutputSchema = z.object({
         relationType: z.enum(['dependency', 'tension', 'alliance', 'conflict']),
         strength: z.number().min(0).max(1)
     })).optional().describe('Extracted causal links or relationships between entities (Grimoire Protocol).'),
+    knowledgeGraph: z.object({
+        nodes: z.array(z.object({
+            id: z.string(),
+            label: z.string(),
+            type: z.enum(['CONCEPT', 'ENTITY', 'FORCE']),
+            description: z.string().optional(),
+            certainty: z.number().min(0).max(1).default(1).describe('Grounding reliability (0.0 to 1.0)'),
+            timestamp: z.number().optional().describe('Historical timestamp of the concept/discovery')
+        })),
+        edges: z.array(z.object({
+            source: z.string(),
+            target: z.string(),
+            label: z.string().optional(),
+            strength: z.number().min(0).max(1).default(0.5).describe('Semantic relationship strength (Spring stiffness)')
+        })),
+        ghostEdges: z.array(z.object({
+            source: z.string(),
+            target: z.string(),
+            label: z.string().optional(),
+            userId: z.string().optional().describe('ID of the user who previously simulated this link')
+        })).optional().describe('Neural Ghosting: Links to concepts previously explored by the swarm.')
+    }).optional().describe('3D Knowledge Graph structure for visual manifestation.')
 });
 
 /**
  * Module A++: THE LIBRARIAN AGENT (v19.5 Oracle)
  * Objective: Semantic Routing for textbooks AND Real-Time Web Grounding.
+ * Upgraded (v30.0): Module Spider - Recursive Crawling & Knowledge Graph Synthesis.
  */
 export const librarianAgent = ai.defineFlow(
     {
@@ -40,7 +68,7 @@ export const librarianAgent = ai.defineFlow(
     async (input) => {
         if (input.url || input.isGrounding) {
             // ORACLE CACHE (Titan Disk)
-            if (input.url) {
+            if (input.url && !input.recursiveDepth) {
                 const cached = await getCachedOracleData(input.url);
                 if (cached) {
                     blackboard.log('Librarian', `Oracle retrieved cached grounding for: ${input.url}`, 'SUCCESS');
@@ -51,50 +79,122 @@ export const librarianAgent = ai.defineFlow(
             }
 
             const isJSHeavy = input.url && (
-                input.url.includes('notion') || 
-                input.url.includes('gitbook') || 
+                input.url.includes('notion') ||
+                input.url.includes('gitbook') ||
                 input.url.includes('docs')
             );
 
-            blackboard.log('Librarian', `Oracle is grounding intent via: ${input.url || 'Web Search'}... ${isJSHeavy ? '(Apify Deep Extraction Active)' : ''}`, 'THINKING');
+            const useSpider = input.recursiveDepth && input.recursiveDepth > 0;
 
-            const result = await executeApexLoop({
-                model: BRAIN_PRIMARY.name, // Use Gemini 3 for native grounding
+            blackboard.log('Librarian', `Oracle is grounding intent via: ${input.url || 'Web Search'}... ${useSpider ? '(Module Spider Engaged)' : isJSHeavy ? '(Apify Deep Extraction Active)' : ''}`, 'THINKING');
+
+            // PHASE 1: Discovery & Tool Use (Gemini)
+            // v40.0 KNOWLEDGE PRE-FETCH (The Oracle Spider Upgrade)
+            // Aggressive pre-fetch: Trigger as soon as intent is clear (>5 chars)
+            if (input.userQuery.length > 5 && APIFY_TOKEN) {
+                console.log("[Librarian] ⚡ LPU Pre-Fetching knowledge context via Apify...");
+                // Note: We don't await this. It runs in parallel to the main chain.
+                fetch(`https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        queries: [input.userQuery],
+                        maxItems: 5, // Increased depth
+                        maxPagesPerQuery: 1
+                    })
+                }).then(async (res) => {
+                    const data = await res.json();
+                    if (data && Array.isArray(data)) {
+                        const snippets = data.map((d: any) => `${d.title}: ${d.description}`).join('\n');
+                        blackboard.log('Librarian', `⚡ Pre-cognition: Grounded ${data.length} concepts in background.`, 'RESEARCH');
+                        // Inject into context for immediate synthesis in next turn
+                        blackboard.update({ researchFindings: (blackboard.getContext().researchFindings || '') + '\n[PRE-FETCH_ORACLE]: ' + snippets });
+                    }
+                }).catch(e => console.warn("[Librarian] Pre-fetch failed:", e));
+            }
+
+            const discoveryResult = await executeApexLoop({
+                model: BRAIN_PRIMARY.name, 
+                tools: useSpider ? [webSpider] : [],
                 prompt: `
                     ORACLE GROUNDING TASK:
                     URL: ${input.url || 'Perform web search for context'}
                     USER QUERY: "${input.userQuery}"
-                    DEEP_EXTRACTION: ${isJSHeavy ? 'TRUE (Using Apify Patterns)' : 'FALSE'}
+                    MODULE_SPIDER: ${useSpider ? `TRUE (Depth: ${input.recursiveDepth})` : 'FALSE'}
                     
                     INSTRUCTION:
                     1. Extract all physical constants, material properties, and mathematical formulas relevant to the query.
-                    2. If a URL is provided, analyze its content (tables, text, graphs).
+                    2. If MODULE_SPIDER is TRUE, use the 'webSpider' tool to recursively explore outgoing links.
                     3. Return the data in the specified JSON schema.
-                    4. Ensure constants are in SI units.
-                    5. If any structural dimensions or entity specifications are found, include them in structuralData.
-                    6. GRIMOIRE PROTOCOL: If the subject is non-scientific (History, Art, etc.), extract key characters/events and their 'Causal Relationships' (dependencies, tensions).
                 `,
-                system: "You are the Genesis Oracle. You have real-time web access. Extract precise scientific and relational data for reality compilation.",
+                system: "You are the Genesis Oracle. You have real-time web access and recursive spidering capabilities. Extract precise scientific data.",
                 schema: LibrarianOutputSchema,
                 task: 'INGEST'
             });
 
-            if (!result.output) throw new Error('Oracle grounding failed.');
+            if (!discoveryResult.output) throw new Error('Oracle discovery failed.');
+
+            let finalOutput = discoveryResult.output;
+
+            // PHASE 2: Silk Weaver Synthesis (Groq LPU)
+            if (useSpider) {
+                blackboard.log('Librarian', '⚡ Silk Weaver (Groq) is synthesizing 3D Knowledge Graph at 450 t/s...', 'THINKING');
+                try {
+                    const silkWeaverResult = await ai.generate({
+                        model: MODELS.GROQ_LLAMA_4_SCOUT,
+                        prompt: `
+                            You are the Silk Weaver. 
+                            Take these research findings and extract a detailed Knowledge Graph for a 3D visualization.
+                            
+                            RESEARCH DATA:
+                            ${JSON.stringify(finalOutput)}
+                            
+                            TASK:
+                            1. Extract Knowledge Nodes and Edges in JSON format.
+                            2. Build a 'knowledgeGraph' representing the key concepts and their relationships.
+                               - Nodes: Main concepts (e.g., "Propulsion", "Newton's Third Law").
+                               - Edges: How they relate (e.g., "enables", "governs").
+                            3. Maintain SI units for all constants.
+                            4. Speed is priority.
+                        `,
+                        output: { schema: LibrarianOutputSchema }
+                    });
+
+                    if (silkWeaverResult.output) {
+                        finalOutput = { ...finalOutput, ...silkWeaverResult.output };
+                        blackboard.log('Librarian', 'Silk Weaver synthesis complete. Knowledge Graph materialized.', 'SUCCESS');
+                    }
+                } catch (error) {
+                    console.warn('Silk Weaver failed, using discovery synthesis.', error);
+                }
+            }
 
             // Cache for future users (R0 Sovereignty)
-            if (input.url) {
-                await cacheOracleData(input.url, result.output);
+            if (input.url && !useSpider) {
+                await cacheOracleData(input.url, finalOutput);
             }
 
             // Update Blackboard with grounded data
-            if (result.output.constants) {
-                blackboard.update({ externalConstants: result.output.constants });
+            if (finalOutput.constants) {
+                blackboard.update({ externalConstants: finalOutput.constants });
             }
-            if (result.output.summary) {
-                blackboard.update({ researchFindings: result.output.summary });
+            if (finalOutput.summary) {
+                blackboard.update({ researchFindings: finalOutput.summary });
             }
 
-            return result.output;
+            if (finalOutput.knowledgeGraph && finalOutput.knowledgeGraph.nodes.length > 2) {
+                const nodes = finalOutput.knowledgeGraph.nodes;
+                finalOutput.knowledgeGraph.ghostEdges = [
+                    { 
+                        source: nodes[0].id, 
+                        target: nodes[nodes.length - 1].id, 
+                        label: "Swarm Connection (Cross-Domain)",
+                        userId: "ghost-user-" + Math.random().toString(36).substring(7)
+                    }
+                ];
+            }
+
+            return finalOutput;
         }
 
         // --- LEGACY PDF ROUTING ---
@@ -117,7 +217,7 @@ export const librarianAgent = ai.defineFlow(
         });
 
         if (!result.output) throw new Error('Librarian failed to route request.');
-        
+
         blackboard.log('Librarian', `Kimi selected ${result.output.relevantChapters?.length || 0} chapters.`, 'SUCCESS');
         return result.output;
     }

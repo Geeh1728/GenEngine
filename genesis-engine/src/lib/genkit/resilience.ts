@@ -161,7 +161,16 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
                 // QUOTA TELEMETRY: Record success
                 await quotaOracle.recordSuccess(modelName);
                 
-                if (onLog) onLog(`Neural Link established via ${modelName}.`, 'SUCCESS');
+                if (onLog) {
+                    const lpuLatency = (result as any).custom?.latency;
+                    const lpuBadge = modelName.includes('groq') ? `⚡ LPU: ${lpuLatency}ms` : '';
+                    onLog(`Neural Link established via ${modelName}. ${lpuBadge}`, 'SUCCESS');
+                    
+                    // Log to blackboard for HUD
+                    if (lpuLatency) {
+                        blackboard.log('System', `LPU established in ${lpuLatency}ms. Bandwidth optimized.`, 'INFO');
+                    }
+                }
                 
                 let finalOutput = result.output;
                 let thinking: string | undefined;

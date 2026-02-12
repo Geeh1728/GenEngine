@@ -45,6 +45,29 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ engine }) => {
                     <p className="text-sm md:text-base text-gray-400 font-medium leading-relaxed max-w-lg">
                         {worldState?.explanation || "Establishing high-fidelity neural link to physical parameters."}
                     </p>
+
+                    {/* v40.0 SCIENTIFIC CONSENSUS METER */}
+                    {worldState?.consensus_score !== undefined && (
+                        <motion.div 
+                            initial={{ y: 10, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className="pt-4 flex flex-col gap-2"
+                        >
+                            <div className="flex justify-between items-center max-w-[200px]">
+                                <span className="text-[8px] font-black uppercase text-gray-500 tracking-widest">Scientific Consensus</span>
+                                <span className={`text-[10px] font-mono font-black ${worldState.consensus_score > 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    {worldState.consensus_score}%
+                                </span>
+                            </div>
+                            <div className="h-1 w-full max-w-[200px] bg-white/5 rounded-full overflow-hidden">
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${worldState.consensus_score}%` }}
+                                    className={`h-full ${worldState.consensus_score > 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                />
+                            </div>
+                        </motion.div>
+                    )}
                 </motion.div>
             </div>
 

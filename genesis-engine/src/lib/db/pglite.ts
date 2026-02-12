@@ -35,6 +35,11 @@ export const getDB = async (): Promise<PGlite | null> => {
       }
     }
 
+    if (!dbInstance) {
+      console.error('❌ Genesis Local DB: Failed to initialize any storage backend.');
+      return null;
+    }
+
     // Initialize schema (run once)
     // 768 dimensions matches text-embedding-004 output
     await dbInstance.exec(`
@@ -71,6 +76,30 @@ export const getDB = async (): Promise<PGlite | null> => {
             CREATE TABLE IF NOT EXISTS oracle_cache (
                 url TEXT PRIMARY KEY,
                 data JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS architectural_residue (
+                id TEXT PRIMARY KEY,
+                scenario TEXT,
+                structural_data JSONB,
+                outcome TEXT,
+                failure_reason TEXT,
+                embedding vector(768),
+                timestamp INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS neural_map (
+                signature TEXT PRIMARY KEY,
+                physics_dna JSONB,
+                verified BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS global_axioms (
+                hash TEXT PRIMARY KEY,
+                law_definition JSONB,
+                consensus_score INTEGER DEFAULT 0,
+                origin_peer TEXT,
+                canonized BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -126,6 +155,37 @@ export async function updateRegisteredModel(alias: string, modelString: string) 
   `, [alias, modelString]);
 
   console.log(`🛠️ Sentinel: Updated ${alias} -> ${modelString}`);
+}
+
+/**
+ * MODULE Σ: AXIOM REGISTRY (The Collective Memory - v60.0)
+ */
+export async function registerAxiom(hash: string, definition: any, originPeer: string) {
+  const db = await getDB();
+  if (!db) return;
+
+  await db.query(`
+    INSERT INTO global_axioms (hash, law_definition, origin_peer, consensus_score)
+    VALUES ($1, $2, $3, 1)
+    ON CONFLICT (hash) DO UPDATE SET consensus_score = global_axioms.consensus_score + 1
+  `, [hash, JSON.stringify(definition), originPeer]);
+  
+  console.log(`[AxiomRegistry] Registered/Voted for Law: ${hash.substring(0,8)}`);
+}
+
+export async function canonizeAxiom(hash: string) {
+  const db = await getDB();
+  if (!db) return;
+
+  await db.query(`UPDATE global_axioms SET canonized = TRUE WHERE hash = $1`, [hash]);
+  console.log(`[AxiomRegistry] 📜 Law Canonized: ${hash.substring(0,8)}`);
+}
+
+export async function getGlobalAxioms() {
+  const db = await getDB();
+  if (!db) return [];
+  const result = await db.query('SELECT * FROM global_axioms WHERE canonized = TRUE');
+  return result.rows;
 }
 
 /**
@@ -261,6 +321,38 @@ export async function queryKnowledge(queryVector: number[], limit = 3) {
     `, [vectorStr, limit]);
 
   return result.rows;
+}
+
+/**
+ * MODULE N-M: NEURAL MAP (The Registry of Truth - v31.0)
+ */
+export async function getNeuralSignature(signature: string) {
+  const db = await getDB();
+  if (!db) return null;
+
+  const result = await db.query('SELECT physics_dna FROM neural_map WHERE signature = $1', [signature.toLowerCase()]);
+  return (result.rows[0] as { physics_dna: any })?.physics_dna || null;
+}
+
+export async function storeNeuralSignature(signature: string, dna: any, verified = false) {
+  const db = await getDB();
+  if (!db) return;
+
+  await db.query(`
+    INSERT INTO neural_map (signature, physics_dna, verified)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (signature) DO UPDATE SET physics_dna = EXCLUDED.physics_dna, verified = EXCLUDED.verified
+  `, [signature.toLowerCase(), JSON.stringify(dna), verified]);
+
+  // v40.0: NEURALMAP REGISTRY SYNC (The Hive)
+  if (verified) {
+    try {
+      const { p2p } = await import('@/lib/multiplayer/P2PConnector');
+      p2p.broadcastEvent('NEURAL_SIGNATURE_SYNC', { signature, dna });
+    } catch (e) {
+      console.warn("[Hive] Failed to broadcast signature sync:", e);
+    }
+  }
 }
 
 /**

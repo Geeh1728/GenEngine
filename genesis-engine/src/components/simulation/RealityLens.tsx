@@ -66,6 +66,7 @@ export function RealityLens({ onTeleport, onClose }: RealityLensProps) {
                 friction: 0.5,
                 isStatic: false
             },
+            certainty: 0.8,
             name: box.label
         }));
 

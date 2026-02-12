@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embeddingModel, cleanText } from "@/lib/google";
+import { cleanText } from "@/lib/google";
 import { extractTextFromPDF } from "@/lib/ingestion/pdf-processor";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
+import { ingestionFlow } from "@/lib/genkit/ingestion";
 
 // Vercel / Next.js Config for Long-Running Processes
-export const maxDuration = 60; // Increase to 60 seconds (Pro/Hobby limit)
+export const maxDuration = 300; // Increase to 300 seconds (Deep Research)
 export const dynamic = 'force-dynamic';
 
 const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "";
@@ -15,12 +16,14 @@ export async function POST(req: NextRequest) {
         // 1. Receive the File
         const formData = await req.formData();
         const file = formData.get("file") as File;
+        const existingRulesJson = formData.get("existingRules") as string;
+        const existingRules = existingRulesJson ? JSON.parse(existingRulesJson) : undefined;
 
         if (!file) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        // 2. Parse PDF (Server-Side) for Local PGLite (Offline Support)
+        // 2. Parse PDF (Server-Side)
         const arrayBuffer = await file.arrayBuffer();
         const data = await extractTextFromPDF(arrayBuffer);
         const rawText = cleanText(data);
@@ -28,8 +31,6 @@ export async function POST(req: NextRequest) {
         // 3. Managed RAG: Upload to Gemini File API
         console.log(`[Ingest] Uploading ${file.name} to Gemini File API...`);
         
-        // Save temp file for upload (GoogleAIFileManager needs a path)
-        // SECURITY: Use random UUID instead of file.name to prevent path traversal
         const tempPath = `/tmp/${crypto.randomUUID()}.pdf`;
         const fs = require('fs');
         fs.writeFileSync(tempPath, Buffer.from(arrayBuffer));
@@ -39,18 +40,35 @@ export async function POST(req: NextRequest) {
             displayName: file.name,
         });
 
-        // Cleanup temp file
         fs.unlinkSync(tempPath);
 
-        // 4. Chunking for Local PGLite (Fallback)
+        // 4. THE SCOUT PASS (v32.5 - LPU Speed)
+        // Extract first 5 entities instantly for streaming manifestation
+        console.log(`[Ingest] LPU Scout is scanning ${file.name}...`);
+        const { scoutFlow } = require("@/lib/genkit/ingestion");
+        const scoutResult = await scoutFlow({ source: rawText });
+
+        // 5. RUN THE REALITY COMPILER (Text-to-ECS)
+        console.log(`[Ingest] Compiling reality from ${file.name}...`);
+        const compilation = await ingestionFlow({
+            source: rawText,
+            sourceType: 'pdf',
+            title: file.name,
+            existingRules
+        });
+
+        // 6. Chunking for Local Fallback
         const chunks = rawText.match(/.{1,1000}/g) || [];
 
-        // 5. Return data
+        // 7. Return data
         return NextResponse.json({
             success: true,
             chunks: chunks.slice(0, 20),
-            fileUri: uploadResult.file.uri, // This is the magic key for Agentic RAG
-            metadata: { title: file.name }
+            fileUri: uploadResult.file.uri,
+            scoutResult, // v32.5 Instant Manifestation data
+            rules: compilation.rules,
+            simulationConfig: compilation.simulationConfig,
+            metadata: { ...compilation.metadata, title: file.name }
         });
 
     } catch (error) {

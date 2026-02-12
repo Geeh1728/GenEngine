@@ -20,6 +20,8 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ }) => {
         explanation: 'A simple demonstration of gravity acting on a sphere.',
         constraints: [],
         successCondition: 'Objects settle on floor',
+        _renderingStage: 'SOLID',
+        _resonanceBalance: 0.5,
         entities: [
             {
                 id: 'ball-1',

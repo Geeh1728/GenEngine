@@ -80,6 +80,7 @@ export const SkillNodeSchema = z.object({
     type: z.enum(['CONCEPT', 'MATH', 'SIMULATION', 'PROJECT']),
     engineMode: z.enum(['LAB', 'RAP', 'VOX', 'ASM']).optional().describe('The simulation engine to use for this node.'),
     estimatedMinutes: z.number().default(15),
+    needs_oracle: z.boolean().optional().describe('Flag if this node requires deeper research via the Librarian (Oracle).'),
     crossReferences: z.array(z.object({
         targetId: z.string(),
         reason: z.string(),
@@ -92,6 +93,28 @@ export const SkillTreeSchema = z.object({
     goal: z.string(),
     nodes: z.array(SkillNodeSchema),
     recommendedPath: z.array(z.string()).describe('Ordered list of Node IDs to follow'),
+    knowledgeGraph: z.object({
+        nodes: z.array(z.object({
+            id: z.string(),
+            label: z.string(),
+            type: z.enum(['CONCEPT', 'ENTITY', 'FORCE']),
+            description: z.string().optional(),
+            certainty: z.number().min(0).max(1).default(1),
+            timestamp: z.number().optional()
+        })),
+        edges: z.array(z.object({
+            source: z.string(),
+            target: z.string(),
+            label: z.string().optional(),
+            strength: z.number().min(0).max(1).default(0.5)
+        })),
+        ghostEdges: z.array(z.object({
+            source: z.string(),
+            target: z.string(),
+            label: z.string().optional(),
+            userId: z.string().optional()
+        })).optional()
+    }).optional().describe('Module Spider: 3D Knowledge Graph structure for visual manifestation.')
 });
 
 // --- AGENTIC VISION & SENTINEL SCHEMAS ---

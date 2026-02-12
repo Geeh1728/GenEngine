@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * THE IRON SHIELD PROXY (v21.0 MCP Hardened)
