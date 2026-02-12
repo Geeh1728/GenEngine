@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
-import { dreamerAgent } from '@/lib/genkit/agents/dreamer';
+import { dreamDiscoveryAction } from '@/app/actions/dreamer';
 import { blackboard } from '@/lib/genkit/context';
 import { sfx } from '@/lib/sound/SoundManager';
 import { p2p } from '@/lib/multiplayer/P2PConnector';
@@ -32,13 +32,14 @@ export function useDreamingScientist() {
                 // v40.0: Randomly alternate between EXPLORE and EVOLVE
                 const mode = Math.random() > 0.5 ? 'EVOLVE' : 'EXPLORE';
                 
-                const discovery = await dreamerAgent({
-                    currentRules: rules,
-                    currentWorldState: state.worldState || undefined,
+                const result = await dreamDiscoveryAction(
+                    rules,
+                    state.worldState || undefined,
                     mode
-                });
+                );
 
-                if (discovery) {
+                if (result.success && result.discovery) {
+                    const { discovery } = result;
                     if (mode === 'EVOLVE' && discovery.dreamGhosts) {
                         // v50.0 HEGEMONY: Broadcast to mesh
                         p2p.broadcastAstraDreams(discovery.dreamGhosts);

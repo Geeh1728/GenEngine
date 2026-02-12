@@ -1,7 +1,11 @@
-import { WorldRuleSchema } from '@/lib/genkit/schemas';
-import { z } from 'zod';
-
-type WorldRule = z.infer<typeof WorldRuleSchema>;
+// Local type definition to avoid server-side schema imports
+interface WorldRule {
+    id: string;
+    rule: string;
+    description: string;
+    grounding_source?: string;
+    isActive: boolean;
+}
 
 /**
  * MODULE G: ONTOLOGY GRAFTING (v30.0)

@@ -24,6 +24,10 @@ export async function predictNextStatesAction(
     currentEntities: Entity[],
     focusEntityId?: string
 ) {
+    // 1. Validation & Sanitization (Iron Shield)
+    const sanitizedAction = userAction.slice(0, 200).replace(/["\\]/g, ''); 
+    const validatedFocusId = focusEntityId?.match(/^[a-zA-Z0-9_-]{1,64}$/) ? focusEntityId : 'None';
+
     // Filter for relevant context to keep prompt small and fast
     const contextEntities = focusEntityId 
         ? currentEntities.filter(e => e.id === focusEntityId || e.physics.isStatic === false).slice(0, 10)
@@ -32,22 +36,20 @@ export async function predictNextStatesAction(
     try {
         const result = await ai.generate({
             model: MODELS.GROQ_LLAMA_4_SCOUT, // <100ms Inference
-            prompt: `
+            system: `
                 ACT AS: Causal Oracle (Module C-F).
                 TASK: Run a 120-step high-fidelity physics look-ahead based on the user's current trajectory.
-                
-                USER ACTION: "${userAction}"
-                FOCUS ENTITY: ${focusEntityId || 'None'}
-                CURRENT STATE: ${JSON.stringify(contextEntities.map(e => ({ id: e.id, pos: e.position, vel: e.physics.velocity })))}
-                
                 MISSION:
                 1. Predict up to 10 'Branching Futures' (~2 seconds ahead).
                 2. Identify if the current action leads to a 'COLLAPSE', 'STABILITY', or 'ANOMALY'.
                 3. For each branch, provide updated 'entities' positions and rotations.
                 4. For each branch, include a 'probability' score (0.0 to 1.0).
-                
-                OUTPUT:
-                Return JSON only matching PredictionSchema.
+                OUTPUT: Return JSON only matching PredictionSchema.
+            `,
+            prompt: `
+                USER ACTION: "${sanitizedAction}"
+                FOCUS ENTITY: ${validatedFocusId}
+                CURRENT STATE: ${JSON.stringify(contextEntities.map(e => ({ id: e.id, pos: e.position, vel: e.physics.velocity })))}
             `,
             output: { schema: PredictionSchema }
         });
@@ -56,6 +58,7 @@ export async function predictNextStatesAction(
 
     } catch (error) {
         console.warn("[ReflexAction] Speculation failed:", error);
-        return { success: false, error: String(error) };
+        // Do not return raw error strings to client to prevent info leakage
+        return { success: false, error: "Speculative simulation failed. Please try again." };
     }
 }

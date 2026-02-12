@@ -80,11 +80,15 @@ export const ai = genkit({
  */
 const groqModels = [
     { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'meta-llama/llama-4-scout-17b-16e-instruct' },
+    { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
     { id: 'openai/gpt-oss-120b', name: 'openai/gpt-oss-120b' },
+    { id: 'openai/gpt-oss-20b', name: 'openai/gpt-oss-20b' },
+    { id: 'groq/compound', name: 'groq/compound' },
+    { id: 'groq/compound-mini', name: 'groq/compound-mini' },
     { id: 'moonshotai/kimi-k2-instruct', name: 'moonshotai/kimi-k2-instruct' },
     { id: 'llama-3.1-8b-instant', name: 'llama-3.1-8b-instant' },
     { id: 'llama-3.3-70b-versatile', name: 'llama-3.3-70b-versatile' },
-    { id: 'qwen-3-72b', name: 'qwen-3-72b' }
+    { id: 'qwen/qwen3-32b', name: 'qwen/qwen3-32b' }
 ];
 
 groqModels.forEach(model => {
@@ -115,7 +119,10 @@ groqModels.forEach(model => {
             const data = await response.json();
             const latency = Date.now() - startTime;
 
-            if (!response.ok) throw new Error(`Groq Error: ${JSON.stringify(data)}`);
+            if (!response.ok) {
+                console.error("[Groq Error Details]:", JSON.stringify(data));
+                throw new Error(`Groq Inference failed (${response.status})`);
+            }
 
             // TELEMETRY: Record LPU usage and rate limits
             quotaOracle.recordTelemetry(`groq/${model.id}`, response.headers);
@@ -139,7 +146,7 @@ groqModels.forEach(model => {
  * Objective: Direct integration with OpenRouter to ensure 100% model availability.
  */
 const openRouterModels = [
-    { id: 'deepseek/deepseek-r1-0528:free', name: 'deepseek-r1' },
+    { id: 'deepseek/deepseek-r1', name: 'deepseek-r1' },
     { id: 'liquid/lfm-2.5-1.2b-thinking:free', name: 'liquid-lfm' },
     { id: 'nvidia/nemotron-3-nano-30b-a3b:free', name: 'nemotron' },
     { id: 'openrouter/free', name: 'free-router' },
@@ -171,7 +178,10 @@ openRouterModels.forEach(model => {
             });
 
             const data = await response.json();
-            if (!response.ok) throw new Error(`OpenRouter Error: ${JSON.stringify(data)}`);
+            if (!response.ok) {
+                console.error("[OpenRouter Error Details]:", JSON.stringify(data));
+                throw new Error(`OpenRouter Inference failed (${response.status})`);
+            }
 
             return {
                 message: {
