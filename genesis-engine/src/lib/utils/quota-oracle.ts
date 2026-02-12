@@ -60,16 +60,25 @@ class QuotaOracle {
         const usage = await getApiUsage(modelId);
         
         // DYNAMIC THRESHOLDS (v23.0 - v32.0 Groq Shift)
-        let SAFE_THRESHOLD = 1400; // Default Flash
-        if (modelId.includes('pro')) SAFE_THRESHOLD = 45;
-        if (modelId.includes('gemma-3')) SAFE_THRESHOLD = 14000; // Nuclear 14.4K RPD
-        if (modelId.includes('robotics-er')) SAFE_THRESHOLD = 18;
-        if (modelId.includes('tts')) SAFE_THRESHOLD = 8;
+        let SAFE_THRESHOLD = 1400; // Default fallback
+        
+        // GOOGLE AI STUDIO LIMITS (2026 Free Tier)
+        if (modelId.includes('gemini-3-pro') || modelId.includes('gemini-2-pro')) SAFE_THRESHOLD = 1500;
+        if (modelId.includes('gemini-2-flash')) SAFE_THRESHOLD = 1500;
+        if (modelId.includes('gemini-2.5-flash')) SAFE_THRESHOLD = 20;
+        if (modelId.includes('gemini-3-flash')) SAFE_THRESHOLD = 20;
+        if (modelId.includes('gemma-3')) SAFE_THRESHOLD = 14400;
+        if (modelId.includes('robotics-er')) SAFE_THRESHOLD = 20;
+        if (modelId.includes('imagen-4')) SAFE_THRESHOLD = 25;
+        if (modelId.includes('native-audio')) SAFE_THRESHOLD = 1000000; // Unlimited
+        if (modelId.includes('tts')) SAFE_THRESHOLD = 1500;
 
         // GROQ LPU LIMITS (v32.0)
         if (modelId.includes('groq')) {
-            SAFE_THRESHOLD = 1000; // Default Groq Reasoning
-            if (modelId.includes('instant')) SAFE_THRESHOLD = 14400; // Sentinel 14.4K RPD
+            SAFE_THRESHOLD = 1000; // Default Groq
+            if (modelId.includes('instant') || modelId.includes('llama-guard')) SAFE_THRESHOLD = 14400;
+            if (modelId.includes('llama-4')) SAFE_THRESHOLD = 1000;
+            if (modelId.includes('gpt-oss')) SAFE_THRESHOLD = 1000;
         }
 
         if (usage >= SAFE_THRESHOLD) {

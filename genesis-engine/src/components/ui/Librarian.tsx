@@ -4,11 +4,16 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Book, Sparkles, Zap, Cpu, FileText, ChevronRight, Download, Headphones } from 'lucide-react';
 import { sfx } from '@/lib/sound/SoundManager';
-import { WorldRuleSchema } from '@/lib/genkit/schemas';
 import { sovereignTTS } from '@/lib/audio/sovereign-tts';
-import { z } from 'zod';
 
-type WorldRule = z.infer<typeof WorldRuleSchema>;
+// Local type definition to avoid server-side schema imports
+interface WorldRule {
+    id: string;
+    rule: string;
+    description: string;
+    grounding_source?: string;
+    isActive: boolean;
+}
 
 interface LibrarianProps {
     rules: WorldRule[];

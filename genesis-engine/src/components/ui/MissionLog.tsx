@@ -6,7 +6,6 @@ import { Terminal, Search, AlertCircle, CheckCircle2, Brain, X, ChevronRight, Ac
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { blackboard, BlackboardContext } from '@/lib/genkit/context';
 import { summarizeLogsLocally, checkNanoCapabilities } from '@/lib/ai/local-nano';
-import { hiveBus } from '@/lib/genkit/event-bus';
 import { p2p } from '@/lib/multiplayer/P2PConnector';
 
 /**
@@ -58,20 +57,8 @@ export const MissionLog: React.FC = () => {
 
     // v33.0 REALITY SOLIDIFICATION side-effect
     useEffect(() => {
+        // v33.0 REALITY SOLIDIFICATION side-effect
         if (consensusScore >= 95) {
-            // Trigger reality solidification after a brief delay for visual effect
-            const timer = setTimeout(() => {
-                dispatch({ type: 'UPDATE_RENDERING_STAGE', payload: 'SOLID' });
-            }, 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [consensusScore, dispatch]);
-
-    useEffect(() => {
-        const updateWorkers = () => setWorkerCount(hiveBus.getWorkerCount());
-        hiveBus.on('SCALE_UP', updateWorkers);
-        return () => { hiveBus.off('SCALE_UP', updateWorkers); };
-    }, []);
 
     const handleSummarize = async () => {
         if (missionLogs.length === 0) return;

@@ -2,7 +2,10 @@
 
 import { generateLocalEmbedding } from './localEmbeddings';
 import { getApiUsage, incrementApiUsage } from '@/lib/db/pglite';
-import { MODELS } from '@/lib/genkit/models';
+
+// Local constants to avoid genkit/models import which pulls server code
+const EMBEDDING_MODEL = 'googleai/text-embedding-004';
+const MISTRAL_EMBED = 'openrouter/mistralai/mistral-embed';
 
 /**
  * THE PROTECTED HYBRID EMBEDDING SWITCH (v7.5)
@@ -23,7 +26,7 @@ export async function getEmbedding(text: string, onProgress?: (progress: number)
 
     // 2. PROTECTED LOGIC: Tiered Arbitrage
     const charCount = text.length;
-    const usage = await getApiUsage(MODELS.EMBEDDING_MODEL);
+    const usage = await getApiUsage(EMBEDDING_MODEL);
     
     // Check for Math Specialist trigger
     const hasMathSymbols = /[+\-=/*^√πθΩΣΔλ]/.test(text);
@@ -37,16 +40,16 @@ export async function getEmbedding(text: string, onProgress?: (progress: number)
     try {
         // Strategy: If math is detected, go straight to Mistral (Tier 2)
         // If quota is near, switch to Mistral (Tier 2)
-        let preferredModel = MODELS.EMBEDDING_MODEL;
+        let preferredModel = EMBEDDING_MODEL;
         let isMathReroute = false;
 
         if (hasMathSymbols) {
             console.log("[Embeddings] Math symbols detected. Specialist Reroute: Mistral-Embed.");
-            preferredModel = MODELS.MISTRAL_EMBED;
+            preferredModel = MISTRAL_EMBED;
             isMathReroute = true;
         } else if (usage > 850) {
             console.warn("[Embeddings] Google Quota Near Limit. Switching to Mistral Specialist...");
-            preferredModel = MODELS.MISTRAL_EMBED;
+            preferredModel = MISTRAL_EMBED;
         }
 
         console.log(`[Embeddings] Calling Cloud Embedding (${preferredModel})...`);
@@ -64,8 +67,8 @@ export async function getEmbedding(text: string, onProgress?: (progress: number)
         const data = await response.json();
         
         // Log cloud usage only for Google
-        if (preferredModel === MODELS.EMBEDDING_MODEL) {
-            await incrementApiUsage(MODELS.EMBEDDING_MODEL);
+        if (preferredModel === EMBEDDING_MODEL) {
+            await incrementApiUsage(EMBEDDING_MODEL);
         }
         
         return data.embedding;

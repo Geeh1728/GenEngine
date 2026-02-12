@@ -19,46 +19,63 @@ const PredictionSchema = z.object({
     })).max(10)
 });
 
+import { analyzeIntent } from '@/lib/security/sentinel';
+
 export async function predictNextStatesAction(
     userAction: string,
     currentEntities: Entity[],
     focusEntityId?: string
 ) {
-    // 1. Validation & Sanitization (Iron Shield)
-    const sanitizedAction = userAction.slice(0, 200).replace(/["\\]/g, ''); 
+    // 1. Validation & THE SENTINEL (Iron Shield)
+    const sanitizedAction = userAction.slice(0, 200);
+    const intent = await analyzeIntent(sanitizedAction);
+    
+    if (!intent.isSafe) {
+        console.warn("[ReflexAction] Sentinel intercepted malicious intent. Throttling...");
+        return { success: false, error: "Reality violation detected by Sentinel." };
+    }
+
     const validatedFocusId = focusEntityId?.match(/^[a-zA-Z0-9_-]{1,64}$/) ? focusEntityId : 'None';
 
-    // Filter for relevant context to keep prompt small and fast
+    // 2. Filter context
     const contextEntities = focusEntityId 
         ? currentEntities.filter(e => e.id === focusEntityId || e.physics.isStatic === false).slice(0, 10)
         : currentEntities.filter(e => !e.physics.isStatic).slice(0, 10);
 
+    const contextJson = JSON.stringify(contextEntities.map(e => ({ id: e.id, pos: e.position, vel: e.physics.velocity })));
+
     try {
-        const result = await ai.generate({
-            model: MODELS.GROQ_LLAMA_4_SCOUT, // <100ms Inference
-            system: `
-                ACT AS: Causal Oracle (Module C-F).
-                TASK: Run a 120-step high-fidelity physics look-ahead based on the user's current trajectory.
-                MISSION:
-                1. Predict up to 10 'Branching Futures' (~2 seconds ahead).
-                2. Identify if the current action leads to a 'COLLAPSE', 'STABILITY', or 'ANOMALY'.
-                3. For each branch, provide updated 'entities' positions and rotations.
-                4. For each branch, include a 'probability' score (0.0 to 1.0).
-                OUTPUT: Return JSON only matching PredictionSchema.
-            `,
-            prompt: `
-                USER ACTION: "${sanitizedAction}"
-                FOCUS ENTITY: ${validatedFocusId}
-                CURRENT STATE: ${JSON.stringify(contextEntities.map(e => ({ id: e.id, pos: e.position, vel: e.physics.velocity })))}
-            `,
+        // 3. SWARM ATTESTATION (Speculative Consensus)
+        // We run a fast Scout and a secondary validator if entropy is high
+        const scoutResult = await ai.generate({
+            model: MODELS.GROQ_LLAMA_4_SCOUT,
+            system: "ACT AS: Causal Oracle. Predict futures. Return JSON matching PredictionSchema.",
+            prompt: `ACTION: "${sanitizedAction}" | FOCUS: ${validatedFocusId} | STATE: ${contextJson}`,
             output: { schema: PredictionSchema }
         });
 
-        return { success: true, predictions: result.output?.predictions || [] };
+        const predictions = scoutResult.output?.predictions || [];
+        
+        // 4. NEURAL ENTROPY MONITORING
+        // If the top prediction has low probability, escalate to a High-Reasoning model
+        const topConfidence = Math.max(...predictions.map(p => p.probability), 0);
+        
+        if (topConfidence < 0.6 && predictions.length > 0) {
+            console.log(`[ReflexAction] High Entropy (${topConfidence.toFixed(2)}). Escalating to ELITE COUNCIL...`);
+            const eliteResult = await ai.generate({
+                model: MODELS.BRAIN_PRO, // DeepSeek R1 / Reasoning model
+                system: "ACT AS: High-Fidelity Physics Arbitrator. Resolve causal ambiguity. Return JSON matching PredictionSchema.",
+                prompt: `AMBIGUITY DETECTED. SCOUT PREDICTIONS: ${JSON.stringify(predictions)} | ACTION: "${sanitizedAction}" | STATE: ${contextJson}`,
+                output: { schema: PredictionSchema }
+            });
+            
+            return { success: true, predictions: eliteResult.output?.predictions || [] };
+        }
+
+        return { success: true, predictions: predictions };
 
     } catch (error) {
         console.warn("[ReflexAction] Speculation failed:", error);
-        // Do not return raw error strings to client to prevent info leakage
-        return { success: false, error: "Speculative simulation failed. Please try again." };
+        return { success: false, error: "Speculative simulation failed." };
     }
 }

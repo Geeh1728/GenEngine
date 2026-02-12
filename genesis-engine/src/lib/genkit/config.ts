@@ -225,7 +225,7 @@ export const BRAIN_REFLEX = gemma3_4b;
 // THE UNLIMITED CHANNEL (Native Audio) - 1M RPD / Unlimited
 export const geminiAudio = {
     name: MODELS.BRAIN_AUDIO,
-    label: 'Gemini 2.5 Flash (Audio)'
+    label: 'Gemini 2.5 Flash Native Audio'
 };
 
 // --- TIER 3: OPENROUTER FREE SPECIALISTS ---

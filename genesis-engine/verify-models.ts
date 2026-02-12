@@ -30,14 +30,13 @@ async function runTests() {
     console.log("🚀 STARTING COMPREHENSIVE MODEL VERIFICATION...\n");
 
     const modelsToTest = [
-        { id: MODELS.BRAIN_ELITE, label: 'Elite Brain (2.0 Pro)' },
-        { id: MODELS.BRAIN_FLASH_3, label: 'Flash 3 (Restored)' },
-        { id: MODELS.BRAIN_FLASH_25, label: 'Flash 2.5 (Restored)' },
-        { id: MODELS.BRAIN_AUDIO, label: 'Unlimited Audio (Restored)' },
-        { id: MODELS.ROBOTICS_ER, label: 'Robotics ER (Specialized)' },
-        { id: MODELS.GROQ_GPT_OSS, label: 'Groq GPT-OSS (Heavy Reasoning)' },
-        { id: MODELS.GROQ_LLAMA_4_SCOUT, label: 'Groq Llama 4 Scout (Low Latency)' },
-        { id: MODELS.LOGIC_DEEPSEEK, label: 'OpenRouter DeepSeek-R1' }
+        { id: MODELS.BRAIN_ELITE, label: 'Gemini 3 Pro (Elite)' },
+        { id: MODELS.BRAIN_FLASH_20, label: 'Gemini 2 Flash (1.5K RPD Speed King)' },
+        { id: MODELS.BRAIN_AUDIO, label: 'Native Audio (Unlimited)' },
+        { id: MODELS.GROQ_LLAMA_31_8B, label: 'Groq Llama 3.1 8B (14.4K RPD Instant)' },
+        { id: MODELS.GROQ_GPT_OSS, label: 'Groq GPT-OSS 120B (Heavy Reasoning)' },
+        { id: MODELS.GEMMA_3_27B, label: 'Gemma 3 27B (14.4K RPD Nuclear)' },
+        { id: MODELS.BRAIN_REASONING, label: 'DeepSeek R1 (Logic Master)' }
     ];
 
     for (const m of modelsToTest) {
