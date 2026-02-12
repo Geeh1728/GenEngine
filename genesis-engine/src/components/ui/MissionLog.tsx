@@ -57,8 +57,14 @@ export const MissionLog: React.FC = () => {
 
     // v33.0 REALITY SOLIDIFICATION side-effect
     useEffect(() => {
-        // v33.0 REALITY SOLIDIFICATION side-effect
         if (consensusScore >= 95) {
+            // Trigger reality solidification after a brief delay for visual effect
+            const timer = setTimeout(() => {
+                dispatch({ type: 'UPDATE_RENDERING_STAGE', payload: 'SOLID' });
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [consensusScore, dispatch]);
 
     const handleSummarize = async () => {
         if (missionLogs.length === 0) return;

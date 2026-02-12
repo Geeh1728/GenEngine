@@ -5,45 +5,45 @@
 
 export const MODELS = {
     // ELITE THINKERS (PhD-Level Reasoning)
-    BRAIN_ELITE: 'googleai/gemini-3-pro',             // 1.5K RPD
-    BRAIN_PRO: 'googleai/gemini-2-pro-exp-02-05',    // 1.5K RPD
-    BRAIN_DYNAMIC: 'googleai/gemini-exp-1206',       // Creative Logic
+    BRAIN_ELITE: 'gemini-3-pro',             // 1.5K RPD
+    BRAIN_PRO: 'gemini-2.0-pro-exp-02-05',    // 1.5K RPD
+    BRAIN_DYNAMIC: 'gemini-exp-1206',       // Creative Logic
     BRAIN_REASONING: 'openrouter/deepseek-r1',       // Mathematical Truth
     
     // PERFORMANCE HEADS (The Workhorses)
-    BRAIN_FLASH_3: 'googleai/gemini-3-flash',        // 20 RPD
-    BRAIN_FLASH_25: 'googleai/gemini-2.5-flash',     // 20 RPD
-    BRAIN_FLASH_20: 'googleai/gemini-2-flash',       // 1.5K RPD
-    BRAIN_FLASH_20_EXP: 'googleai/gemini-2-flash-exp', // 1.5K RPD
+    BRAIN_FLASH_3: 'gemini-3-flash',        // 20 RPD
+    BRAIN_FLASH_25: 'gemini-2.5-flash',     // 20 RPD
+    BRAIN_FLASH_20: 'gemini-2.0-flash',       // 1.5K RPD
+    BRAIN_FLASH_20_EXP: 'gemini-2.0-flash-exp', // 1.5K RPD
     
     // SCALE & BULK (High-Throughput / High-RPD)
-    BRAIN_LITE: 'googleai/gemini-2-flash-lite',      // 1.5K RPD
-    BRAIN_LITE_25: 'googleai/gemini-2.5-flash-lite', // 20 RPD
+    BRAIN_LITE: 'gemini-2.0-flash-lite',      // 1.5K RPD
+    BRAIN_LITE_25: 'gemini-2.5-flash-lite', // 20 RPD
     
     // ROBOTICS & SPATIAL (Robotics-ER)
-    ROBOTICS_ER: 'googleai/gemini-robotics-er-1.5-preview', // 20 RPD
-    COMPUTER_USE: 'googleai/computer-use-preview',   // 1.5K RPD
-    DEEP_RESEARCH: 'googleai/deep-research-pro-preview', // 1.5K RPD
+    ROBOTICS_ER: 'gemini-robotics-er-1.5-preview', // 20 RPD
+    COMPUTER_USE: 'computer-use-preview',   // 1.5K RPD
+    DEEP_RESEARCH: 'deep-research-pro-preview', // 1.5K RPD
     
     // GEMMA 3 SERIES (Nuclear Power: 14.4K RPD)
-    GEMMA_3_27B: 'googleai/gemma-3-27b-it',
-    GEMMA_3_12B: 'googleai/gemma-3-12b-it',
-    GEMMA_3_4B: 'googleai/gemma-3-4b-it',
-    GEMMA_3_2B: 'googleai/gemma-3n-e2b-it', 
-    GEMMA_3_1B: 'googleai/gemma-3-1b-it',
+    GEMMA_3_27B: 'gemma-3-27b-it',
+    GEMMA_3_12B: 'gemma-3-12b-it',
+    GEMMA_3_4B: 'gemma-3-4b-it',
+    GEMMA_3_2B: 'gemma-3n-e2b-it', 
+    GEMMA_3_1B: 'gemma-3-1b-it',
     
     // MULTIMODAL & VISION SPECIALISTS
-    VISION_GEMINI: 'googleai/gemini-3-flash',      
-    IMAGE_GEN: 'googleai/imagen-4-generate',         // 25 RPD
-    IMAGE_ULTRA: 'googleai/imagen-4-ultra-generate', // 25 RPD
-    IMAGE_FAST: 'googleai/imagen-4-fast-generate',   // 25 RPD
-    NANO_BANANA: 'googleai/gemini-2.5-flash-preview-image', // 1.5K RPD
-    NANO_BANANA_PRO: 'googleai/gemini-3-pro-image',  // 1.5K RPD
+    VISION_GEMINI: 'gemini-3-flash',      
+    IMAGE_GEN: 'imagen-4-generate',         // 25 RPD
+    IMAGE_ULTRA: 'imagen-4-ultra-generate', // 25 RPD
+    IMAGE_FAST: 'imagen-4-fast-generate',   // 25 RPD
+    NANO_BANANA: 'gemini-2.5-flash-preview-image', // 1.5K RPD
+    NANO_BANANA_PRO: 'gemini-3-pro-image',  // 1.5K RPD
     
     // AUDIO & REAL-TIME (Anchor for Live API - UNLIMITED)
-    BRAIN_AUDIO: 'googleai/gemini-2.5-flash-native-audio-latest', // UNLIMITED
-    BRAIN_AUDIO_TTS: 'googleai/gemini-2.5-flash-tts', // 10 RPD
-    BRAIN_AUDIO_PRO_TTS: 'googleai/gemini-2.5-pro-tts', // 1.5K RPD
+    BRAIN_AUDIO: 'gemini-2.5-flash-native-audio-latest', // UNLIMITED
+    BRAIN_AUDIO_TTS: 'gemini-2.5-flash-tts', // 10 RPD
+    BRAIN_AUDIO_PRO_TTS: 'gemini-2.5-pro-tts', // 1.5K RPD
     
     // LOGIC SPECIALISTS (OpenRouter Free Swarm)
     LOGIC_DEEPSEEK: 'openrouter/deepseek-r1',
@@ -67,8 +67,8 @@ export const MODELS = {
     GROQ_COMPOUND_MINI: 'groq/groq/compound-mini',
     
     // EMBEDDINGS (Validated via separate path)
-    EMBEDDING_MODEL: 'googleai/text-embedding-004',
-    EMBEDDING_1: 'googleai/gemini-embedding-001',
+    EMBEDDING_MODEL: 'text-embedding-004',
+    EMBEDDING_1: 'gemini-embedding-001',
     MISTRAL_EMBED: 'mistralai/mistral-embed:free',
 };
 
