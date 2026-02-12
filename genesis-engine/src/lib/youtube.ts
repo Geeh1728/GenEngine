@@ -1,6 +1,6 @@
-import { ai, geminiFlash } from './genkit/config';
+import { planVideoLessonAction } from '@/app/actions/video';
 
-// Robust YouTube Metadata Fetcher (Server-Side)
+// Robust YouTube Metadata Fetcher (Server-Side or Client-Side safe)
 export async function fetchYouTubeMetadata(url: string) {
     try {
         // 1. Try oEmbed (No API Key needed, standard protocol)
@@ -19,36 +19,12 @@ export async function fetchYouTubeMetadata(url: string) {
     }
 }
 
-// THE R0 IMPROVEMENT: Keyframe Sampling
-// Instead of sending the full video URI (Expensive/Slow):
-
 /**
  * Plans the lesson by identifying critical timestamps for physics concepts.
- * This prevents processing the entire video by first asking Flash to "Plan" the segments.
  */
 export async function planVideoLesson(videoTitle: string, videoDescription: string) {
-    const PRE_PLAN_PROMPT = `
-    I have a video about "${videoTitle}". 
-    Description: ${videoDescription}
-
-    Identify the 3 most critical timestamps (start/end) that visually demonstrate the physics concepts.
-    Return JSON: { segments: [{ start: "02:10", end: "02:45", concept: "Torque" }] }
-  `;
-
-    try {
-        const { output } = await ai.generate({
-            model: geminiFlash.name,
-            prompt: PRE_PLAN_PROMPT,
-            output: {
-                format: 'json',
-            }
-        });
-
-        return output;
-    } catch (error) {
-        console.error('Video Pre-Plan Error:', error);
-        return { segments: [] };
-    }
+    const result = await planVideoLessonAction(videoTitle, videoDescription);
+    return result.success ? { segments: result.segments } : { segments: [] };
 }
 
 /**

@@ -79,7 +79,7 @@ export const ai = genkit({
  * Objective: Direct LPU integration for <200ms latency.
  */
 const groqModels = [
-    { id: 'meta-llama/llama-4-scout-17b-instruct', name: 'meta-llama/llama-4-scout-17b-instruct' },
+    { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'meta-llama/llama-4-scout-17b-16e-instruct' },
     { id: 'openai/gpt-oss-120b', name: 'openai/gpt-oss-120b' },
     { id: 'moonshotai/kimi-k2-instruct', name: 'moonshotai/kimi-k2-instruct' },
     { id: 'llama-3.1-8b-instant', name: 'llama-3.1-8b-instant' },
@@ -188,13 +188,18 @@ openRouterModels.forEach(model => {
 // --- TIER 1: THE ELITE COUNCIL (20 RPD) ---
 export const gemini3Flash = {
     name: MODELS.BRAIN_FLASH_3,
-    label: 'Gemini 2.0 Flash',
+    label: 'Gemini 3 Flash',
 };
 
 // --- TIER 2: THE NUCLEAR WORKHORSE (14,400 RPD!) ---
 export const geminiFlash = {
     name: MODELS.BRAIN_FLASH_25,
-    label: 'Groq Llama 3.3 70B'
+    label: 'Gemini 2.5 Flash'
+};
+
+export const gemini20Flash = {
+    name: MODELS.BRAIN_FLASH_20_STD,
+    label: 'Gemini 2.0 Flash'
 };
 
 export const gemma3_4b = {
@@ -210,7 +215,7 @@ export const BRAIN_REFLEX = gemma3_4b;
 // THE UNLIMITED CHANNEL (Native Audio) - 1M RPD / Unlimited
 export const geminiAudio = {
     name: MODELS.BRAIN_AUDIO,
-    label: 'Gemini 2.0 Audio'
+    label: 'Gemini 2.5 Flash (Audio)'
 };
 
 // --- TIER 3: OPENROUTER FREE SPECIALISTS ---
@@ -229,9 +234,6 @@ export const OPENROUTER_FREE_MODELS = {
 };
 
 // Legacy Compatibility
-export const gemini20Flash = geminiFlash;
-export const gemini15Flash = geminiFlash;
-export const gemini15Pro = gemini3Flash;
 
 // Constants
 export const ROBOTICS_MODEL_NAME = LEGACY_MODELS.BRAIN_ROBOTICS;

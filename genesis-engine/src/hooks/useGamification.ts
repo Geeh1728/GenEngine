@@ -1,13 +1,23 @@
 import { useState, useCallback } from 'react';
-import { SkillTreeSchema, SkillNodeSchema } from '@/lib/genkit/schemas';
 import { storeKnowledge } from '@/lib/db/pglite';
-import { z } from 'genkit';
 import { Question } from '@/components/mastery/MasteryChallenge';
-import { Quest, MASTER_QUESTS } from '@/lib/gamification/questEngine';
+import { Quest } from '@/lib/gamification/questEngine';
 import { blackboard } from '@/lib/genkit/context';
 
-type SkillTree = z.infer<typeof SkillTreeSchema>;
-type SkillNode = z.infer<typeof SkillNodeSchema>; // No longer unused
+interface SkillNode {
+    id: string;
+    label: string;
+    description: string;
+    difficulty: number;
+    completed?: boolean;
+}
+
+interface SkillTree {
+    nodes: SkillNode[];
+    goal: string;
+    recommendedPath: string[];
+    knowledgeGraph?: any;
+}
 
 interface MasteryState {
     questions: Question[];

@@ -5,11 +5,9 @@ import { useGenesisUI } from './useGenesisUI';
 import { getEmbedding } from '@/lib/ai/embeddings';
 import { processMultimodalIntent } from '@/app/actions';
 import { storeKnowledge } from '@/lib/db/pglite';
-import { WorldRuleSchema, SkillNodeSchema, ComplexityLevel, SkillTree, WorldStateSchema as ValidationSchema } from '@/lib/genkit/schemas';
-import { z } from 'genkit';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { blackboard } from '@/lib/genkit/context';
-import { WorldState, WorldStateSchema } from '@/lib/simulation/schema';
+import { WorldState } from '@/lib/simulation/schema';
 import { usePersistence } from './utils/usePersistence';
 import { p2p } from '@/lib/multiplayer/P2PConnector';
 import { sfx } from '@/lib/sound/SoundManager';
@@ -33,9 +31,30 @@ import { graftOntologies } from '@/lib/simulation/ontology-graft';
 import { useAstraGlobalContext } from './useAstraGlobalContext';
 
 
-// (Kept for compatibility if exported, though now inferred from sub-hooks)
-type WorldRule = z.infer<typeof WorldRuleSchema>;
-type SkillNode = z.infer<typeof SkillNodeSchema>;
+// (Local types to avoid server-side schema imports)
+interface WorldRule {
+    id: string;
+    rule: string;
+    description: string;
+    grounding_source?: string;
+    isActive: boolean;
+}
+
+interface SkillNode {
+    id: string;
+    label: string;
+    description: string;
+    difficulty: number;
+    completed?: boolean;
+}
+
+interface SkillTree {
+    nodes: SkillNode[];
+    goal: string;
+    knowledgeGraph?: any;
+}
+
+type ComplexityLevel = 'standard' | 'advanced' | 'quantum';
 
 interface CommentaryState {
     text: string;

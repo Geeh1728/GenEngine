@@ -1,10 +1,16 @@
 import { useState, useCallback, useEffect } from 'react';
-import { WorldRuleSchema, ComplexityLevelSchema } from '@/lib/genkit/schemas';
-import { z } from 'genkit';
 import { WorldState } from '@/lib/simulation/schema';
 
-type WorldRule = z.infer<typeof WorldRuleSchema>;
-type ComplexityLevel = z.infer<typeof ComplexityLevelSchema>;
+// Local types to avoid server-side schema imports
+interface WorldRule {
+    id: string;
+    rule: string;
+    description: string;
+    grounding_source?: string;
+    isActive: boolean;
+}
+
+type ComplexityLevel = 'standard' | 'advanced' | 'quantum';
 
 interface GodModeState {
     complexity: ComplexityLevel;

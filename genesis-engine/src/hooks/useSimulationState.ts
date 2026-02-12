@@ -6,10 +6,17 @@ import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { GameAction } from '@/lib/multiplayer/GameState';
 import { usePersistence } from './utils/usePersistence';
 import { blackboard } from '@/lib/genkit/context';
-import { ComplexityLevel, WorldRuleSchema } from '@/lib/genkit/schemas';
-import { z } from 'genkit';
 
-type WorldRule = z.infer<typeof WorldRuleSchema>;
+// Local types to avoid server-side schema imports
+interface WorldRule {
+    id: string;
+    rule: string;
+    description: string;
+    grounding_source?: string;
+    isActive: boolean;
+}
+
+type ComplexityLevel = 'standard' | 'advanced' | 'quantum';
 
 /**
  * useSimulationState: Centralized Physics/Logic Interface.

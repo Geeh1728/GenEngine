@@ -1,3 +1,9 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env.local explicitly before importing ai config
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
 import { ai, MODELS } from './src/lib/genkit/config';
 
 async function testModel(modelName: string, label: string) {
@@ -5,10 +11,10 @@ async function testModel(modelName: string, label: string) {
     try {
         const result = await ai.generate({
             model: modelName,
-            prompt: "Return the word 'STABLE' if you can read this.",
+            prompt: "Return ONLY the word 'STABLE'.",
             config: { maxOutputTokens: 10 }
         });
-        console.log(`- Result: ${result.text}`);
+        console.log(`- Result: ${result.text.trim()}`);
         if (result.text.includes('STABLE')) {
             console.log(`✅ ${label} is FUNCTIONAL`);
         } else {
@@ -21,23 +27,24 @@ async function testModel(modelName: string, label: string) {
 }
 
 async function runTests() {
-    console.log("🚀 STARTING MODEL FUNCTIONALITY VERIFICATION...\n");
+    console.log("🚀 STARTING COMPREHENSIVE MODEL VERIFICATION...\n");
 
     const modelsToTest = [
         { id: MODELS.BRAIN_ELITE, label: 'Elite Brain (2.0 Pro)' },
-        { id: MODELS.BRAIN_PRO, label: 'Pro Brain (2.0 Flash)' },
-        { id: MODELS.BRAIN_FLASH_3, label: 'Flash 3' },
-        { id: MODELS.BRAIN_AUDIO, label: 'Unlimited Audio' },
-        { id: MODELS.ROBOTICS_ER, label: 'Robotics ER' },
-        { id: MODELS.GROQ_LLAMA_4_SCOUT, label: 'Groq Llama 4 Scout' },
-        { id: MODELS.GROQ_GPT_OSS, label: 'Groq GPT-OSS' }
+        { id: MODELS.BRAIN_FLASH_3, label: 'Flash 3 (Restored)' },
+        { id: MODELS.BRAIN_FLASH_25, label: 'Flash 2.5 (Restored)' },
+        { id: MODELS.BRAIN_AUDIO, label: 'Unlimited Audio (Restored)' },
+        { id: MODELS.ROBOTICS_ER, label: 'Robotics ER (Specialized)' },
+        { id: MODELS.GROQ_GPT_OSS, label: 'Groq GPT-OSS (Heavy Reasoning)' },
+        { id: MODELS.GROQ_LLAMA_4_SCOUT, label: 'Groq Llama 4 Scout (Low Latency)' },
+        { id: MODELS.LOGIC_DEEPSEEK, label: 'OpenRouter DeepSeek-R1' }
     ];
 
     for (const m of modelsToTest) {
         await testModel(m.id, m.label);
     }
 
-    console.log("\n✨ VERIFICATION SEQUENCE COMPLETE.");
+    console.log("\n✨ COMPREHENSIVE VERIFICATION COMPLETE.");
 }
 
 runTests();
