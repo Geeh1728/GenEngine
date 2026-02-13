@@ -26,13 +26,22 @@ class GestureEngine {
     }
 
     public async init() {
-        console.log("[JediInterface] Initializing MediaPipe Spatial Perception...");
-        // In a real v13.0 implementation, we would load the WASM bundle here
-        // import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-        // const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-        // this.handLandmarker = await HandLandmarker.createFromOptions(vision, { ... });
-        
-        await new Promise(resolve => setTimeout(resolve, 1000)); // MOCK
+        console.log("[JediInterface] Initializing MediaPipe Production Bundle...");
+        try {
+            const { HandLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
+            this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                    delegate: "GPU"
+                },
+                runningMode: "VIDEO",
+                numHands: 2
+            });
+            console.log("[JediInterface] Spatial Perception ONLINE.");
+        } catch (e) {
+            console.error("[JediInterface] Production Init Failed:", e);
+        }
     }
 
     public processFrame(videoElement: HTMLVideoElement): GestureState {

@@ -70,16 +70,23 @@ export const useLiveAudio = (options?: UseLiveAudioOptions) => {
 
         setIsSpeaking(true);
 
-        // Simple Volume Tracking for Astra (Simulation of Sympathy)
-        const volumeInterval = setInterval(() => {
-            if (ctx.state === 'running') {
-                // In a real implementation, we'd use an AnalyserNode on the source
-                setAstraVolume(prev => 0.5 + Math.random() * 0.5);
-            }
-        }, 100);
+        // Production: Precise Volume Tracking for Astra (Bio-Sync)
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const updateVolume = () => {
+            if (!isSpeaking) return;
+            analyser.getByteFrequencyData(dataArray);
+            const sum = dataArray.reduce((a, b) => a + b, 0);
+            const avg = sum / dataArray.length;
+            setAstraVolume(avg / 128); // Normalize 0-1
+            requestAnimationFrame(updateVolume);
+        };
+        updateVolume();
 
         source.onended = () => {
-            clearInterval(volumeInterval);
             setAstraVolume(0);
             if (ctx.currentTime >= nextPlaybackTimeRef.current - 0.1) {
                 setIsSpeaking(false);

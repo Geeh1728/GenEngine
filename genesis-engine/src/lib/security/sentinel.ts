@@ -1,6 +1,7 @@
 import { ai } from '../genkit/config';
 import { MODELS } from '../genkit/models';
 import { z } from 'zod';
+import { blackboard } from '../genkit/context';
 
 /**
  * MODULE S-N: THE SENTINEL (Iron Shield v45.0)
@@ -15,6 +16,14 @@ const SentinelAnalysisSchema = z.object({
 });
 
 export async function analyzeIntent(input: string): Promise<{ isSafe: boolean; threatLevel: number }> {
+    const ctx = blackboard.getContext();
+    
+    // v40.0: COGNITIVE ENTROPY THROTTLE
+    if (ctx.userEntropy > 0.9) {
+        console.warn("[Sentinel] User Cognitive Entropy exceeded threshold. Throttling all AI requests.");
+        return { isSafe: false, threatLevel: 8 };
+    }
+
     try {
         const result = await ai.generate({
             model: MODELS.SENTINEL_WATERFALL[0], // Gemma 3 4b / Groq 8B

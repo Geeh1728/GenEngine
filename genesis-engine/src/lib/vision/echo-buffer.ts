@@ -35,15 +35,21 @@ class VisualEchoBuffer {
     }
 
     private async captureSnapshot() {
-        // In a real v13.5 implementation, we would grab the current frame from RealityLens
-        // For now, we simulate by generating a temporal context string
-        const temporalContext = `View at ${new Date().toISOString()}. Current entities in frustum: unknown.`;
+        // Production: Extracting real structural context from the active simulation.
+        const { ecsWorld } = await import('../ecs/world');
+        const entityLabels = ecsWorld.entities
+            .filter(e => !e.isHidden)
+            .map(e => `${e.selectable.name || e.id} at [${e.position.x.toFixed(1)}, ${e.position.y.toFixed(1)}]`)
+            .join(', ');
+
+        const temporalContext = `Astra Frame: ${new Date().toISOString()}. Visible: ${entityLabels || 'Void'}.`;
         
         const embResult = await getEmbedding(temporalContext);
         if (embResult.success) {
             await storeVisualEcho(embResult.embedding, {
                 timestamp: Date.now(),
-                type: 'TEMPORAL_CONTEXT'
+                type: 'TEMPORAL_CONTEXT',
+                entities: entityLabels
             });
         }
     }

@@ -10,7 +10,7 @@ import { syncFromRapier, registerRigidBody, selectEntity, getRenderTransforms, R
 import { DynamicShaderMaterial } from './DynamicShaderMaterial';
 import { timeTurner, useTimeTurner } from '@/lib/store/TimeTurnerStore';
 import { newtonEngine } from '@/lib/simulation/newton-engine';
-import { useGenesisStore } from '@/hooks/useGenesisStore';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { p2p } from '@/lib/multiplayer/P2PConnector';
 import { lodManager, LODState } from '@/lib/simulation/lod-manager';
 import { blackboard, BlackboardContext } from '@/lib/genkit/context';
@@ -982,7 +982,7 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
                                     elasticity={entity.personality?.isSoftBody ? 1.0 : 0.1}
                                     stress={t.stress_intensity}
                                     certainty={entity.certainty}
-                                    shimmer={entity.disagreementScore + globalShimmer}
+                                    shimmer={entity.disagreementScore + globalShimmer + blackboardContext.userEntropy}
                                     transitionProgress={lodState.transitionProgress}
                                 />
                             ) : (
@@ -996,7 +996,7 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
                                     elasticity={entity.personality?.isSoftBody ? 1.0 : 0.1}
                                     stress={t.stress_intensity}
                                     certainty={entity.certainty}
-                                    shimmer={entity.disagreementScore + globalShimmer}
+                                    shimmer={entity.disagreementScore + globalShimmer + blackboardContext.userEntropy}
                                     transitionProgress={lodState.transitionProgress}
                                 />
                             );
@@ -1017,12 +1017,22 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
 
                                         {/* MODULE UI-D: Diegetic Math (v35.0) */}
                                         {newtonEngine.getFormula(t.id) && (
-                                            <LivingFormula 
-                                                id={t.id}
-                                                formula={newtonEngine.getFormula(t.id)!.formula}
-                                                position={new THREE.Vector3(t.position[0], t.position[1] + t.scale[1] + 0.5, t.position[2])}
-                                                onUpdate={handleFormulaUpdate}
-                                            />
+                                            <>
+                                                <LivingFormula 
+                                                    id={t.id}
+                                                    formula={newtonEngine.getFormula(t.id)!.formula}
+                                                    position={new THREE.Vector3(t.position[0], t.position[1] + t.scale[1] + 0.5, t.position[2])}
+                                                    onUpdate={handleFormulaUpdate}
+                                                />
+                                                {/* v40.0: Causal Ribbon */}
+                                                {blackboardContext.causalData?.entityId === t.id && (
+                                                    <CausalThread 
+                                                        start={t.position} 
+                                                        end={[t.position[0], t.position[1] + t.scale[1] + 0.5, t.position[2]]} 
+                                                        intensity={1.0} 
+                                                    />
+                                                )}
+                                            </>
                                         )}
 
                                         {/* PROBABILITY CLOUDS (v30.0) */}

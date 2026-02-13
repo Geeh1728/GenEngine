@@ -43,6 +43,7 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
+      "yjs$": require.resolve("yjs"),
       "sharp$": false,
       "onnxruntime-node$": false,
       "canvas": false,
