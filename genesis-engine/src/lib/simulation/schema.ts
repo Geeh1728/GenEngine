@@ -223,6 +223,18 @@ export const WorldStateSchema = z.object({
     omegaPoint: z.array(z.any()).optional().describe('Ghost projections of the future state'),
 });
 
+export const StructuralHeatmapSchema = z.object({
+    points: z.array(z.object({
+        x: z.number(),
+        y: z.number(),
+        z: z.number(),
+        severity: z.number().min(0).max(1),
+        reason: z.string().optional()
+    })),
+    overallStability: z.number().min(0).max(100),
+    remediationAdvice: z.string().optional()
+});
+
 // --- Type Definitions (Exported for TypeScript Strictness) ---
 
 export type Vector3 = z.infer<typeof Vector3Schema>;

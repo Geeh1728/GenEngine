@@ -6,13 +6,12 @@ import { RigidBody, CuboidCollider, BallCollider, RapierRigidBody, useFixedJoint
 import { Html } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Search } from 'lucide-react';
-import { Entity, Joint, VoxelData } from '@/lib/simulation/schema';
+import { Entity, Joint, VoxelData, StructuralHeatmapSchema } from '@/lib/simulation/schema';
 import { useTextureGen } from '@/lib/simulation/useTextureGen';
 import { LabBench } from './LabBench';
 import { VoxelRenderer } from './VoxelRenderer';
 import { UniversalCanvas } from './UniversalCanvas';
 import { DynamicShaderMaterial } from './DynamicShaderMaterial';
-import { StructuralHeatmapSchema } from '@/lib/genkit/schemas';
 import { blackboard, BlackboardContext } from '@/lib/genkit/context';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { ECSRenderer } from './ECSRenderer';

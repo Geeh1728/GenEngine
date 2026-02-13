@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import * as THREE from 'three';
 import { useSimulationState } from './useSimulationState';
 import { useGamification } from './useGamification';
 import { useGenesisUI } from './useGenesisUI';

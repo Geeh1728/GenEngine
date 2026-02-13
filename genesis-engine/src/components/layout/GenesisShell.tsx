@@ -57,10 +57,22 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
     // Time-Turner State
     const { historyLength, currentIndex, isPlaying } = useTimeTurner();
     const [blackboardContext, setBlackboardContext] = React.useState<BlackboardContext>(blackboard.getContext());
+    const [layoutMode, setLayoutMode] = React.useState<'DEFAULT' | 'RESEARCH' | 'FORGE'>('DEFAULT');
 
     React.useEffect(() => {
         return blackboard.subscribe((ctx) => setBlackboardContext(ctx));
     }, []);
+
+    // v35.0 Adaptive Bento HUD: Morph UI based on task entropy
+    React.useEffect(() => {
+        if (blackboardContext.spiderActive) {
+            setLayoutMode('RESEARCH');
+        } else if (worldState?.mode === 'PHYSICS' || worldState?.mode === 'VOXEL') {
+            setLayoutMode('FORGE');
+        } else {
+            setLayoutMode('DEFAULT');
+        }
+    }, [blackboardContext.spiderActive, worldState?.mode]);
 
     // v60.0 Hegemony Heartbeat: Drive background pulse by consensus score
     React.useEffect(() => {
@@ -251,17 +263,28 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                 </AnimatePresence>
 
                 {/* SIMULATION OVERLAYS */}
-                <AnimatePresence>
+                <AnimatePresence mode="wait">
                     {isActuallySimulating && (
                         <motion.div 
                             key="simulation-hud"
                             initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
+                            animate={{ 
+                                opacity: 1,
+                                padding: layoutMode === 'RESEARCH' ? '2rem 20% 2rem 2rem' : '0rem'
+                            }}
+                            exit={{ opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 200, damping: 30 }}
                             className="flex-1 flex flex-col w-full h-full relative"
                         >
                             {!isPhysicsMode && <NavigationHeader setIsGardenOpen={setIsGardenOpen} />}
                             
-                            <div className="flex-1 relative">
+                            <motion.div 
+                                className="flex-1 relative"
+                                animate={{
+                                    scale: layoutMode === 'FORGE' ? 0.95 : 1,
+                                    rotateY: layoutMode === 'RESEARCH' ? -5 : 0
+                                }}
+                            >
                                 {isPhysicsMode ? (
                                     <SimulationView engine={engine} />
                                 ) : (
@@ -278,7 +301,7 @@ export const GenesisShell: React.FC<GenesisShellProps> = ({ engine, ui }) => {
                                         handleExport={handleExport}
                                     />
                                 )}
-                            </div>
+                            </motion.div>
                         </motion.div>
                     )}
                 </AnimatePresence>

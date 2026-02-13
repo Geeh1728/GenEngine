@@ -181,6 +181,33 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         if (e) e.preventDefault();
         if ((!prompt.trim() && !selectedFile) || status === 'compiling') return;
 
+        // v35.0 MODULE ECHO: Temporal Recall Trigger
+        if (prompt.toLowerCase().startsWith('astra, remember') || prompt.toLowerCase().startsWith('remember')) {
+            const query = prompt.replace(/(astra, )?remember/i, '').trim();
+            dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Hippocampus', message: `Recalling temporal signature for "${query}"...`, type: 'THINKING' } });
+            
+            try {
+                const { visualEcho } = await import('@/lib/vision/echo-buffer');
+                const result = await visualEcho.recallObject(query);
+                
+                if (result) {
+                    const { blackboard } = await import('@/lib/genkit/context');
+                    blackboard.update({ 
+                        lastAction: 'RECALL_OBJECT', 
+                        recallData: result 
+                    });
+                    dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Astra', message: `I've manifested a ghost of the ${query} from our memory.`, type: 'SUCCESS' } });
+                    sfx.playSuccess();
+                } else {
+                    dispatch({ type: 'ADD_MISSION_LOG', payload: { agent: 'Hippocampus', message: `No stable memories found for "${query}".`, type: 'ERROR' } });
+                }
+            } catch (err) {
+                console.error("[OmniBar] Recall failed:", err);
+            }
+            setPrompt('');
+            return;
+        }
+
         // 1. Handle PDF Ingestion ONLY if a file is actually present
         if (selectedFile && selectedFile.type === 'application/pdf') {
             handleIngest(selectedFile);

@@ -17,6 +17,7 @@ export interface DataPoint {
 class NewtonEngine {
     private static instance: NewtonEngine;
     private buffer: Map<string, DataPoint[]> = new Map();
+    private formulas: Map<string, { formula: string; confidence: number }> = new Map();
     private MAX_POINTS = 300; // ~5 seconds at 60fps
     private isAnalyzing = false;
 
@@ -25,6 +26,13 @@ class NewtonEngine {
             NewtonEngine.instance = new NewtonEngine();
         }
         return NewtonEngine.instance;
+    }
+
+    /**
+     * Gets the discovered formula for an entity.
+     */
+    public getFormula(id: string) {
+        return this.formulas.get(id);
     }
 
     /**
@@ -109,6 +117,8 @@ class NewtonEngine {
                 if (verification?.result && Number(verification.result) > 0.98) {
                     blackboard.log('Astra', `Eureka! I've derived a law for your world: ${formula} (Confidence: ${verification.result})`, 'SUCCESS');
                     
+                    this.formulas.set(entityId, { formula, confidence: Number(verification.result) });
+
                     // Clear buffer to avoid re-triggering immediately
                     this.buffer.delete(entityId);
                 }

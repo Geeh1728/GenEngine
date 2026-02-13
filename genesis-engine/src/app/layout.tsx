@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { GenesisProvider } from "@/lib/store/GenesisContext";
+import * as THREE from 'three';
 import "./globals.css";
+
+// --- TITAN PROTOCOL: GLOBAL THREE FIX (v60.0 GOLD) ---
+if (typeof window !== 'undefined') {
+  (window as any).THREE = THREE;
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

@@ -35,6 +35,57 @@ interface ECSRendererProps {
     onSelect?: (id: string) => void;
 }
 
+/**
+ * MODULE UI-D: Diegetic Math Interface (v35.0)
+ * Objective: Turn abstract laws into physicalized UI objects.
+ */
+function LivingFormula({ id, formula, position, onUpdate }: { id: string; formula: string; position: THREE.Vector3; onUpdate: (id: string, variable: string, delta: number) => void }) {
+    // Simple parser for interactive variables
+    const parts = useMemo(() => {
+        return formula.split(/([mva-z]+)/i);
+    }, [formula]);
+
+    return (
+        <group position={position}>
+            <Float speed={5} rotationIntensity={0.2} floatIntensity={0.5}>
+                <Text
+                    fontSize={0.4}
+                    color="#60a5fa"
+                    anchorX="center"
+                    anchorY="middle"
+                >
+                    {formula}
+                </Text>
+                {/* Variable drag triggers (simulated as small invisible meshes for now) */}
+                {parts.map((p, i) => {
+                    if (['m', 'mass', 'v', 'vel', 'a', 'acc'].includes(p.toLowerCase())) {
+                        return (
+                            <mesh 
+                                key={i} 
+                                position={[(i - parts.length/2) * 0.3, 0, 0.1]}
+                                onPointerMissed={() => {}}
+                                onPointerMove={(e) => {
+                                    if (e.buttons === 1) {
+                                        onUpdate(id, p, e.movementY);
+                                    }
+                                }}
+                            >
+                                <boxGeometry args={[0.2, 0.2, 0.2]} />
+                                <meshBasicMaterial transparent opacity={0} />
+                            </mesh>
+                        );
+                    }
+                    return null;
+                })}
+                <mesh position={[0, -0.4, 0]}>
+                    <cylinderGeometry args={[0.005, 0.005, 0.4]} />
+                    <meshBasicMaterial color="#60a5fa" transparent opacity={0.3} />
+                </mesh>
+            </Float>
+        </group>
+    );
+}
+
 // Instanced geometry for each primitive type
 const PRIMITIVE_GEOMETRIES = {
     cube: new THREE.BoxGeometry(1, 1, 1),
@@ -494,15 +545,35 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
     const [predictions, setPredictions] = useState<PredictionSnapshots[]>([]);
     const [blackboardContext, setBlackboardContext] = useState<BlackboardContext>(blackboard.getContext());
     const [residues, setResidues] = useState<ArchitecturalResidue[]>([]);
+    const [recalledGhosts, setRecalledGhosts] = useState<any[]>([]);
     const { pinBranch } = useTimeline();
     
     // v50.0: Activate Structural Pain Haptics
     useHaptics();
 
-    const globalShimmer = (100 - blackboardContext.consensusScore) / 100;
+    const handleFormulaUpdate = useCallback((id: string, variable: string, delta: number) => {
+        const magnitude = -delta * 0.01;
+        if (variable.toLowerCase() === 'm' || variable.toLowerCase() === 'mass') {
+            const entity = ecsWorld.entities.find(e => e.id === id);
+            if (entity) {
+                dispatch({
+                    type: 'UPDATE_ENTITY_PHYSICS',
+                    payload: { id, updates: { mass: Math.max(0.1, entity.physics.mass + magnitude) } }
+                });
+                blackboard.log('Newton', `Jedi Pinch: Manually adjusting mass for ${id}.`, 'SYMBOLIC');
+            }
+        }
+    }, [dispatch]);
 
     useEffect(() => {
-        return blackboard.subscribe((ctx) => setBlackboardContext(ctx));
+        const unsubscribe = blackboard.subscribe((ctx) => {
+            setBlackboardContext(ctx);
+            // v35.0: Listen for recall commands in the log or via a specific state
+            if (ctx.lastAction === 'RECALL_OBJECT' && ctx.recallData) {
+                setRecalledGhosts(prev => [...prev, ctx.recallData]);
+            }
+        });
+        return () => unsubscribe();
     }, []);
 
     // v31.0: Temporal Mirroring - Query residues when world state changes
@@ -939,6 +1010,16 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
                                             </mesh>
                                         </group>
 
+                                        {/* MODULE UI-D: Diegetic Math (v35.0) */}
+                                        {newtonEngine.getFormula(t.id) && (
+                                            <LivingFormula 
+                                                id={t.id}
+                                                formula={newtonEngine.getFormula(t.id)!.formula}
+                                                position={new THREE.Vector3(t.position[0], t.position[1] + t.scale[1] + 0.5, t.position[2])}
+                                                onUpdate={handleFormulaUpdate}
+                                            />
+                                        )}
+
                                         {/* PROBABILITY CLOUDS (v30.0) */}
                                         {xRayMode && entity.probabilitySnapshots && entity.probabilitySnapshots.length > 0 && (
                                             <group>
@@ -1150,6 +1231,28 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
                 }
             })}
 
+            {/* MODULE ECHO: Temporal Recall Ghosts (v35.0) */}
+            {recalledGhosts.map((ghost, gIdx) => (
+                <group key={`recalled-ghost-${gIdx}`}>
+                    {JSON.parse(ghost.structuralData || '{}').entities?.map((e: any, eIdx: number) => (
+                        <mesh
+                            key={`ghost-${gIdx}-${e.id || eIdx}`}
+                            geometry={PRIMITIVE_GEOMETRIES[e.shape as keyof typeof PRIMITIVE_GEOMETRIES] || PRIMITIVE_GEOMETRIES.box}
+                            position={[e.position.x, e.position.y, e.position.z]}
+                            quaternion={[e.rotation?.x || 0, e.rotation?.y || 0, e.rotation?.z || 0, e.rotation?.w || 1]}
+                            scale={[e.dimensions?.x || 1, e.dimensions?.y || 1, e.dimensions?.z || 1]}
+                        >
+                            <meshBasicMaterial 
+                                color="#d8b4fe" 
+                                transparent 
+                                opacity={0.1} 
+                                wireframe 
+                            />
+                        </mesh>
+                    ))}
+                </group>
+            ))}
+
             {jointEntities.entities.map((j) => {
                 const bodyA = rigidBodies.get(j.joint!.bodyA);
                 const bodyB = rigidBodies.get(j.joint!.bodyB);
@@ -1169,12 +1272,17 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
 
             {/* MODULE SPIDER: Knowledge Graph Visualization (v30.0 / v35.0) */}
             {state.knowledgeGraph && (
-                <LivingOntologyGraph 
-                    graph={state.knowledgeGraph} 
-                    discoveryYear={state.discoveryYear}
-                    chronesthesiaEnabled={state.chronesthesiaEnabled}
-                    onSelect={handleSelect} 
-                />
+                <group
+                    onPointerOver={() => blackboard.update({ spiderActive: true })}
+                    onPointerOut={() => blackboard.update({ spiderActive: false })}
+                >
+                    <LivingOntologyGraph 
+                        graph={state.knowledgeGraph} 
+                        discoveryYear={state.discoveryYear}
+                        chronesthesiaEnabled={state.chronesthesiaEnabled}
+                        onSelect={handleSelect} 
+                    />
+                </group>
             )}
 
             <Html>

@@ -58,6 +58,20 @@ class VisualEchoBuffer {
         }
         return [];
     }
+
+    /**
+     * MODULE ECHO: Temporal Object Recall (v35.0)
+     * Recalls a specific object's state and returns its structural data.
+     */
+    public async recallObject(query: string) {
+        console.log(`[VisualEcho] Recalling temporal signature for: ${query}`);
+        const results = await this.recall(query);
+        if (results && results.length > 0) {
+            // Return the most relevant frame's entity data
+            return results[0]; 
+        }
+        return null;
+    }
 }
 
 export const visualEcho = VisualEchoBuffer.getInstance();

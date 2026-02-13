@@ -57,6 +57,9 @@ export interface BlackboardContext {
         timestamp: number;
     }>;
     livingExamActive: boolean; // v32.5 Competitive Exams
+    spiderActive: boolean; // v35.0 Module Spider
+    lastAction?: string; // v35.0 Track action type
+    recallData?: any; // v35.0 Data for recall manifestation
 }
 
 class Blackboard {
@@ -86,7 +89,8 @@ class Blackboard {
         latentHistory: [],
         consensusScore: 100,
         activeCitations: [],
-        livingExamActive: false
+        livingExamActive: false,
+        spiderActive: false
     };
 
     private constructor() { }
