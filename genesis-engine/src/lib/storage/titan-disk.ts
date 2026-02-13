@@ -1,7 +1,6 @@
 import { L1MemoryAdapter } from './adapters/l1-memory';
 import { L2OPFSAdapter } from './opfs-manager';
 import { L3IDBAdapter } from './adapters/l3-idb';
-import { L4FirebaseAdapter } from './adapters/l4-firebase';
 
 /**
  * MODULE D: TITAN DISK v2.0 (The Storehouse)
@@ -10,7 +9,6 @@ import { L4FirebaseAdapter } from './adapters/l4-firebase';
  * 1. RAM (Ephemeral, Instant)
  * 2. OPFS (Persistent, Fast)
  * 3. IDB (Durable, Backup)
- * 4. FIREBASE (Cloud, Sovereign Vault) - v41.0
  */
 
 export class TitanDisk {
@@ -19,7 +17,6 @@ export class TitanDisk {
     private l1: L1MemoryAdapter;
     private l2: L2OPFSAdapter;
     private l3: L3IDBAdapter;
-    private l4: L4FirebaseAdapter | null = null;
 
     private opfsFailureCount = 0;
     private OPFS_THRESHOLD = 3;
@@ -36,13 +33,6 @@ export class TitanDisk {
             TitanDisk.instance = new TitanDisk();
         }
         return TitanDisk.instance;
-    }
-
-    /**
-     * Initialize Cloud Tier (v41.0)
-     */
-    public initCloud(storage: any, user: any) {
-        this.l4 = new L4FirebaseAdapter(storage, user);
     }
 
     /**
@@ -79,11 +69,6 @@ export class TitanDisk {
             // Direct to L3 if OPFS is broken
             await this.l3.set(key, buffer);
         }
-
-        // 4. v41.0: Cloud Sync (Non-blocking)
-        if (this.l4 && key.startsWith('world_')) {
-            this.l4.sync(key, buffer);
-        }
     }
 
     /**
@@ -114,7 +99,7 @@ export class TitanDisk {
         // 3. Fallback to L3
         const idbData = await this.l3.get(key);
         if (idbData) {
-            // Production: Hydrate inner tiers for persistence
+            // Hydrate inner tiers for next time
             try {
                 const parsed = JSON.parse(new TextDecoder().decode(idbData));
                 this.l1.set(key, parsed);
