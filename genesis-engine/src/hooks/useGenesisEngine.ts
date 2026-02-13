@@ -1013,6 +1013,7 @@ export function useGenesisEngine() {
     }, [worldState, state.missionLogs, dispatch, setIsProcessing]);
 
     return {
+        state,
         isIngested,
         isProcessing,
         worldRules,
@@ -1064,10 +1065,10 @@ export function useGenesisEngine() {
         activeChallenge,
         setActiveChallenge,
         isVerifyingLogic,
-                mode,
-                scrubHistory,
-                startExamLevel,
-                generateCurriculum
-            };
-        }
+        mode,
+        scrubHistory,
+        startExamLevel,
+        generateCurriculum
+    };
+}
         
