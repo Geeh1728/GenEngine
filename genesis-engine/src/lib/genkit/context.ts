@@ -1,8 +1,13 @@
 import { WorldState } from '../simulation/schema';
-import { z } from 'zod';
-import { WorldRuleSchema } from './schemas';
 
-type WorldRule = z.infer<typeof WorldRuleSchema>;
+// Local type definition to avoid server-side schema imports
+interface WorldRule {
+    id: string;
+    rule: string;
+    description: string;
+    grounding_source?: string;
+    isActive: boolean;
+}
 
 export interface BlackboardContext {
     currentWorldState?: WorldState;
