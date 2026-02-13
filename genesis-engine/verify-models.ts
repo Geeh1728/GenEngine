@@ -14,11 +14,12 @@ async function testModel(modelName: string, label: string) {
             prompt: "Return ONLY the word 'STABLE'.",
             config: { maxOutputTokens: 10 }
         });
-        console.log(`- Result: ${result.text.trim()}`);
-        if (result.text.includes('STABLE')) {
+        const text = result.text.trim();
+        console.log(`- Result: "${text}"`);
+        if (text.includes('STABLE')) {
             console.log(`✅ ${label} is FUNCTIONAL`);
         } else {
-            console.log(`⚠️ ${label} returned unexpected response: ${result.text}`);
+            console.log(`⚠️ ${label} returned unexpected response: ${text}`);
         }
     } catch (error) {
         console.error(`❌ ${label} FAILED:`, error instanceof Error ? error.message : error);
@@ -30,12 +31,13 @@ async function runTests() {
     console.log("🚀 STARTING COMPREHENSIVE MODEL VERIFICATION...\n");
 
     const modelsToTest = [
-        { id: MODELS.BRAIN_ELITE, label: 'Gemini 3 Pro (Elite)' },
-        { id: MODELS.BRAIN_FLASH_20, label: 'Gemini 2 Flash (1.5K RPD Speed King)' },
-        { id: MODELS.BRAIN_AUDIO, label: 'Native Audio (Unlimited)' },
-        { id: MODELS.GROQ_LLAMA_31_8B, label: 'Groq Llama 3.1 8B (14.4K RPD Instant)' },
-        { id: MODELS.GROQ_GPT_OSS, label: 'Groq GPT-OSS 120B (Heavy Reasoning)' },
-        { id: MODELS.GEMMA_3_27B, label: 'Gemma 3 27B (14.4K RPD Nuclear)' },
+        // Testing with 'googleai/' prefix
+        { id: 'googleai/gemini-2.0-flash', label: 'Gemini 2.0 Flash (Prefix)' },
+        // Testing without prefix
+        { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (No Prefix)' },
+        
+        { id: MODELS.GROQ_LLAMA_31_8B, label: 'Groq Llama 3.1 8B (Instant)' },
+        { id: MODELS.GEMMA_3_27B, label: 'Gemma 3 27B (Nuclear)' },
         { id: MODELS.BRAIN_REASONING, label: 'DeepSeek R1 (Logic Master)' }
     ];
 

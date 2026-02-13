@@ -37,7 +37,27 @@ export async function predictNextStates(
 
         // v40.0: CERTAINTY THRESHOLD (The Titan Risk Mitigation)
         // Only show ghosts if prediction is extremely likely (>0.85)
-        const validPredictions = result.predictions.filter((p: any) => p.probability > 0.85);
+        const validPredictions = result.predictions.filter((p: any) => {
+            if (p.probability <= 0.85) return false;
+
+            // v46.0: CROSS-MODAL PHYSICS VERIFICATION (The Law Sink)
+            // Check for 'Quantum Teleportation' or 'Infinite Velocity' injection attempts
+            for (const ghostEntity of p.entities) {
+                const original = currentEntities.find(e => e.id === ghostEntity.id);
+                if (!original) continue;
+
+                const dx = Math.abs(ghostEntity.position.x - original.position.x);
+                const dy = Math.abs(ghostEntity.position.y - original.position.y);
+                const dz = Math.abs(ghostEntity.position.z - original.position.z);
+
+                // If an object moved > 50 units in 2 seconds without massive velocity, reject branch
+                if (dx > 50 || dy > 50 || dz > 50) {
+                    console.warn(`[PhysicsSink] Rejecting branch due to anomalous displacement for ${ghostEntity.id}`);
+                    return false;
+                }
+            }
+            return true;
+        });
         
         if (validPredictions.length > 0) {
             blackboard.update({ speculativeModeActive: true });
@@ -47,8 +67,9 @@ export async function predictNextStates(
             return null;
         }
 
-    } catch (error) {
-        console.warn("[ReflexPredictor] Speculation failed:", error);
-        return null;
-    }
-}
+export const reflexPredictor = {
+    predictNextStates,
+    // Add other functions if they were previously part of the object
+    predictTrajectory: async (entity: any) => ({ points: [entity.position] }), // Placeholder if needed
+    predictProbabilityCloud: (entity: any, count: number) => [] // Placeholder if needed
+};

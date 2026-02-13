@@ -49,8 +49,16 @@ export async function predictNextStatesAction(
         // We run a fast Scout and a secondary validator if entropy is high
         const scoutResult = await ai.generate({
             model: MODELS.GROQ_LLAMA_4_SCOUT,
-            system: "ACT AS: Causal Oracle. Predict futures. Return JSON matching PredictionSchema.",
-            prompt: `ACTION: "${sanitizedAction}" | FOCUS: ${validatedFocusId} | STATE: ${contextJson}`,
+            system: "ACT AS: Causal Oracle (Module C-F). Run a 120-step high-fidelity physics look-ahead. Predict futures. Return JSON matching PredictionSchema.",
+            prompt: `
+                TASK: Predict IMMEDIATE future states (~2 seconds ahead) based on user intent.
+                ACTION: "${sanitizedAction}" 
+                FOCUS: ${validatedFocusId} 
+                STATE: ${contextJson}
+                
+                IMPACT: Identify if the action leads to 'COLLAPSE', 'STABILITY', or 'ANOMALY'.
+                Return up to 3 branching futures.
+            `,
             output: { schema: PredictionSchema }
         });
 
@@ -77,5 +85,40 @@ export async function predictNextStatesAction(
     } catch (error) {
         console.warn("[ReflexAction] Speculation failed:", error);
         return { success: false, error: "Speculative simulation failed." };
+    }
+}
+
+const ReflexSchema = z.object({
+    tool: z.enum(['UPDATE_PHYSICS', 'RESTART', 'NAVIGATE', 'UNKNOWN']),
+    payload: z.record(z.any()).optional()
+});
+
+/**
+ * routeIntentViaAI: Fast reflex routing for simple commands.
+ */
+export async function routeIntentViaAI(input: string) {
+    try {
+        const result = await ai.generate({
+            model: MODELS.GROQ_LLAMA_4_SCOUT,
+            system: `
+                ACT AS: UI Reflex Engine.
+                TASK: Classify simple user commands into UI tools.
+                TOOLS: 
+                - UPDATE_PHYSICS: Change gravity or timeScale.
+                - RESTART: Reset world.
+                - NAVIGATE: Change screens (GARDEN, LAB).
+                - UNKNOWN: Complex requests (simulations, build car, why questions).
+                
+                OUTPUT:
+                Return JSON only matching ReflexSchema.
+            `,
+            prompt: input,
+            output: { schema: ReflexSchema }
+        });
+
+        return { success: true, reflex: result.output || { tool: 'UNKNOWN' } };
+    } catch (e) {
+        console.error("[ReflexAction] Intent routing failed:", e);
+        return { success: false, error: String(e) };
     }
 }

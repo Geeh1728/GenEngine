@@ -49,8 +49,26 @@ class ShaderDreamer {
             const result = await evolveShader(currentShader);
 
             if (result.success && result.variants) {
-                // 2. Background Compilation Check
+                // 2. TEMPORAL SHADER SANDBOX (GPU Protection)
                 const bestVariant = result.variants[0];
+                
+                // Static Analysis for 'Poison Patterns'
+                const poisonPatterns = [
+                    /for\s*\(.*[<>].*\)/i, // Dynamic loops are risky in WebGL
+                    /while\s*\(/i,         // No while loops allowed
+                    /discard/i,           // Heavy performance impact
+                    /texture2DLod/i       // Driver specific instability
+                ];
+
+                const isPoisonous = poisonPatterns.some(p => p.test(bestVariant));
+                const hasMain = bestVariant.includes("void main()");
+                const bracketCount = (bestVariant.match(/{/g) || []).length === (bestVariant.match(/}/g) || []).length;
+
+                if (isPoisonous || !hasMain || !bracketCount) {
+                    console.error("[ShaderSandbox] AI generated a Malicious or Broken shader. Dropping variant.");
+                    blackboard.log('Security', "Neural shader rejected due to instability risk.", 'ERROR');
+                    return;
+                }
                 
                 blackboard.log('Artist', "Engine optimized the visual field during rest. Manifesting new neural shader.", 'MANIFEST');
                 
