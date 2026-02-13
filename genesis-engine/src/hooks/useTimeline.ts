@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback, useEffect } from 'react';
 import { useGenesisStore } from '@/lib/store/GenesisContext';
 import { SpeculativeGhost } from '@/lib/simulation/reflex-predictor';
