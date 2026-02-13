@@ -67,6 +67,12 @@ export async function predictNextStates(
             return null;
         }
 
+    } catch (error) {
+        console.warn("[ReflexPredictor] Speculation failed:", error);
+        return null;
+    }
+}
+
 export const reflexPredictor = {
     predictNextStates,
     // Add other functions if they were previously part of the object
