@@ -17,6 +17,7 @@ import { decodeWorld } from '@/lib/utils/wormhole';
 import { normalizeEntities } from '@/lib/simulation/normalizer';
 import { reflexPredictor } from '@/lib/simulation/reflex-predictor';
 import { visualEcho } from '@/lib/vision/echo-buffer';
+import { useTimeline } from './useTimeline';
 import { exobrain } from '@/lib/storage/exobrain';
 import { neuralMap } from '@/lib/storage/neural-map';
 import { MasteryLogic } from '@/lib/gamification/mastery-logic';
@@ -946,7 +947,7 @@ export function useGenesisEngine() {
 
     const scrubHistory = useCallback((index: number) => {
         if (history[index]) {
-            setHistoryIndex(index);
+            dispatch({ type: 'SET_HISTORY_INDEX', payload: index });
             dispatch({ type: 'SYNC_WORLD', payload: history[index] });
         }
     }, [history, dispatch]);
@@ -1034,7 +1035,7 @@ export function useGenesisEngine() {
         fileUri,
         interactionState,
         history,
-        historyIndex,
+        historyIndex: state.historyIndex,
         unlockedHUD: state.unlockedHUD,
 
         handleIngest,
