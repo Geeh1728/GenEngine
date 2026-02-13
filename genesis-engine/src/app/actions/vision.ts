@@ -1,6 +1,6 @@
 'use server';
 
-import { ai, geminiFlash } from "@/lib/genkit/config";
+import { ai, geminiFlash, ROBOTICS_MODEL_NAME } from "@/lib/genkit/config";
 import { z } from "zod";
 
 // --- The Reality Lens: Server-Side Vision Analysis ---
@@ -14,8 +14,7 @@ export async function analyzeReality(imageBase64: string, isPremium: boolean = f
         console.log(`[RealityLens] Analyzing image (Premium: ${isPremium})...`);
         
         // 1. Select Model (Tiered Intelligence)
-        // Premium users get the high-fidelity model (simulated here as the same for now, but ready for upgrade)
-        const modelName = isPremium ? geminiFlash.name : geminiFlash.name;
+        const modelName = isPremium ? ROBOTICS_MODEL_NAME : geminiFlash.name;
 
         // 2. Define System Prompt based on Tier
         // The Robotics/Spatial prompt requires specific output formatting

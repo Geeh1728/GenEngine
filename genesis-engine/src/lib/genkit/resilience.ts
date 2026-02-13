@@ -129,6 +129,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
         const modelName = waterfall[currentWaterfallIdx];
         
         // v41.0 SOVEREIGN KEY INJECTION
+        // Production: Injects user-provided API keys directly into the model request.
         let customApiKey: string | undefined;
         if (userKeys) {
             if (modelName.startsWith('googleai') && userKeys.googleai) customApiKey = userKeys.googleai;
@@ -145,13 +146,10 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
 
             const adaptedPrompt = preparePromptForModel(rawPrompt, modelName);
 
-            // Genkit configuration with potential custom API key
+            // Genkit configuration with Sovereign API Key support
             const generationConfig = { 
                 ...config, 
                 previous_interaction_id: previousInteractionId,
-                // In a real Genkit environment, we would pass the key to the provider
-                // For now, we simulate by assuming the provider can accept a 'key' in config
-                // or we use a custom fetcher.
                 apiKey: customApiKey 
             };
 

@@ -25,9 +25,17 @@ export const NexusCircle: React.FC<NexusCircleProps> = ({ onIngest, isProcessing
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
-        // For now, we'll assume PDF text is dropped or just simulate the trigger
-        // Real PDF parsing would involve a file reader here.
-        onIngest("Sample PDF Content Dropped", "pdf");
+        
+        const file = e.dataTransfer.files[0];
+        if (file && file.type === 'application/pdf') {
+            console.log(`[Nexus] Production Ingestion: ${file.name}`);
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const content = event.target?.result as string;
+                onIngest(content, "pdf");
+            };
+            reader.readAsText(file); // Note: Simple text extraction, production would use a proper PDF parser library
+        }
     };
 
     const handleYoutubeSubmit = (e: React.FormEvent) => {

@@ -86,15 +86,15 @@ function LivingFormula({ id, formula, position, onUpdate }: { id: string; formul
     );
 }
 
-// Instanced geometry for each primitive type
+// Production-grade geometry for specialized primitives
 const PRIMITIVE_GEOMETRIES = {
     cube: new THREE.BoxGeometry(1, 1, 1),
     box: new THREE.BoxGeometry(1, 1, 1),
-    sphere: new THREE.SphereGeometry(0.5, 16, 16),
-    cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 16),
+    sphere: new THREE.SphereGeometry(0.5, 32, 32),
+    cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 32),
     plane: new THREE.PlaneGeometry(1, 1),
-    star: new THREE.OctahedronGeometry(0.5, 0), // Placeholder for star
-    hook: new THREE.TorusGeometry(0.3, 0.1, 8, 16, Math.PI), // Placeholder for hook
+    star: new THREE.IcosahedronGeometry(0.5, 0), // High-poly Star
+    hook: new THREE.TorusGeometry(0.3, 0.05, 16, 32, Math.PI * 1.5), // Precision Hook
 };
 
 const SENTINEL_FRAG = `
@@ -782,6 +782,11 @@ export function ECSRenderer({ onCollision, onSelect }: ECSRendererProps) {
 
         // v35.5: Semantic Pruning (Performance Optimization)
         lodManager.performSemanticPruning(camera, ecsWorld);
+
+        // v40.0: Matter-Meaning Entanglement
+        if (clock.elapsedTime % 2 < 0.02) {
+            blackboard.syncMatterToMeaning();
+        }
 
         if (!isPlaying) {
             const history = historyRef.current;

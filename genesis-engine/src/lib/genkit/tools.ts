@@ -63,22 +63,48 @@ export const webSpider = ai.defineTool(
         }),
     },
     async (input) => {
-        const { seedUrl, maxDepth } = input;
-        console.log(`[Spider] Initiating recursive crawl on ${seedUrl} with depth ${maxDepth}...`);
+        const { seedUrl } = input;
+        console.log(`[Spider] Initiating production crawl on ${seedUrl}...`);
         
-        // Mocking Apify integration for now - in production, this calls Apify's Website Content Crawler
-        // To be replaced with: const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
-        
-        return {
-            crawledData: [
-                {
-                    url: seedUrl,
-                    title: 'Seed Knowledge Node',
-                    text: `Deep analysis of ${seedUrl} context...`,
-                    links: [`${seedUrl}/physics`, `${seedUrl}/design`]
-                }
-            ],
-            summary: "Module Spider has successfully traversed the knowledge domain and extracted multi-source context."
-        };
+        const apifyToken = process.env.APIFY_API_TOKEN;
+        if (!apifyToken) {
+            return { 
+                crawledData: [], 
+                summary: "Error: APIFY_API_TOKEN not configured in production." 
+            };
+        }
+
+        try {
+            // Production: Triggering Apify Website Content Crawler (Cheerio)
+            const response = await fetch("https://api.apify.com/v2/acts/apify~website-content-crawler/run-sync-get-dataset-items", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apifyToken}`
+                },
+                body: JSON.stringify({
+                    startUrls: [{ url: seedUrl }],
+                    maxCrawlPages: 5,
+                    onlyText: true
+                })
+            });
+
+            const items: any = await response.json();
+            
+            const crawledData = Array.isArray(items) ? items.slice(0, 3).map((item: any) => ({
+                url: item.url,
+                title: item.metadata?.title || "Resource Node",
+                text: item.text?.substring(0, 2000) || "",
+                links: []
+            })) : [];
+
+            return {
+                crawledData,
+                summary: `Module Spider successfully extracted data from ${crawledData.length} production nodes.`
+            };
+        } catch (error) {
+            console.error("[Spider] Production error:", error);
+            return { crawledData: [], summary: "Crawl failed due to network anomaly." };
+        }
     }
 );
