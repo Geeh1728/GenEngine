@@ -99,10 +99,12 @@ groqModels.forEach(model => {
         },
         async (req) => {
             const startTime = Date.now();
+            const targetKey = (req.config as any)?.apiKey || groqKey;
+
             const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${groqKey}`,
+                    "Authorization": `Bearer ${targetKey}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
@@ -160,10 +162,12 @@ openRouterModels.forEach(model => {
             label: `OpenRouter ${model.id}`,
         },
         async (req) => {
+            const targetKey = (req.config as any)?.apiKey || openRouterKey;
+
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${openRouterKey}`,
+                    "Authorization": `Bearer ${targetKey}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({

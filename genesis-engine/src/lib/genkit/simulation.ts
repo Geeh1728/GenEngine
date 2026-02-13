@@ -1,4 +1,4 @@
-import { z } from 'genkit';
+import { z } from 'zod';
 import { ai } from './config';
 import { SimulationCardSchema } from './schemas';
 import { executeApexLoop } from './resilience';

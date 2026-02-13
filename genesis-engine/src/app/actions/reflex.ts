@@ -2,7 +2,7 @@
 
 import { ai } from '@/lib/genkit/config';
 import { MODELS } from '@/lib/genkit/models';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { Entity } from '@/lib/simulation/schema';
 
 /**

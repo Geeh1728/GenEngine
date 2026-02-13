@@ -1,6 +1,6 @@
 import { ai, gemini3Flash, geminiFlash, DEEPSEEK_LOGIC_MODEL, OPENROUTER_FREE_MODELS } from '../config';
 import { WorldStateSchema } from '../../simulation/schema';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { generateWithResilience, executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
 import { cleanModelOutput, extractReasoningTrace } from '../../utils/ai-sanitizer';

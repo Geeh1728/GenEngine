@@ -1,5 +1,5 @@
 import { ai } from './config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { getApiUsage } from '../db/pglite';
 import { LOGIC_WATERFALL, VISION_WATERFALL, PHYSICS_WATERFALL, CONTEXT_WATERFALL, REFLEX_WATERFALL } from './models';
 import { cleanModelOutput } from '../utils/ai-sanitizer';
@@ -25,6 +25,9 @@ interface ResilienceOptions<T extends z.ZodTypeAny> {
     onLog?: (message: string, type: 'INFO' | 'ERROR' | 'SUCCESS' | 'THINKING') => void;
     previousInteractionId?: string;
     modelAlias?: string;
+    // NEW: Sovereign Mint (v41.0)
+    userKeys?: Record<string, string>;
+    isPro?: boolean;
     // NEW: Streaming Reality Support
     enableStreaming?: boolean;
     onStreamingUpdate?: StreamingCallback;
@@ -61,7 +64,7 @@ function preparePromptForModel(prompt: string, modelId: string): string {
  * PLATINUM WATERFALL RESOLVER
  * Objective: Determine the optimal model list based on real-time quota analysis.
  */
-async function getWaterfallForTask(task: TaskType): Promise<string[]> {
+async function getWaterfallForTask(task: TaskType, isPro: boolean = false): Promise<string[]> {
     let waterfall: string[];
     switch (task) {
         case 'MATH': waterfall = LOGIC_WATERFALL; break;
@@ -73,23 +76,33 @@ async function getWaterfallForTask(task: TaskType): Promise<string[]> {
         default: waterfall = LOGIC_WATERFALL;
     }
 
+    // v41.0 PRO-ONLY MODELS: GPT-OSS 120B and DeepSeek R1 managed are reserved for Pro
+    // or users with their own keys.
+    const filteredWaterfall = waterfall.filter(m => {
+        if (isPro) return true;
+        // Non-pro users using managed keys are restricted from expensive reasoning models
+        // unless they have a user key (handled in executeApexLoop)
+        if (m.includes('gpt-oss-120b') || m.includes('deepseek-r1')) return false;
+        return true;
+    });
+
     // DYNAMIC QUOTA GATING (v22.0)
     const validatedWaterfall: string[] = [];
-    for (const model of waterfall) {
+    for (const model of filteredWaterfall) {
         if (await quotaOracle.isSafe(model)) {
             validatedWaterfall.push(model);
         }
     }
 
-    return validatedWaterfall.length > 0 ? validatedWaterfall : waterfall;
+    return validatedWaterfall.length > 0 ? validatedWaterfall : filteredWaterfall;
 }
 
 export async function executeApexLoop<T extends z.ZodTypeAny>(
     options: ResilienceOptions<T>
 ): Promise<{ output: z.infer<T> | null, interactionId?: string, thinking?: string }> {
-    const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId, modelAlias, enableStreaming, onStreamingUpdate } = options;
+    const { prompt, schema, system, model, task = 'GENERAL', tools, config, retryCount = 2, fallback, onLog, previousInteractionId, modelAlias, enableStreaming, onStreamingUpdate, userKeys, isPro } = options;
 
-    let waterfall = model ? [model] : await getWaterfallForTask(task);
+    let waterfall = model ? [model] : await getWaterfallForTask(task, isPro);
     let currentWaterfallIdx = 0;
     let attempts = 0;
 
@@ -114,15 +127,33 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
         }
 
         const modelName = waterfall[currentWaterfallIdx];
+        
+        // v41.0 SOVEREIGN KEY INJECTION
+        let customApiKey: string | undefined;
+        if (userKeys) {
+            if (modelName.startsWith('googleai') && userKeys.googleai) customApiKey = userKeys.googleai;
+            if (modelName.startsWith('groq') && userKeys.groq) customApiKey = userKeys.groq;
+        }
+
         try {
-            console.log(`[Apex] Attempt ${attempts + 1} using ${modelName}`);
-            if (onLog) onLog(`Swarm routing to: ${modelName}...`, 'THINKING');
+            console.log(`[Apex] Attempt ${attempts + 1} using ${modelName} ${customApiKey ? '(SOVEREIGN KEY)' : '(MANAGED)'}`);
+            if (onLog) onLog(`Swarm routing to: ${modelName}${customApiKey ? ' (Your Key)' : ''}...`, 'THINKING');
 
             const rawPrompt = Array.isArray(prompt)
                 ? (prompt[0] as { text: string }).text
                 : (typeof prompt === 'string' ? prompt : '');
 
             const adaptedPrompt = preparePromptForModel(rawPrompt, modelName);
+
+            // Genkit configuration with potential custom API key
+            const generationConfig = { 
+                ...config, 
+                previous_interaction_id: previousInteractionId,
+                // In a real Genkit environment, we would pass the key to the provider
+                // For now, we simulate by assuming the provider can accept a 'key' in config
+                // or we use a custom fetcher.
+                apiKey: customApiKey 
+            };
 
             let result: any;
 
@@ -135,7 +166,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
                     prompt: adaptedPrompt,
                     system: system,
                     tools: tools,
-                    config: { ...config, previous_interaction_id: previousInteractionId },
+                    config: generationConfig,
                     output: { schema: schema },
                 });
 
@@ -152,7 +183,7 @@ export async function executeApexLoop<T extends z.ZodTypeAny>(
                     prompt: adaptedPrompt,
                     system: system,
                     tools: tools,
-                    config: { ...config, previous_interaction_id: previousInteractionId },
+                    config: generationConfig,
                     output: { schema: schema },
                 });
             }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { simulationFlow } from '@/lib/genkit/simulation';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;

@@ -1,7 +1,7 @@
 'use server';
 
 import { executeApexLoop } from '@/lib/genkit/resilience';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { WorldStateSchema } from '@/lib/simulation/schema';
 
 /**

@@ -1,5 +1,5 @@
 import { ai, OPENROUTER_FREE_MODELS, MODELS } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { criticAgent } from './critic';
 import { physicistAgent } from './physicist';
 import { artistAgent } from './artist';
@@ -210,6 +210,9 @@ export const OrchestratorInputSchema = z.object({
     interactionState: z.enum(['IDLE', 'LISTENING', 'ANALYZING', 'BUILDING', 'PLAYING', 'REFLECTION']).optional(),
     fileUri: z.string().optional().describe('Gemini File API URI for grounding.'),
     previousInteractionId: z.string().optional().describe('Previous interaction ID for session persistence.'),
+    // NEW: Sovereign Mint (v41.0)
+    userKeys: z.record(z.string()).optional(),
+    isPro: z.boolean().optional().default(false)
 });
 
 export const OrchestratorOutputSchema = z.object({
@@ -264,7 +267,7 @@ export const orchestratorFlow = ai.defineFlow(
         outputSchema: OrchestratorOutputSchema,
     },
     async (params) => {
-        const { text, image, audioTranscript, mode, isSabotageMode, isSaboteurReply, interactionState, previousInteractionId } = params;
+        const { text, image, audioTranscript, mode, isSabotageMode, isSaboteurReply, interactionState, previousInteractionId, userKeys, isPro } = params;
         const logs: Array<{ agent: string; message: string; type: 'INFO' | 'RESEARCH' | 'ERROR' | 'SUCCESS' | 'THINKING' }> = [];
 
         // 1. STATEFUL MEMORY: Pass previous_interaction_id to the context
@@ -417,7 +420,9 @@ export const orchestratorFlow = ai.defineFlow(
                     schema: z.object({
                         status: z.enum(['SAFE', 'VIOLATION']),
                         message: z.string().optional()
-                    })
+                    }),
+                    userKeys,
+                    isPro
                 });
 
                 if (legalCheck.output?.status === 'VIOLATION') {
@@ -454,7 +459,9 @@ export const orchestratorFlow = ai.defineFlow(
                     Return JSON matching SimulationMutationSchema.
                     `,
                     schema: SimulationMutationSchema,
-                    task: 'REFLEX' // Use reflex for speed
+                    task: 'REFLEX', // Use reflex for speed
+                    userKeys,
+                    isPro
                 });
 
                 if (mutationRes.output) {
@@ -559,6 +566,7 @@ export const orchestratorFlow = ai.defineFlow(
 
         if (isComplexTask && !isSaboteurReply) {
             logs.push({ agent: 'General', message: 'Task complexity high. Spawning worker swarm...', type: 'THINKING' });
+            // v41.0: Hive experts would need keys too, but we start with parallel apex
             const swarmResult = await executeHiveSwarm(processedInput, blackboardFragment);
             if (swarmResult) {
                 // v60.0: swarmResult is now a synthesized WorldState from the Consensus Weaver
@@ -661,6 +669,8 @@ export const orchestratorFlow = ai.defineFlow(
                             streamingState.entitiesReady.map(e => `${e.name || e.id} at [${e.position.x.toFixed(1)}, ${e.position.y.toFixed(1)}]`)
                         );
                     },
+                    userKeys,
+                    isPro,
                     fallback: {
                         scenario: "Neural Stabilization Mode",
                         mode: "PHYSICS",
@@ -700,6 +710,8 @@ export const orchestratorFlow = ai.defineFlow(
                     task: 'MATH',
                     model: MODELS.LOGIC_DEEPSEEK,
                     onLog: (msg, type) => logs.push({ agent: 'DeepSeek', message: msg, type }),
+                    userKeys,
+                    isPro
                 })
             ]);
 
@@ -832,7 +844,9 @@ export const orchestratorFlow = ai.defineFlow(
                             schema: WorldStateSchema,
                             system: `You are the Lead Stability Engineer. Repair the simulation to be physically stable.`,
                             task: routingTask,
-                            previousInteractionId: interactionId
+                            previousInteractionId: interactionId,
+                            userKeys,
+                            isPro
                         });
 
                         if (repairRes.output) {
@@ -861,7 +875,9 @@ export const orchestratorFlow = ai.defineFlow(
                         schema: WorldStateSchema,
                         system: `You are the ${primaryAgentName}. Fix your previous state based on the feedback.`,
                         task: routingTask,
-                        previousInteractionId: interactionId
+                        previousInteractionId: interactionId,
+                        userKeys,
+                        isPro
                     });
                     if (correctionRes.output) {
                         const correctedState = correctionRes.output;
@@ -875,7 +891,7 @@ export const orchestratorFlow = ai.defineFlow(
                             status: 'SUCCESS' as const,
                             worldState: correctedState,
                             visionData,
-                            quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT' })).output ?? undefined,
+                            quest: (await executeApexLoop({ prompt: processedInput, schema: QuestSchema, task: 'CHAT', userKeys, isPro })).output ?? undefined,
                             interactionId: correctionRes.interactionId || interactionId,
                             nativeReply,
                             logs,
@@ -892,7 +908,9 @@ export const orchestratorFlow = ai.defineFlow(
                 schema: QuestSchema,
                 system: `Design a mastery quest for this simulation.`,
                 task: 'CHAT',
-                fallback: undefined
+                fallback: undefined,
+                userKeys,
+                isPro
             });
             const quest = questRes.output;
 

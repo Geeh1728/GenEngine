@@ -1,5 +1,5 @@
 import { ai } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { generateWithResilience } from '../resilience';
 
 export const QuestSchema = z.object({

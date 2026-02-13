@@ -1,6 +1,6 @@
 import { ai } from '../config';
 import { WorldStateSchema } from '../../simulation/schema';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { generateWithResilience } from '../resilience';
 import { blackboard } from '../context';
 

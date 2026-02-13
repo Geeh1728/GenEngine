@@ -1,7 +1,7 @@
 import { ai, gemini3Flash, DEEPSEEK_LOGIC_MODEL } from '../config';
 import { WorldStateSchema } from '../../simulation/schema';
 import { WorldRuleSchema } from '../schemas';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
 

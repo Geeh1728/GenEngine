@@ -1,5 +1,5 @@
 import { ai } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { executeApexLoop } from '../resilience';
 import { SkillTreeSchema } from '../schemas';
 import { blackboard } from '../context';

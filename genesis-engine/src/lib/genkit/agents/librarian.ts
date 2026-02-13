@@ -1,5 +1,5 @@
 import { ai, OPENROUTER_FREE_MODELS, BRAIN_PRIMARY } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { executeApexLoop } from '../resilience';
 import { blackboard } from '../context';
 import { getCachedOracleData, cacheOracleData } from '../../db/pglite';

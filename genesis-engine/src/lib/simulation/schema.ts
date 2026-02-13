@@ -235,6 +235,18 @@ export const StructuralHeatmapSchema = z.object({
     remediationAdvice: z.string().optional()
 });
 
+export const SkillNodeSchema = z.object({
+    id: z.string(),
+    label: z.string(),
+    description: z.string(),
+    dependencies: z.array(z.string()),
+    type: z.enum(['CONCEPT', 'MATH', 'SIMULATION', 'PROJECT']),
+    engineMode: z.enum(['LAB', 'RAP', 'VOX', 'ASM']).optional(),
+    estimatedMinutes: z.number().default(15),
+    needs_oracle: z.boolean().optional(),
+    data: z.any().optional(),
+});
+
 // --- Type Definitions (Exported for TypeScript Strictness) ---
 
 export type Vector3 = z.infer<typeof Vector3Schema>;

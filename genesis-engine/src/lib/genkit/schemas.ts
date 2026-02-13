@@ -1,4 +1,4 @@
-import { z } from 'genkit';
+import { z } from 'zod';
 import { NodeData, EntitySchema, WorldStateSchema, Entity } from '../simulation/schema';
 
 export { WorldStateSchema, EntitySchema } from '../simulation/schema';

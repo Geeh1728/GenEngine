@@ -58,3 +58,16 @@ export async function summarizeLogsLocally(logs: string[]): Promise<NanoResult> 
     const prompt = "Summarize these recent simulation logs into a single concise status update: " + logs.join(" ");
     return localReflexQuery(prompt, "You are a Scientific Librarian. Summarize logs concisely.");
 }
+
+/**
+ * MODULE N-S: NEURAL SPECULATIVE DECODING (v41.0)
+ * Objective: Use local compute to guess physics frames and reduce API calls.
+ */
+export async function speculativePhysicsDecoding(currentState: any): Promise<NanoResult> {
+    const prompt = `
+        CURRENT_STATE: ${JSON.stringify(currentState)}
+        TASK: Predict the next physics frame (pos/vel) for the active entities.
+        OUTPUT: Return ONLY a JSON delta patch.
+    `;
+    return localReflexQuery(prompt, "You are a sub-100ms Physics Speculator. Guess the next movement.");
+}

@@ -1,6 +1,6 @@
 import { ai } from '../config';
 import { MODELS } from '../models';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { executeApexLoop } from '../resilience';
 
 export const ReviewerInputSchema = z.object({

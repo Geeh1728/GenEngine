@@ -1,7 +1,7 @@
 'use server';
 
 import { executeApexLoop } from '@/lib/genkit/resilience';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { visualCortexFlow } from '@/lib/genkit/agents/visualCortex';
 import { WorldRuleSchema } from '@/lib/genkit/schemas';
 

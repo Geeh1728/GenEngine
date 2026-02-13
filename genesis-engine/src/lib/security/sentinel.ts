@@ -1,6 +1,6 @@
 import { ai } from '../genkit/config';
 import { MODELS } from '../genkit/models';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 /**
  * MODULE S-N: THE SENTINEL (Iron Shield v45.0)

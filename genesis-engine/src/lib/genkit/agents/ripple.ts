@@ -1,5 +1,5 @@
 import { ai, DEEPSEEK_LOGIC_MODEL } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { WorldStateSchema } from '@/lib/simulation/schema';
 
 /**

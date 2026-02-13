@@ -1,6 +1,6 @@
 import { ai, BRAIN_PRIMARY } from '../config';
 import { MODELS } from '../models';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { executeApexLoop } from '../resilience';
 import { StructuralHeatmapSchema } from '../schemas';
 import { updateRegisteredModel } from '../../db/pglite';

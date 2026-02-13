@@ -60,6 +60,8 @@ export interface BlackboardContext {
     spiderActive: boolean; // v35.0 Module Spider
     lastAction?: string; // v35.0 Track action type
     recallData?: any; // v35.0 Data for recall manifestation
+    causalData?: { entityId: string; variable: string }; // v40.0 Causal Ribbon
+    userEntropy: number; // v40.0 Cognitive Stability Proxy
 }
 
 class Blackboard {
@@ -90,7 +92,8 @@ class Blackboard {
         consensusScore: 100,
         activeCitations: [],
         livingExamActive: false,
-        spiderActive: false
+        spiderActive: false,
+        userEntropy: 0
     };
 
     private constructor() { }
@@ -205,6 +208,43 @@ class Blackboard {
 
     public registerMaterial(name: string, props: { brittleness: number; conductivity: number; density: number }) {
         this.context.materialRegistry[name] = props;
+        this.notify();
+    }
+
+    /**
+     * MODULE SPIDER: Semantic Gravity Bridge (v40.0)
+     * Objective: Entangle Matter with Meaning.
+     */
+    public syncMatterToMeaning() {
+        const entities = this.context.currentWorldState?.entities;
+        const graph = this.context.knowledgeGraph;
+        if (!entities || !graph) return;
+
+        // Apply Attraction Forces to graph nodes based on physical entity proximity
+        entities.forEach((e1, i) => {
+            entities.forEach((e2, j) => {
+                if (i <= j) return;
+                const dist = Math.sqrt(
+                    Math.pow(e1.position.x - e2.position.x, 2) + 
+                    Math.pow(e1.position.y - e2.position.y, 2)
+                );
+
+                if (dist < 2.0) {
+                    // Find corresponding nodes and increase edge strength
+                    const edge = graph.edges.find(edge => 
+                        (edge.source === e1.id && edge.target === e2.id) ||
+                        (edge.source === e2.id && edge.target === e1.id)
+                    );
+                    if (edge) {
+                        edge.strength = Math.min(1.0, edge.strength + 0.05);
+                    } else {
+                        // Create a "Ghost Edge" (Matter-Matter Entanglement)
+                        if (!graph.ghostEdges) graph.ghostEdges = [];
+                        graph.ghostEdges.push({ source: e1.id, target: e2.id, label: 'Physical Proximity' });
+                    }
+                }
+            });
+        });
         this.notify();
     }
 

@@ -47,6 +47,10 @@ export function useBiometrics() {
         const idleTime = (now - telemetryRef.current.lastInteraction) / 1000;
         const velocity = telemetryRef.current.mouseVelocity;
         
+        // v40.0: USER ENTROPY (Jitter + RTT Proxy)
+        const jitter = Math.min(1, velocity / 500);
+        dispatch({ type: 'SET_USER_ENTROPY', payload: jitter });
+
         setCognitiveLoad(prev => {
             let load = prev;
 

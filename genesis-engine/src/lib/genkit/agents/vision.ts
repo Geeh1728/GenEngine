@@ -1,5 +1,5 @@
 import { ai, gemini3Flash, geminiFlash, OPENROUTER_FREE_MODELS } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { generateWithResilience, executeApexLoop } from '../resilience';
 import { StructuralAnalysisSchema } from '../schemas';
 import { blackboard } from '../context';

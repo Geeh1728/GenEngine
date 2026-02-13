@@ -1,5 +1,5 @@
 import { ai, geminiAudio } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { generateWithResilience } from '../resilience';
 import { WorldStateSchema } from '../schemas';
 

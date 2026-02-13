@@ -1,6 +1,6 @@
 import { Entity, Vector3 } from '../simulation/schema';
 import { executeApexLoop } from '../genkit/resilience';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { blackboard } from '../genkit/context';
 
 /**

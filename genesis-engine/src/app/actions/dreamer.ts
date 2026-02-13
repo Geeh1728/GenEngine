@@ -3,7 +3,7 @@
 import { dreamerAgent } from '@/lib/genkit/agents/dreamer';
 import { WorldRuleSchema } from '@/lib/genkit/schemas';
 import { WorldState } from '@/lib/simulation/schema';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 /**
  * DREAMING SCIENTIST SERVER ACTION

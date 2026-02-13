@@ -1,7 +1,7 @@
 'use server';
 
 import { executeApexLoop } from '@/lib/genkit/resilience';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 const PodcastScriptSchema = z.array(z.object({
     host: z.enum(['A', 'B']),

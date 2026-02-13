@@ -1,9 +1,7 @@
-import { WorldState, WorldStateSchema } from '@/lib/simulation/schema';
+import { WorldState, WorldStateSchema, SkillNodeSchema, StructuralHeatmapSchema } from '@/lib/simulation/schema';
 import { SimulationFactory } from '@/lib/simulation/SimulationFactory';
-import { SkillNodeSchema, StructuralHeatmapSchema } from '@/lib/genkit/schemas';
 import { Quest } from '@/lib/gamification/questEngine';
 import { z } from 'zod';
-import { sentinel } from '@/lib/simulation/sentinel';
 import { BIOME_PRESETS } from '@/lib/simulation/biomes';
 import { ArchitecturalResidue } from '@/lib/db/residue';
 
@@ -43,7 +41,14 @@ export interface MissionLog {
 
 export interface GlobalGameState {
     sessionId: string;
-    worldState: WorldState;
+    user: {
+        uid: string;
+        displayName: string | null;
+        email: string | null;
+        photoURL: string | null;
+    } | null;
+    subscriptionTier: 'FREE' | 'PRO';
+    userKeys: Record<string, string>; // e.g. { 'googleai': '...', 'groq': '...' }
     interactionState: InteractionState;
     players: Record<string, PlayerState>;
     lastUpdated: number;
@@ -72,6 +77,11 @@ export interface GlobalGameState {
     worldHistory: WorldState[]; // v50.0 Aetheric Recall
     historyIndex: number; // v50.0 Aetheric Recall
     wRotation: number; // v50.0 Tesseract 4D Rotation
+    userEntropy: number; // v40.0: Cognitive Stability Proxy (0-1)
+    interactionTelemetry: {
+        jitter: number; // 0-1 frustration proxy
+        lastMove: number;
+    };
     knowledgeGraph: {
         nodes: { 
             id: string, 
@@ -97,6 +107,11 @@ export interface GlobalGameState {
 }
 
 export type GameAction =
+    | { type: 'SET_USER'; payload: GlobalGameState['user'] }
+    | { type: 'SET_SUBSCRIPTION'; payload: GlobalGameState['subscriptionTier'] }
+    | { type: 'SET_USER_KEY'; payload: { provider: string, key: string } }
+    | { type: 'UPDATE_TELEMETRY'; payload: { jitter: number } }
+    | { type: 'SET_USER_ENTROPY'; payload: number }
     | { type: 'SYNC_WORLD'; payload: WorldState & { interactionId?: string } }
     | { type: 'SET_INTERACTION_STATE'; payload: InteractionState }
     | { type: 'PLAYER_JOIN'; payload: PlayerState }
@@ -134,6 +149,7 @@ export type GameAction =
     | { type: 'SET_DISCOVERY_YEAR'; payload: number }
     | { type: 'TOGGLE_CHRONESTHESIA' }
     | { type: 'SET_REWARD_SIGNAL'; payload: GlobalGameState['rewardSignal'] }
+    | { type: 'SET_REWARD_SIGNAL'; payload: GlobalGameState['rewardSignal'] }
     | { type: 'SET_RESIDUES'; payload: ArchitecturalResidue[] }
     | { type: 'RECORD_HISTORY'; payload: WorldState }
     | { type: 'TRAVEL_TO'; payload: number }
@@ -142,7 +158,9 @@ export type GameAction =
 
 export const initialGameState: GlobalGameState = {
     sessionId: '',
-    worldState: null as unknown as WorldState,
+    user: null,
+    subscriptionTier: 'FREE',
+    userKeys: {},
     interactionState: 'IDLE',
     players: {},
     lastUpdated: Date.now(),
@@ -171,7 +189,12 @@ export const initialGameState: GlobalGameState = {
     residues: [],
     worldHistory: [],
     historyIndex: -1,
-    wRotation: 0
+    wRotation: 0,
+    userEntropy: 0,
+    interactionTelemetry: {
+        jitter: 0,
+        lastMove: 0
+    }
 };
 
 /**
@@ -187,6 +210,29 @@ function isValidMode(mode: unknown): mode is GlobalGameState['mode'] {
  */
 export function gameReducer(state: GlobalGameState, action: GameAction): GlobalGameState {
     switch (action.type) {
+        case 'SET_USER':
+            return { ...state, user: action.payload };
+        case 'SET_SUBSCRIPTION':
+            return { ...state, subscriptionTier: action.payload };
+        case 'SET_USER_KEY':
+            return { 
+                ...state, 
+                userKeys: { 
+                    ...state.userKeys, 
+                    [action.payload.provider]: action.payload.key 
+                } 
+            };
+        case 'UPDATE_TELEMETRY':
+            return { 
+                ...state, 
+                interactionTelemetry: { 
+                    ...state.interactionTelemetry, 
+                    jitter: action.payload.jitter,
+                    lastMove: Date.now()
+                } 
+            };
+        case 'SET_USER_ENTROPY':
+            return { ...state, userEntropy: action.payload };
         case 'UNLOCK_HUD':
             return { ...state, unlockedHUD: true };
         case 'ADD_MISSION_LOG':
@@ -250,7 +296,7 @@ export function gameReducer(state: GlobalGameState, action: GameAction): GlobalG
             return { ...state, structuralHeatmap: action.payload };
         case 'SYNC_WORLD': {
             // v60.0 GOLD: Unified Arbitrator Pipeline
-            // This replaces safestParse + sentinel.stabilize with a single God-Flow validator.
+            // This replaces safestParse + stabilization with a single God-Flow validator.
             // Note: Since this is in a reducer, we handle the async validation in the caller
             // or assume the payload is already validated if it comes from internal actions.
             // For P2P sync, the P2PConnector should call arbitrator.validate before dispatching.

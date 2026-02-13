@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { WorldState } from '@/lib/simulation/schema';
+import { useGenesisStore } from '@/lib/store/GenesisContext';
 
 // Local types to avoid server-side schema imports
 interface WorldRule {
@@ -31,6 +32,8 @@ interface DiagnosticsState {
 }
 
 export function useGenesisUI() {
+    const { state, dispatch } = useGenesisStore();
+    
     // --- Ingestion & Global State ---
     const [isIngested, setIsIngested] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -39,6 +42,37 @@ export function useGenesisUI() {
     const [sourceTitle, setSourceTitle] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isObserved, setIsObserved] = useState(false);
+
+    // --- v41.0 TACTILE EMPATHY ---
+    const mouseRef = useRef({ x: 0, y: 0, lastX: 0, lastY: 0, lastT: 0 });
+    
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            const now = performance.now();
+            const dt = now - mouseRef.current.lastT;
+            if (dt < 16) return; // Cap at 60Hz
+
+            const dx = e.clientX - mouseRef.current.lastX;
+            const dy = e.clientY - mouseRef.current.lastY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const speed = dist / dt;
+
+            // Frustration proxy: High speed with sudden direction changes
+            if (speed > 5) {
+                dispatch({ type: 'UPDATE_TELEMETRY', payload: { jitter: Math.min(speed / 10, 1.0) } });
+            } else {
+                // Decay jitter
+                if (state.interactionTelemetry.jitter > 0.01) {
+                    dispatch({ type: 'UPDATE_TELEMETRY', payload: { jitter: state.interactionTelemetry.jitter * 0.95 } });
+                }
+            }
+
+            mouseRef.current = { x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY, lastT: now };
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, [dispatch, state.interactionTelemetry.jitter]);
 
     // --- God Mode Configuration ---
     const [godModeState, setGodModeState] = useState<GodModeState>({

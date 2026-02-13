@@ -149,7 +149,9 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                         worldState,
                         fileUri || undefined,
                         state.lastInteractionId || undefined,
-                        'PLAYING'
+                        'PLAYING',
+                        state.userKeys,
+                        state.subscriptionTier === 'PRO'
                     );
                     if (result.success && 'mutation' in result && result.mutation) {
                         dispatch({ type: 'MUTATE_WORLD', payload: result.mutation });
@@ -161,7 +163,7 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
         }, 1000);
 
         return () => clearTimeout(debouncedMutation);
-    }, [prompt, worldState, isProcessing, fileUri, state.lastInteractionId, dispatch]);
+    }, [prompt, worldState, isProcessing, fileUri, state.lastInteractionId, dispatch, state.userKeys, state.subscriptionTier]);
 
     // Handle Long Running State
     useEffect(() => {
@@ -301,7 +303,9 @@ export const OmniBar: React.FC<OmniBarProps> = React.memo(({ onCameraClick, exte
                     currentState,
                     fileUri || undefined,
                     state.lastInteractionId || undefined,
-                    interactionState
+                    interactionState,
+                    state.userKeys,
+                    state.subscriptionTier === 'PRO'
                 ),
                 timeoutPromise
             ]);

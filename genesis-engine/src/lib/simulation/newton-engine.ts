@@ -65,7 +65,7 @@ class NewtonEngine {
     }
 
     /**
-     * MODULE T-A: TEMPORAL ARCHAEOLOGY (v33.0)
+     * MODULE T-A: TEMPORAL ARCHAEOLOGY (v33.0 / v40.0)
      * Logs a physical failure event for causal proof generation.
      */
     public async logFailure(entityId: string, reason: string, data: any) {
@@ -79,9 +79,17 @@ class NewtonEngine {
         });
 
         if (proofRes.ok) {
-            const { proof } = await proofRes.json();
+            const { proof, sensitivityVariable } = await proofRes.json();
             // Store the proof in the blackboard mission logs as a SYMBOLIC type
             blackboard.log('Newton', `CAUSAL PROOF [${entityId}]: ${proof}`, 'SYMBOLIC');
+
+            // v40.0: Manifest Causal Ribbon
+            if (sensitivityVariable) {
+                blackboard.update({ 
+                    lastAction: 'CAUSAL_RIBBON', 
+                    causalData: { entityId, variable: sensitivityVariable } 
+                });
+            }
         }
     }
 

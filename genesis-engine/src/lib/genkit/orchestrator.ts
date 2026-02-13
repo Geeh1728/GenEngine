@@ -1,4 +1,4 @@
-import { z } from 'genkit';
+import { z } from 'zod';
 import { ai } from './config';
 import { WorldState, WorldStateSchema } from '../simulation/schema';
 import { simulationFlow } from './simulation';

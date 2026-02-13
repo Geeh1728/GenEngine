@@ -1,5 +1,5 @@
 import { executeApexLoop } from '@/lib/genkit/resilience';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
 
 const DiscoverySchema = z.object({

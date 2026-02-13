@@ -7,7 +7,7 @@ import { shieldInput, shieldOutput, checkRateLimit } from '@/lib/security/armor'
 import { orchestratorFlow } from '@/lib/genkit/agents/orchestrator';
 import { architectFlow } from '@/lib/genkit/agents/architect';
 import { sanitizeInput } from '@/lib/utils/text';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 import { librarianAgent } from '@/lib/genkit/agents/librarian';
 import { SkillTree } from '@/lib/genkit/schemas';
@@ -78,7 +78,9 @@ export async function generateSimulationLogic(
     currentWorldState?: WorldState | null,
     fileUri?: string,
     previousInteractionId?: string,
-    interactionState?: InteractionState
+    interactionState?: InteractionState,
+    userKeys?: Record<string, string>,
+    isPro?: boolean
 ): Promise<
     | { success: true; worldState: WorldState; interactionId?: string; quest: Quest | null | undefined; isSabotaged: boolean; logs?: MissionLog[] }
     | { success: true; mutation: z.infer<typeof SimulationMutationSchema>; interactionId?: string; logs?: MissionLog[] }
@@ -87,7 +89,9 @@ export async function generateSimulationLogic(
 > {
     try {
         // 1. Rate Limit Check
-        const isRateLimited = !(await checkRateLimit());
+        // v41.0: Bypass rate limit for users with own keys
+        const hasOwnKeys = userKeys && (userKeys.googleai || userKeys.groq);
+        const isRateLimited = !hasOwnKeys && !(await checkRateLimit());
         if (isRateLimited) throw new Error('Neural link bandwidth exceeded. Please wait.');
 
         // 2. Input Armor
@@ -117,7 +121,9 @@ export async function generateSimulationLogic(
                 isSaboteurReply: false,
                 interactionState,
                 fileUri,
-                previousInteractionId
+                previousInteractionId,
+                userKeys,
+                isPro
             }
         );
 
@@ -182,6 +188,8 @@ export async function processMultimodalIntent(params: {
     isSaboteurReply?: boolean;
     previousInteractionId?: string;
     interactionState?: InteractionState;
+    userKeys?: Record<string, string>;
+    isPro?: boolean;
 }): Promise<
     | { success: true; worldState: WorldState; visionData: StructuralAnalysis | undefined; quest: Quest | null | undefined; nativeReply: string; interactionId?: string; logs?: MissionLog[] }
     | { success: true; mutation: z.infer<typeof SimulationMutationSchema>; interactionId?: string; logs?: MissionLog[] }
@@ -189,7 +197,8 @@ export async function processMultimodalIntent(params: {
     | { success: false; error: string; logs?: MissionLog[] }
 > {
     try {
-        if (!(await checkRateLimit())) throw new Error('Neural link bandwidth exceeded.');
+        const hasOwnKeys = params.userKeys && (params.userKeys.googleai || params.userKeys.groq);
+        if (!hasOwnKeys && !(await checkRateLimit())) throw new Error('Neural link bandwidth exceeded.');
 
         // SANITIZE HERE: Strip harmful box-characters that crash the API
         const cleanText = params.text ? sanitizeInput(params.text) : params.text;
@@ -202,7 +211,9 @@ export async function processMultimodalIntent(params: {
             fileUri: params.fileUri,
             isSaboteurReply: params.isSaboteurReply ?? false,
             previousInteractionId: params.previousInteractionId,
-            interactionState: params.interactionState
+            interactionState: params.interactionState,
+            userKeys: params.userKeys,
+            isPro: params.isPro
         });
 
         if (result.status === 'BLOCKED') {

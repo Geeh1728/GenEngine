@@ -1,5 +1,5 @@
 import { ai } from './config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { WorldRuleSchema, ComplexityLevelSchema } from './schemas';
 import { executeApexLoop } from './resilience';
 

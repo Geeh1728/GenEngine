@@ -1,6 +1,6 @@
 import { executeApexLoop } from '@/lib/genkit/resilience';
 import { SkillNodeSchema } from '@/lib/genkit/schemas';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {

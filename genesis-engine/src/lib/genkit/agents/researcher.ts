@@ -1,5 +1,5 @@
 import { ai, LOGIC_WATERFALL, MODELS } from '../config';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { blackboard } from '../context';
 import { executeApexLoop } from '../resilience';
 

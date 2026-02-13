@@ -1,4 +1,4 @@
-import { z } from 'genkit';
+import { z } from 'zod';
 import { ai, geminiFlash, DEEPSEEK_LOGIC_MODEL, QWEN3_MODEL, MODELS } from './config';
 import { IngestionOutputSchema, SimConfigSchema } from './schemas';
 

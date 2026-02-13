@@ -1,4 +1,4 @@
-import { z } from 'genkit';
+import { z } from 'zod';
 import { ai, geminiFlash, gemini3Flash } from './config';
 import { SkillTreeSchema, SkillNodeSchema, SimConfigSchema, WorldRuleSchema } from './schemas';
 import { executeApexLoop } from './resilience';
