@@ -11,6 +11,7 @@ import { sfx } from '@/lib/sound/SoundManager';
  * Mechanism: Link Tesseract W-axis to the world history buffer.
  */
 export function useTimeline() {
+    console.log("[Timeline] Initializing v50.0 hook...");
     const { state, dispatch } = useGenesisStore();
     const { worldHistory, historyIndex, wRotation, worldState } = state;
 
