@@ -3,6 +3,7 @@
 import React from 'react';
 import { useGenesisEngine } from '@/hooks/useGenesisEngine';
 import { useLocalInterface } from '@/hooks/useLocalInterface';
+import { useTimeline } from '@/hooks/useTimeline';
 import { GenesisShell } from '@/components/layout/GenesisShell';
 
 /**
